@@ -1,11 +1,15 @@
-# Monorepo AI Gaming Club
+# virtuals-game-room
 
-## Overview
+To install dependencies:
 
-This monorepo contains the frontend, backend and agent for the AI Gaming Club platform.
+```bash
+bun install
+```
 
-[Backend Documentation](backend/README.md)
+To run:
 
-[Frontend Documentation](frontend/README.md)
+```bash
+bun run index.ts
+```
 
-[Agent Documentation](agent/README.md)
+This project was created using `bun init` in bun v1.2.1. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
