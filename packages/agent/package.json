@@ -1,0 +1,11 @@
+{
+  "name": "agent",
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@trpc/client": "^10.45.2",
+    "@virtuals-protocol/game": "^0.1.8",
+    "client": "workspace:*",
+    "poker-state-machine": "workspace:*"
+  }
+}

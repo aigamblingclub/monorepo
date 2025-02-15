@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   BIG_BLIND,
   bigBlind,
-  firstPlayer,
+  dealer,
   PLAYER_DEFAULT_STATE,
   POKER_ROOM_DEFAULT_STATE,
   PokerRoomStateMachine,
@@ -58,8 +58,10 @@ test("start round works as expected with two players", async () => {
       },
     },
   });
+  expect(Object.values(states[0].players).map(p => p.hand.length)).toEqual([2, 2])
 
   expect(smallBlind(pokerRoom.value).id).toEqual(firstPlayerId);
+  expect(dealer(pokerRoom.value).id).toEqual(firstPlayerId);
   expect(bigBlind(pokerRoom.value).id).toEqual(secondPlayerId);
 
   pokerRoom.processPlayerMove({ type: "call" });
@@ -116,17 +118,43 @@ test("start round works as expected with two players", async () => {
   states.unshift(pokerRoom.value);
   expect(states[0]).toEqual({
     ...states[1],
+    bet: 0,
     deck: states[0].deck,
     burnt: states[0].burnt,
     community: states[0].community,
-    currentPlayerIndex: 0,
+    currentPlayerIndex: 1,
+    players: {
+      [firstPlayerId]: {
+        ...states[1].players[firstPlayerId],
+        chips: 70,
+        bet: 0,
+      },
+      [secondPlayerId]: {
+        ...states[1].players[secondPlayerId],
+        chips: 70,
+        bet: 0,
+      },
+    }
   });
-  expect(states[0].deck).toHaveLength(48);
+  expect(states[0].deck).toHaveLength(44);
   expect(states[0].burnt).toHaveLength(1);
   expect(states[0].community).toHaveLength(3);
 
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
+  expect(states[0]).toEqual({
+    ...states[1],
+    bet: 0,
+    deck: states[0].deck,
+    burnt: states[0].burnt,
+    community: states[0].community,
+    currentPlayerIndex: 0,
+  });
+  expect(states[0].deck).toHaveLength(43);
+  expect(states[0].burnt).toHaveLength(2);
+  expect(states[0].community).toHaveLength(4);
+
+
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
   expect(states[0]).toEqual({
@@ -134,9 +162,9 @@ test("start round works as expected with two players", async () => {
     deck: states[0].deck,
     burnt: states[0].burnt,
     community: states[0].community,
-    currentPlayerIndex: 0,
+    currentPlayerIndex: 1,
   });
-  expect(states[0].deck).toHaveLength(46);
+  expect(states[0].deck).toHaveLength(43);
   expect(states[0].burnt).toHaveLength(2);
   expect(states[0].community).toHaveLength(4);
 
@@ -149,7 +177,7 @@ test("start round works as expected with two players", async () => {
     deck: states[0].deck,
     burnt: states[0].burnt,
     community: states[0].community,
-    currentPlayerIndex: 0,
+    currentPlayerIndex: 1,
   });
   expect(states[0].deck).toHaveLength(44);
   expect(states[0].burnt).toHaveLength(3);

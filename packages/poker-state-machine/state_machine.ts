@@ -1,4 +1,4 @@
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, Subject } from "rxjs";
 import {
   determineHandType,
   determineWinningHand,
@@ -89,6 +89,11 @@ export const smallBlind = (state: PokerState) => {
   return players[(state.dealerIndex + 2) % players.length];
 };
 
+export const currentPlayer = (state: PokerState) => {
+  const players = roundRotation(state);
+  return players[state.currentPlayerIndex];
+};
+
 function rotated<T>(array: T[], count: number): T[] {
   const length = array.length;
   return Array.from({ length }).map((_, i) => array[(i + count) % length]);
@@ -119,23 +124,29 @@ export const roundRotation = (state: PokerState) => {
 // precondition: waiting for players | finished previous round
 export function dealCards(state: PokerState): PokerState {
   const deck = getShuffledDeck();
-  const playing = playingPlayers(state).length;
+  const playing = Object.keys(state.players).length
   const dealtCards = deck.splice(0, 2 * playing);
+
+  // TODO: use conjugateEntries
+  const players: { [id: string]: PlayerState } = Object.fromEntries(
+    Object.entries(state.players).map(([id, p], i) => [
+      id,
+      {
+        ...p,
+        hand: dealtCards.slice(2 * i, 2 * i + 2),
+        status: "PLAYING",
+        bet: 0,
+      },
+    ]),
+  );
+
   return {
     ...state,
     status: "PLAYING",
     deck,
-    // TODO: use conjugateEntries
-    players: Object.fromEntries(
-      Object.entries(state.players).map(([id, p], i) => [
-        id,
-        {
-          ...p,
-          hand: dealtCards.slice(2 * i, 2 * i + 1),
-          status: "PLAYING",
-        },
-      ]),
-    ),
+    community: [],
+    burnt: [],
+    players,
   };
 }
 
@@ -187,7 +198,6 @@ export function collectBlinds(state: PokerState): PokerState {
 
 function shiftBetRotation(state: PokerState): PokerState {
   const players = roundRotation(state);
-  console.log(players.map((p) => p.id));
 
   // needs to be >= because player might have folded
   const isLastPlayer =
@@ -208,20 +218,15 @@ function shiftBetRotation(state: PokerState): PokerState {
             (p, i) => p.status === "PLAYING" && state.currentPlayerIndex < i,
           );
 
-  console.log("shiftBetRotation", {
-    bets: players.map((p) => p.bet),
-    bet: state.bet,
-    cur: state.currentPlayerIndex,
-    next: nextPlayerIndex,
-    // nextBet: players[nextPlayerIndex].bet,
-    isLastPlayer,
-    allCalled,
-  });
+  const nextState = structuredClone(state)
+  nextState.currentPlayerIndex = nextPlayerIndex
 
-  return {
-    ...state,
-    currentPlayerIndex: nextPlayerIndex,
-  };
+  const playersLeft = players.filter(p => p.status === "PLAYING");
+  if (playersLeft.length === 1) {
+    nextState.winningPlayerId = playersLeft[0].id;
+  }
+
+  return nextState;
 }
 
 export function processPlayerMove(state: PokerState, move: Move): PokerState {
@@ -263,8 +268,15 @@ export function processPlayerMove(state: PokerState, move: Move): PokerState {
 
 // precondition: all players settled on a bet size
 export function transitionPhase(state: PokerState): PokerState {
+  if (state.winningPlayerId) {
+    return dealCards(state)
+  }
+
   let nextState = structuredClone(state);
   nextState.currentPlayerIndex = playersInRound(state).length === 2 ? 1 : 0;
+  nextState.bet = 0
+  nextState.players = Object.fromEntries(Object.entries(state.players).map(([id, player]) => [id, { ...player, bet: 0 }]));
+
 
   switch (state.community.length) {
     // deal flop
@@ -278,9 +290,12 @@ export function transitionPhase(state: PokerState): PokerState {
       ];
       break;
     }
-
     // deal turn
-    case 3:
+    case 3: {
+      nextState.burnt.push(nextState.deck.pop()!);
+      nextState.community.push(nextState.deck.pop()!);
+      break;
+    }
     // deal river
     case 4: {
       nextState.burnt.push(nextState.deck.pop()!);
@@ -297,7 +312,10 @@ export function transitionPhase(state: PokerState): PokerState {
       const winningPlayerIndex = playerHandTypes.findIndex(
         (t) => t === winningHand,
       );
-      nextState.winningPlayerId = players[winningPlayerIndex].id;
+      const winningPlayer = players[winningPlayerIndex]
+
+      nextState.winningPlayerId = winningPlayer.id;
+      nextState.players[winningPlayer.id].chips += state.pot;
     }
   }
 
@@ -305,16 +323,20 @@ export function transitionPhase(state: PokerState): PokerState {
 }
 
 export type PlayerView = {
+  // here because sometimes agents don't bother reading it further inside
+  hand: Card[];
   tableStatus: TableStatus;
-  dealerId: string;
-  bigBlindId: string;
-  smallBlindId: string;
+  currentPlayerId?: string;
+  dealerId?: string;
+  bigBlindId?: string;
+  smallBlindId?: string;
+  winningPlayerId?: string;
   community: Card[];
   burnt: Card[];
   pot: number;
   bet: number;
   player: PlayerState;
-  opponents: { [id: string]: Pick<PlayerState, "status" | "chips"> };
+  opponents: { [id: string]: Pick<PlayerState, "status" | "chips" | "bet"> };
 };
 
 export class PokerRoomStateMachine {
@@ -322,10 +344,14 @@ export class PokerRoomStateMachine {
   public state$ = this.subject.asObservable();
   public value = this.subject.value;
 
+  private movesSubject = new Subject<Move>();
+  public moves$ = this.movesSubject.asObservable();
+
   constructor() {
     this.state$.subscribe((state) => {
       this.value = state;
-      if (state.status === "WAITING" && seatedPlayers(state) >= 2) {
+      if (state.status === "WAITING" && seatedPlayers(state) >= 3) {
+        console.log('starting round...', seatedPlayers(state))
         this.startRound();
         return;
       }
@@ -371,11 +397,14 @@ export class PokerRoomStateMachine {
   playerView(playerId: string): PlayerView {
     const state = this.value;
     return {
-      tableStatus: state.status,
-      dealerId: dealer(state).id,
-      bigBlindId: bigBlind(state).id,
-      smallBlindId: smallBlind(state).id,
+      hand: state.players[playerId]?.hand ?? [],
       community: state.community,
+      tableStatus: state.status,
+      dealerId: dealer(state)?.id,
+      bigBlindId: bigBlind(state)?.id,
+      smallBlindId: smallBlind(state)?.id,
+      currentPlayerId: currentPlayer(state)?.id,
+      winningPlayerId: state.winningPlayerId,
       burnt: state.burnt,
       pot: state.pot,
       bet: state.bet,
@@ -383,7 +412,7 @@ export class PokerRoomStateMachine {
       opponents: Object.fromEntries(
         Object.entries(state.players)
           .filter(([id, _]) => id != playerId)
-          .map(([id, { status, chips }]) => [id, { status, chips }]),
+          .map(([id, { status, chips, bet }]) => [id, { status, chips, bet }]),
       ),
     };
   }
@@ -394,6 +423,7 @@ export class PokerRoomStateMachine {
   }
 
   processPlayerMove(move: Move) {
+    this.movesSubject.next(move);
     this.subject.next(processPlayerMove(this.value, move));
   }
 
