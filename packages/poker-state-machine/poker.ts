@@ -5,7 +5,7 @@ export type Suit = (typeof SUITS)[number];
 
 export type Card = {
   suit: Suit;
-  value: CardValue;
+  rank: CardValue;
 };
 
 export type Deck = Card[];
@@ -40,7 +40,7 @@ export function getShuffledDeck(): Deck {
   const deck: Deck = SUITS.flatMap((suit) =>
     Array.from({ length: 13 }).map((_, index) => ({
       suit,
-      value: (index + 1) as CardValue,
+      rank: (index + 1) as CardValue,
     })),
   );
 
@@ -51,13 +51,13 @@ export function determineHandType(hand: Card[]): HandType {
   const sorted = hand.sort();
 
   const subsequentDiffs = sorted.map((card, index) =>
-    index < sorted.length - 1 ? sorted[index + 1].value - card.value : 1,
+    index < sorted.length - 1 ? sorted[index + 1].rank - card.rank : 1,
   );
 
   const cardsByValue = hand.reduce(
     (count, card) => ({
       ...count,
-      [card.value]: (count[card.value] ?? 0) + 1,
+      [card.rank]: (count[card.rank] ?? 0) + 1,
     }),
     {} as { [v: number]: number },
   );
@@ -75,41 +75,41 @@ export function determineHandType(hand: Card[]): HandType {
   const isPair = Object.values(cardsByValue).some((c) => c === 2);
 
   if (isStraight && isFlush) {
-    return { type: "straight_flush", value: sorted[sorted.length - 1].value };
+    return { type: "straight_flush", value: sorted[sorted.length - 1].rank };
   } else if (isFourKind) {
     return {
       type: "four_kind",
-      value: sorted.find((c) => cardsByValue[c.value] === 4)!.value,
+      value: sorted.find((c) => cardsByValue[c.rank] === 4)!.rank,
     };
   } else if (isThreeKind && isPair) {
     return {
       type: "full_house",
       values: [
-        sorted.find((c) => cardsByValue[c.value] === 3)!.value,
-        sorted.find((c) => cardsByValue[c.value] === 2)!.value,
+        sorted.find((c) => cardsByValue[c.rank] === 3)!.rank,
+        sorted.find((c) => cardsByValue[c.rank] === 2)!.rank,
       ],
     };
   } else if (isFlush) {
     return {
       type: "flush",
-      value: sorted.findLast((c) => cardsBySuit[c.suit] >= 4)!.value,
+      value: sorted.findLast((c) => cardsBySuit[c.suit] >= 4)!.rank,
     };
   } else if (isStraight) {
-    return { type: "straight", value: sorted[sorted.length - 1].value };
+    return { type: "straight", value: sorted[sorted.length - 1].rank };
   } else if (isThreeKind) {
     return {
       type: "three_kind",
-      value: sorted.find((c) => cardsByValue[c.value] === 3)!.value,
+      value: sorted.find((c) => cardsByValue[c.rank] === 3)!.rank,
     };
     // TODO: two pair
   } else if (isPair) {
     return {
       type: "pair",
-      value: sorted.find((c) => cardsByValue[c.value] === 2)!.value,
+      value: sorted.find((c) => cardsByValue[c.rank] === 2)!.rank,
     };
   }
 
-  return { type: "high_card", value: sorted[sorted.length - 1].value };
+  return { type: "high_card", value: sorted[sorted.length - 1].rank };
 }
 
 export function determineWinningHand(hands: HandType[]): HandType {

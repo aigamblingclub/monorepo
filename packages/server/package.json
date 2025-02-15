@@ -1,0 +1,26 @@
+{
+  "name": "server",
+  "module": "./src/index.ts",
+  "type": "module",
+  "types": "./src/index.ts",
+  "scripts": {
+    "dev": "bun run ./src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@trpc/client": "^10.45.2",
+    "@trpc/server": "^10.45.2",
+    "@virtuals-protocol/game": "^0.1.8",
+    "poker-state-machine": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "rxjs": "^7.8.1",
+    "ws": "^8.18.0",
+    "zod": "^3.24.2"
+  }
+}

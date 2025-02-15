@@ -1,0 +1,25 @@
+{
+  "name": "site",
+  "module": "./src/index.tsx",
+  "type": "module",
+  "scripts": {
+    "build:dev": "bun build src/index.tsx --watch --outdir dist",
+    "serve": "serve dist"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "serve": "^14.2.4"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "client": "workspace:*",
+    "observable-hooks": "^4.2.4",
+    "poker-state-machine": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

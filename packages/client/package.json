@@ -1,0 +1,11 @@
+{
+  "name": "client",
+  "type": "module",
+  "main": "index.ts",
+  "devDependencies": {
+    "server": "workspace:*"
+  },
+  "dependencies": {
+    "@trpc/client": "^10.45.2"
+  }
+}

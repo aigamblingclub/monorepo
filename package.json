@@ -1,18 +1,7 @@
 {
   "name": "virtuals-game-room",
-  "module": "index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@trpc/client": "^10.45.2",
-    "@trpc/server": "^10.45.2",
-    "@virtuals-protocol/game": "^0.1.8",
-    "rxjs": "^7.8.1",
-    "zod": "^3.24.2"
-  }
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ]
 }
