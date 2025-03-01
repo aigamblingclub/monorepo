@@ -8,17 +8,24 @@ import {
   PokerRoomStateMachine,
   SMALL_BLIND,
   smallBlind,
+  type PokerState,
 } from "./state_machine";
 
+function deckless(state: PokerState): Omit<PokerState, 'deck'> {
+  const clone: { [K in keyof PokerState]: K extends 'deck' ? any : PokerState[K] } = structuredClone(state)
+  delete clone.deck
+  return clone
+}
+
 test("start round works as expected with two players", async () => {
-  const pokerRoom = new PokerRoomStateMachine();
+  const pokerRoom = new PokerRoomStateMachine(2);
   const states = [pokerRoom.value];
   expect(states[0]).toEqual(POKER_ROOM_DEFAULT_STATE);
 
   const firstPlayerId = Bun.randomUUIDv7();
   pokerRoom.addPlayer(firstPlayerId);
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
     players: {
       [firstPlayerId]: {
@@ -26,12 +33,12 @@ test("start round works as expected with two players", async () => {
         id: firstPlayerId,
       },
     },
-  });
+  }));
 
   const secondPlayerId = Bun.randomUUIDv7();
   pokerRoom.addPlayer(secondPlayerId);
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
     status: "PLAYING",
     pot: SMALL_BLIND + BIG_BLIND,
@@ -40,7 +47,7 @@ test("start round works as expected with two players", async () => {
     // (first, second) = (dealer & small blind & first player, big blind)
     currentPlayerIndex: 0,
     // i mean it's random...
-    deck: pokerRoom.value.deck,
+    // deck: pokerRoom.value.deck,
     players: {
       [firstPlayerId]: {
         id: firstPlayerId,
@@ -57,7 +64,7 @@ test("start round works as expected with two players", async () => {
         hand: pokerRoom.value.players[secondPlayerId].hand,
       },
     },
-  });
+  }));
   expect(Object.values(states[0].players).map(p => p.hand.length)).toEqual([2, 2])
 
   expect(smallBlind(pokerRoom.value).id).toEqual(firstPlayerId);
@@ -66,7 +73,7 @@ test("start round works as expected with two players", async () => {
 
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
     currentPlayerIndex: 1,
     pot: states[1].pot + (BIG_BLIND - SMALL_BLIND),
@@ -78,11 +85,11 @@ test("start round works as expected with two players", async () => {
         chips: 100 - BIG_BLIND,
       },
     },
-  });
+  }));
 
   pokerRoom.processPlayerMove({ type: "raise", amount: 30 });
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
     pot: states[1].pot + (30 - BIG_BLIND),
     bet: 30,
@@ -95,11 +102,11 @@ test("start round works as expected with two players", async () => {
         bet: 30,
       },
     },
-  });
+  }));
 
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
     pot: states[1].pot + (30 - BIG_BLIND),
     bet: 30,
@@ -112,14 +119,17 @@ test("start round works as expected with two players", async () => {
         bet: 30,
       },
     },
-  });
+  }));
 
+  // player 1 calls which triggers flop
+  // post-flop with 2 players has inverted order
+  // so player 1 plays again
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
     bet: 0,
-    deck: states[0].deck,
+    // deck: states[0].deck,
     burnt: states[0].burnt,
     community: states[0].community,
     currentPlayerIndex: 1,
@@ -135,21 +145,22 @@ test("start round works as expected with two players", async () => {
         bet: 0,
       },
     }
-  });
+  }));
   expect(states[0].deck).toHaveLength(44);
   expect(states[0].burnt).toHaveLength(1);
   expect(states[0].community).toHaveLength(3);
 
+  // player 1 calls, it's player 0's turn
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
     bet: 0,
-    deck: states[0].deck,
+    // deck: states[0].deck,
     burnt: states[0].burnt,
     community: states[0].community,
     currentPlayerIndex: 0,
-  });
+  }));
   expect(states[0].deck).toHaveLength(43);
   expect(states[0].burnt).toHaveLength(2);
   expect(states[0].community).toHaveLength(4);
@@ -157,13 +168,13 @@ test("start round works as expected with two players", async () => {
 
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
-    deck: states[0].deck,
+    // deck: states[0].deck,
     burnt: states[0].burnt,
     community: states[0].community,
     currentPlayerIndex: 1,
-  });
+  }));
   expect(states[0].deck).toHaveLength(43);
   expect(states[0].burnt).toHaveLength(2);
   expect(states[0].community).toHaveLength(4);
@@ -172,13 +183,13 @@ test("start round works as expected with two players", async () => {
   states.unshift(pokerRoom.value);
   pokerRoom.processPlayerMove({ type: "call" });
   states.unshift(pokerRoom.value);
-  expect(states[0]).toEqual({
+  expect(deckless(states[0])).toEqual(deckless({
     ...states[1],
-    deck: states[0].deck,
+    // deck: states[0].deck,
     burnt: states[0].burnt,
     community: states[0].community,
     currentPlayerIndex: 1,
-  });
+  }));
   expect(states[0].deck).toHaveLength(44);
   expect(states[0].burnt).toHaveLength(3);
   expect(states[0].community).toHaveLength(5);
