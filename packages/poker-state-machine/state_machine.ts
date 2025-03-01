@@ -229,6 +229,28 @@ function shiftBetRotation(state: PokerState): PokerState {
   return nextState;
 }
 
+function playerBet(state: PokerState, playerId: string, bet: number): PokerState {
+  const player = state.players[playerId]
+  const amount = Math.min(bet - player.bet, player.chips)
+  const remaining = player.chips - amount
+  const raised = bet > state.bet
+
+  return {
+    ...state,
+    pot: state.pot + amount,
+    bet: Math.max(state.bet, amount),
+    players: {
+      ...state.players,
+      [playerId]: {
+        ...player,
+        bet: amount,
+        chips: remaining,
+        status: 'PLAYING'
+      }
+    },
+  }
+}
+
 export function processPlayerMove(state: PokerState, move: Move): PokerState {
   const players = roundRotation(state);
   const playerId = players[state.currentPlayerIndex].id;
@@ -242,24 +264,13 @@ export function processPlayerMove(state: PokerState, move: Move): PokerState {
     }
 
     case "call": {
-      const player = state.players[playerId];
-      const diff = Math.min(state.bet - player.bet, player.chips);
-
-      nextState.players[playerId].chips -= diff;
-      nextState.players[playerId].bet = state.bet;
-      nextState.pot += diff;
+      nextState = playerBet(nextState, playerId, state.bet)
       break;
     }
 
     case "raise": {
-      const player = state.players[playerId];
-      const amount = Math.min(player.chips + player.bet, move.amount);
-      const diff = Math.min(amount - player.bet, player.chips);
-
-      nextState.players[playerId].chips -= diff;
-      nextState.players[playerId].bet = amount;
-      nextState.pot += diff;
-      nextState.bet = amount;
+      nextState = playerBet(nextState, playerId, move.amount)
+      break;
     }
   }
 
