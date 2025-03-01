@@ -347,16 +347,16 @@ export class PokerRoomStateMachine {
   private movesSubject = new Subject<Move>();
   public moves$ = this.movesSubject.asObservable();
 
-  constructor() {
+  constructor(private minimumPlayers: number) {
     this.state$.subscribe((state) => {
       this.value = state;
-      if (state.status === "WAITING" && seatedPlayers(state) >= 3) {
+      if (state.status === "WAITING" && seatedPlayers(state) >= this.minimumPlayers) {
         console.log('starting round...', seatedPlayers(state))
         this.startRound();
         return;
       }
 
-      if (playersInRound(state).length === 1) {
+      if (state.status === "PLAYING" && playersInRound(state).length === 1) {
         // the remaining player wins
         console.log("winningPlayerId: ", state.winningPlayerId);
         return;
