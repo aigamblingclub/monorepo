@@ -1,18 +1,13 @@
 import { expect, test } from "bun:test";
 import {
-  BIG_BLIND,
-  bigBlind,
-  currentPlayer,
-  dealer,
-  firstPlayerIndex,
   PLAYER_DEFAULT_STATE,
   POKER_ROOM_DEFAULT_STATE,
   PokerRoomStateMachine,
-  SMALL_BLIND,
-  smallBlind,
   type PlayerState,
   type PokerState,
 } from "./state_machine";
+import { bigBlind, currentPlayer, dealer, firstPlayerIndex, smallBlind } from "./queries";
+import { BIG_BLIND, SMALL_BLIND } from "./transitions";
 
 type Handless = { [id: string]: Omit<PlayerState, 'hand'> }
 
