@@ -1,7 +1,7 @@
 import { BehaviorSubject, Subject } from "rxjs";
 import type { Card, Deck } from "./poker";
 import { dealer, bigBlind, currentPlayer,playersInRound, roundRotation, seatedPlayers, smallBlind } from "./queries";
-import { processPlayerMove, startRound, transitionPhase } from "./transitions";
+import { addPlayer, processPlayerMove, startRound, transitionPhase } from "./transitions";
 
 // Indicates whether the player is playing the current round.
 // NOTE: FOLDED is just a temporary marker so the length of our
@@ -127,16 +127,7 @@ export class PokerRoomStateMachine {
   addPlayer(id: string) {
     const state = this.subject.value;
     this.tableEventsSubject.next({ type: 'join', playerId: id });
-    this.subject.next({
-      ...state,
-      players: {
-        ...state.players,
-        [id]: {
-          ...PLAYER_DEFAULT_STATE,
-          id: id,
-        },
-      },
-    });
+    this.subject.next(addPlayer(state, id));
   }
 
   playerView(playerId: string): PlayerView {

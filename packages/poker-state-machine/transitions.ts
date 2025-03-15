@@ -4,11 +4,32 @@
 
 import { determineHandType, determineWinningHand, getShuffledDeck } from "./poker";
 import { bigBlind, players, playersInRound, playingPlayers, roundRotation, seatedPlayers, smallBlind } from "./queries";
-import type { Move, PokerState } from "./state_machine";
+import { PLAYER_DEFAULT_STATE, type Move, type PokerState } from "./state_machine";
 
 
 export const SMALL_BLIND = 10;
 export const BIG_BLIND = 20;
+
+// precondition: waiting for players | finished previous round
+export function addPlayer(state: PokerState, playerId: string): PokerState {
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [playerId]: {
+        ...PLAYER_DEFAULT_STATE,
+        id: playerId,
+      },
+    },
+  }
+}
+
+// precondition: waiting for players | finished previous round
+export function removePlayer(state: PokerState, playerId: string): PokerState {
+  const nextState = structuredClone(state)
+  delete nextState.players[playerId]
+  return nextState
+}
 
 // precondition: waiting for players | finished previous round
 export function dealCards(state: PokerState): PokerState {
