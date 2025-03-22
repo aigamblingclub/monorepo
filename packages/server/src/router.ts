@@ -4,10 +4,8 @@ import { z } from "zod";
 import { publicProcedure, router } from "./trpc";
 import { PokerRoomStateMachine, seatedPlayers, type Move, type PlayerView, type PokerState } from "poker-state-machine";
 import { observable } from '@trpc/server/observable';
-import { pluck } from "rxjs";
 
-
-const ROOM = new PokerRoomStateMachine();
+const ROOM = new PokerRoomStateMachine(2);
 
 type PokerRoomEvents = {
   'STATE': [PokerState]
