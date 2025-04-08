@@ -5,6 +5,7 @@ type PlayerChipsProps = {
   isDealer: boolean;
   isBigBlind: boolean;
   isSmallBlind: boolean;
+  isWinner: boolean;
   position: number; // Index 0-5 for position around table
 };
 
