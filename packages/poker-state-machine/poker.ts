@@ -1,12 +1,4 @@
-export type CardValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
-
-const SUITS = ["spades", "diamonds", "clubs", "hearts"] as const;
-export type Suit = (typeof SUITS)[number];
-
-export type Card = {
-  suit: Suit;
-  rank: CardValue;
-};
+import { SUITS, type Card, type CardValue } from "./schemas";
 
 export type Deck = Card[];
 

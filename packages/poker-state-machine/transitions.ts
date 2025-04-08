@@ -2,9 +2,11 @@
     transitions: functions that operate on the current poker state to return the next one.
  */
 
+import { Option } from "effect";
 import { determineHandType, determineWinningHand, getShuffledDeck } from "./poker";
 import { bigBlind, players, playersInRound, playingPlayers, roundRotation, seatedPlayers, smallBlind } from "./queries";
-import { PLAYER_DEFAULT_STATE, type Move, type PokerState } from "./state_machine";
+import type { Move, PokerState } from "./schemas";
+import { PLAYER_DEFAULT_STATE } from "./state_machine";
 
 
 export const SMALL_BLIND = 10;
@@ -26,9 +28,14 @@ export function addPlayer(state: PokerState, playerId: string): PokerState {
 
 // precondition: waiting for players | finished previous round
 export function removePlayer(state: PokerState, playerId: string): PokerState {
-  const nextState = structuredClone(state)
-  delete nextState.players[playerId]
-  return nextState
+    return {
+        ...state,
+        players: Object.fromEntries(
+            Object
+                .entries(state.players)
+                .filter(([pId]) => pId !== playerId)
+        )
+    }
 }
 
 // precondition: waiting for players | finished previous round
@@ -67,44 +74,27 @@ export function rotateBlinds(state: PokerState): PokerState {
     };
 }
 
+export type StateTransition = (state: PokerState) => PokerState
+
+export function composeTransitions(transitions: StateTransition[]): StateTransition {
+    return initial => transitions.reduce((state, f) => f(state), initial)
+}
+
 // precondition: cards are dealt
-export function collectBlinds(state: PokerState): PokerState {
+export const collectBlinds: StateTransition = state => {
     const bigBlindId = bigBlind(state).id;
-    const bigBlindPlayer = state.players[bigBlindId];
-    const bigBlindAmount = Math.min(BIG_BLIND, bigBlindPlayer.chips);
-
     const smallBlindId = smallBlind(state).id;
-    const smallBlindPlayer = state.players[smallBlindId];
-    const smallBlindAmount = Math.min(SMALL_BLIND, smallBlindPlayer.chips);
-
-    return {
-        ...state,
-        pot: state.pot + bigBlindAmount + smallBlindAmount,
-        bet: Math.max(bigBlindAmount, smallBlindAmount),
-        players: {
-            ...state.players,
-            [bigBlindId]: {
-                ...bigBlindPlayer,
-                chips: bigBlindPlayer.chips - bigBlindAmount,
-                bet: bigBlindAmount,
-            },
-            [smallBlindId]: {
-                ...smallBlindPlayer,
-                chips: smallBlindPlayer.chips - smallBlindAmount,
-                bet: smallBlindAmount,
-            },
-        },
-    };
+    return composeTransitions([
+        (state: PokerState) => playerBet(state, smallBlindId, SMALL_BLIND),
+        (state: PokerState) => playerBet(state, bigBlindId, BIG_BLIND),
+    ])(state)
 }
 
-export function startRound(current: PokerState): PokerState {
-    const nextState = [dealCards, rotateBlinds, collectBlinds].reduce(
-        (state, f) => f(state),
-        current,
-    )
-
-    return nextState
-}
+export const startRound: StateTransition = composeTransitions([
+    dealCards,
+    rotateBlinds,
+    collectBlinds
+])
 
 function shiftBetRotation(state: PokerState): PokerState {
     const players = roundRotation(state);
@@ -115,17 +105,20 @@ function shiftBetRotation(state: PokerState): PokerState {
         (p) => p.status === "FOLDED" || p.bet === state.bet,
     );
 
-    const nextState = structuredClone(state)
     const playersLeft = players.filter(p => p.status === "PLAYING");
     if (playersLeft.length === 1) {
-        nextState.winningPlayerId = playersLeft[0].id;
-        nextState.currentPlayerIndex = -1
-        return nextState
+        return {
+            ...state,
+            winningPlayerId: Option.some(playersLeft[0].id),
+            currentPlayerIndex: -1
+        }
     }
 
     if (isLastPlayer && allCalled) {
-        nextState.currentPlayerIndex = -1
-        return nextState
+        return {
+            ...state,
+            currentPlayerIndex: -1
+        }
     }
 
     const nextPlayerIndex = isLastPlayer && !allCalled
@@ -135,9 +128,10 @@ function shiftBetRotation(state: PokerState): PokerState {
             (p, i) => p.status === "PLAYING" && state.currentPlayerIndex < i,
         );
 
-    nextState.currentPlayerIndex = nextPlayerIndex
-
-    return nextState;
+    return {
+        ...state,
+        currentPlayerIndex: nextPlayerIndex
+    };
 }
 
 function playerBet(state: PokerState, playerId: string, bet: number): PokerState {
@@ -171,7 +165,16 @@ export function processPlayerMove(state: PokerState, move: Move): PokerState {
     switch (move.type) {
         case "fold": {
             // TODO: check if the player already has enough bet
-            nextState.players[playerId].status = "FOLDED";
+            nextState = {
+                ...state,
+                players: {
+                    ...state.players,
+                    [playerId]: {
+                        ...state.players[playerId],
+                        status: 'FOLDED'
+                    }
+                }
+            }
             break;
         }
 
@@ -195,40 +198,53 @@ export function transitionPhase(state: PokerState): PokerState {
         return dealCards(state)
     }
 
-    let nextState = structuredClone(state);
-    nextState.currentPlayerIndex = 0;
-    nextState.bet = 0
-    nextState.players = Object.fromEntries(Object.entries(state.players).map(([id, player]) => [id, { ...player, bet: 0 }]));
+    let nextState = {
+        ...state,
+        currentPlayerIndex: 0,
+        players: Object.fromEntries(
+            Object
+                .entries(state.players)
+                .map(([id, player]) => [id, { ...player, bet: 0 }])
+        )
+    }
+    const cards = nextState.deck.length
 
     switch (state.community.length) {
         // deal flop
         case 0: {
-            // TODO: what to do about invalid states? (i.e. has burnt but no community)
-            nextState.burnt = [nextState.deck.pop()!];
-            nextState.community = [
-                nextState.deck.pop()!,
-                nextState.deck.pop()!,
-                nextState.deck.pop()!,
-            ];
+            nextState = {
+                ...nextState,
+                burnt: [nextState.deck[cards - 1]],
+                community: [2, 3, 4].map(offset => nextState.deck[cards - offset]),
+                deck: nextState.deck.slice(0, cards - 4),
+            }
             break;
         }
         // deal turn
         case 3: {
-            nextState.burnt.push(nextState.deck.pop()!);
-            nextState.community.push(nextState.deck.pop()!);
+            nextState = {
+                ...nextState,
+                burnt: [nextState.deck[cards - 1]],
+                community: [nextState.deck[cards - 2]],
+                deck: nextState.deck.slice(0, cards - 2),
+            }
             break;
         }
         // deal river
         case 4: {
-            nextState.burnt.push(nextState.deck.pop()!);
-            nextState.community.push(nextState.deck.pop()!);
+            nextState = {
+                ...nextState,
+                burnt: [nextState.deck[cards - 1]],
+                community: [nextState.deck[cards - 2]],
+                deck: nextState.deck.slice(0, cards - 2),
+            }
             break;
         }
         // showdown
         case 5: {
             const players = playingPlayers(state);
             const playerHands = players.map((p) => [...p.hand, ...state.community]);
-            const playerHandTypes = playerHands.map((h) => determineHandType(h));
+            const playerHandTypes = playerHands.map(h => determineHandType(h));
             const winningHand = determineWinningHand(playerHandTypes);
 
             const winningPlayerIndex = playerHandTypes.findIndex(
@@ -236,7 +252,7 @@ export function transitionPhase(state: PokerState): PokerState {
             );
             const winningPlayer = players[winningPlayerIndex]
 
-            nextState.winningPlayerId = winningPlayer.id;
+            nextState.winningPlayerId = Option.some(winningPlayer.id);
             // TODO: track pot for all-in situations
             nextState.players[winningPlayer.id].chips += state.pot;
             break;

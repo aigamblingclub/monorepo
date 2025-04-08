@@ -13,14 +13,11 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@trpc/client": "^10.45.2",
-    "@trpc/server": "^10.45.2",
-    "@virtuals-protocol/game": "^0.1.8",
+    "@effect/platform": "^0.80.1",
+    "@effect/platform-bun": "^0.60.4",
+    "@effect/rpc": "^0.55.1",
+    "effect": "^3.14.1",
     "poker-state-machine": "workspace:*",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "rxjs": "^7.8.1",
-    "ws": "^8.18.0",
-    "zod": "^3.24.2"
+    "ws": "^8.18.0"
   }
 }

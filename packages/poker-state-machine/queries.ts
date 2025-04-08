@@ -1,8 +1,8 @@
 /*
     queries: functions that map the poker state data structure to a workable format
  */
-
-import type { PokerState } from "./state_machine";
+import { Option } from "effect";
+import type { PlayerView, PokerState } from "./schemas";
 
 export const players = (state: PokerState) => Object.values(state.players).sort()
 
@@ -53,3 +53,23 @@ export const smallBlind = (state: PokerState) => {
   const players = playersInRound(state);
   return players[(state.dealerIndex + 2) % players.length];
 };
+
+export const playerView = (state: PokerState, playerId: string): PlayerView => ({
+    hand: state.players[playerId]?.hand ?? [],
+    community: state.community,
+    tableStatus: state.status,
+    dealerId: Option.fromNullable(dealer(state)?.id),
+    bigBlindId: Option.fromNullable(bigBlind(state)?.id),
+    smallBlindId: Option.fromNullable(smallBlind(state)?.id),
+    currentPlayerId: Option.fromNullable(currentPlayer(state)?.id),
+    winningPlayerId: state.winningPlayerId,
+    burnt: state.burnt,
+    pot: state.pot,
+    bet: state.bet,
+    player: state.players[playerId],
+    opponents: Object.fromEntries(
+        Object.entries(state.players)
+        .filter(([id, _]) => id != playerId)
+        .map(([id, { status, chips, bet }]) => [id, { status, chips, bet }]),
+    ),
+})
