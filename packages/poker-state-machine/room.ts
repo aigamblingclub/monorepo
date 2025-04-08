@@ -1,59 +1,136 @@
-import { Context, Effect, Option, Queue, Ref, Scope, Stream } from "effect";
-import { POKER_ROOM_DEFAULT_STATE, type Move, type PokerState } from "./state_machine";
-import { currentPlayer } from "./queries";
-import { addPlayer, processPlayerMove, removePlayer } from "./transitions";
-
-type TableAction = 'join' | 'leave'
-
-export type PokerEvent =
-  | { type: 'move', playerId: string, move: Move }
-  | { type: 'table', playerId: string, action: TableAction }
-
-export type ProcessEventError =
-  | { type: 'not_your_turn' }
-  | { type: 'table_locked' }
+import { Console, Effect, pipe, Queue, Ref, Sink } from "effect";
+import  * as Option from "effect/Option";
+import * as Stream from "effect/Stream";
+import { POKER_ROOM_DEFAULT_STATE } from "./state_machine";
+import { currentPlayer, playersInRound, playerView, seatedPlayers } from "./queries";
+import { addPlayer, processPlayerMove, removePlayer, startRound, transitionPhase } from "./transitions";
+import type { NoSuchElementException } from "effect/Cause";
+import type { GameEvent, PlayerView, PokerState, ProcessEventError, ProcessStateError, SystemEvent } from "./schemas";
 
 export interface PokerGameService {
-  readonly processEvent: (event: PokerEvent) => Effect.Effect<unknown, ProcessEventError, never>
   readonly currentState: () => Effect.Effect<PokerState, never, never>
+
+  readonly processEvent: (event: GameEvent) => Effect.Effect<PokerState, ProcessEventError, never>
+
+  readonly playerView: (playerId: string) => Stream.Stream<
+      PlayerView,
+      ProcessEventError | ProcessStateError,
+      never
+  >
+
+  readonly stateUpdates: Stream.Stream<
+      PokerState,
+      ProcessEventError | ProcessStateError,
+      never
+  >
 }
 
-export class PokerGame extends Context.Tag('PokerGame')<PokerGame, PokerGameService>() {}
-
-export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameService, never, Scope.Scope> => Effect.gen(function* (_) {
-  const stateRef = yield* Ref.make(POKER_ROOM_DEFAULT_STATE)
-
-  return {
-    processEvent(event: PokerEvent) {
-      return stateRef.pipe(
-        Ref.get,
-        Effect.flatMap(state => {
-          switch (event.type) {
-            case 'table': {
-              if (state.status === 'PLAYING') {
+function computeNextState(
+    state: PokerState,
+    event: GameEvent,
+): Effect.Effect<PokerState, ProcessEventError, never> {
+    switch (event.type) {
+        case 'table': {
+            if (state.status === 'PLAYING') {
                 return Effect.fail<ProcessEventError>({ type: 'table_locked' })
-              }
-
-              switch (event.action) {
-                case 'join': return Ref.set(stateRef, addPlayer(state, event.playerId))
-                case 'leave': return Ref.set(stateRef, removePlayer(state, event.playerId))
-              }
             }
-
-            case 'move': {
-              if (event.playerId !== currentPlayer(state).id) {
+            switch (event.action) {
+                case 'join': return Effect.succeed(addPlayer(state, event.playerId))
+                case 'leave': return Effect.succeed(removePlayer(state, event.playerId))
+            }
+        }
+        case 'move': {
+            if (event.playerId !== currentPlayer(state).id) {
                 return Effect.fail<ProcessEventError>({ type: 'not_your_turn' })
-              }
-              // TODO: turn state transitions into effects (validate moves)
-              return Ref.set(stateRef, processPlayerMove(state, event.move))
             }
-          }
-        }),
-      )
-    },
+            // TODO: turn state transitions into effects (validate moves)
+            return Effect.succeed(processPlayerMove(state, event.move))
+        }
+        case 'start': {
+            // TODO: sanity check for status?
+            return Effect.succeed(startRound(state))
+        }
+        case 'transition_phase': {
+            return Effect.succeed(transitionPhase(state))
+        }
+    }
+}
 
-    currentState() {
-      return Ref.get(stateRef)
-    },
-  }
+// TODO: make minPlayers part of the Effect's context? (i.e. dependency)
+function processState(state: PokerState, minPlayers: number): Effect.Effect<Option.Option<SystemEvent>, ProcessStateError> {
+    if (state.status === "WAITING" && seatedPlayers(state) >= minPlayers) {
+        return Effect.succeed(Option.some({ type: 'start' }))
+    }
+    if (state.status === "PLAYING" && state.winningPlayerId) {
+        // TODO: make effectful?
+        console.log("winningPlayerId: ", state.winningPlayerId);
+        // TODO: when we have player bets we need to emit an event here
+        return Effect.succeed(Option.none());
+    }
+    // FIXME(?): make this state unrepresentable (refactor transitions)
+    if (state.status === 'PLAYING' && playersInRound(state).length === 1) {
+        return Effect.fail<ProcessStateError>({
+            type: 'inconsistent_state',
+            state,
+            message: 'inconsistent state round is over but there are no remaining players'
+        })
+    }
+    // FIXME: this logic should (probably) be inside the transitions
+    if (
+        state.status === "PLAYING" &&
+        // this indicates that this phase is finished
+        state.currentPlayerIndex === -1
+    ) {
+        return Effect.succeed(Option.some({ type: 'transition_phase' }))
+    }
+    return Effect.succeed(Option.none())
+}
+
+export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameService, never, never> => Effect.gen(function* (_) {
+    const stateRef = yield* Ref.make(POKER_ROOM_DEFAULT_STATE)
+    const stateUpdateQueue = yield* Queue.unbounded<PokerState>()
+    const stateStream = Stream.fromQueue(stateUpdateQueue)
+
+    const currentState = () => Ref.get(stateRef)
+
+    function processEvent(event: GameEvent): Effect.Effect<PokerState, ProcessEventError, never> {
+        return pipe(
+            currentState(),
+            Effect.flatMap(state => computeNextState(state, event)),
+            Effect.tap(state => Ref.set(stateRef, state)),
+            Effect.tap(stateUpdateQueue.offer),
+        )
+    }
+
+    // todo: come back to fix this, I made this on purpose to simplify error schema
+    const stateProcessingStream: Stream.Stream<
+        PokerState,
+        ProcessStateError | ProcessEventError
+    > = pipe(
+        stateStream,
+        Stream.mapEffect(state => pipe(
+            processState(state, minPlayers),
+            Effect.flatMap(Option.map(processEvent)),
+            // Effect.map(() => state)
+            Effect.flatten,
+        )),
+    );
+
+    // return this or put in a context somehow
+    const systemFiber = Effect.runFork(pipe(
+        stateProcessingStream,
+        // TODO: tap logs for errors
+        Stream.run(Sink.drain)
+    ))
+
+    return {
+        currentState,
+        processEvent,
+        playerView: playerId => pipe(
+            stateProcessingStream,
+            Stream.tapError(Console.log),
+            Stream.map(state => playerView(state, playerId))
+        ),
+        stateUpdates: stateStream,
+    }
 })

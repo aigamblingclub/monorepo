@@ -8,5 +8,3 @@ root.render(
     <App />
   </React.StrictMode>
 );
-
-import './trpc_ws_client'

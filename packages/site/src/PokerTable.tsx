@@ -21,8 +21,10 @@ export function PokerTable({ state }: PokerTableProps) {
   const dealerId = dealer(state)?.id;
   const bigBlindId = bigBlind(state)?.id;
   const smallBlindId = smallBlind(state)?.id;
+  const winningPlayerId = state.winningPlayerId
 
   const allPlayers = Object.values(state.players)
+  console.log('asdasdasd',allPlayers.length)
 
   return (
     <div className="w-full aspect-[2/1] relative mb-4">
@@ -34,6 +36,7 @@ export function PokerTable({ state }: PokerTableProps) {
             isDealer={p.id === dealerId}
             isBigBlind={p.id === bigBlindId}
             isSmallBlind={p.id === smallBlindId}
+            isWinner={p.id === winningPlayerId}
             position={index}
           />
         ))}
@@ -64,6 +67,7 @@ export function PokerTable({ state }: PokerTableProps) {
           <PlayerInfo
             player={p}
             isCurrentPlayer={p.id === currentPlayerId}
+            isWinner={p.id === winningPlayerId}
             position={"top"}
           />
         </div>

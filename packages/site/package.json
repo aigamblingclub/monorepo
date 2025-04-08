@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "client": "workspace:*",
+    "effect": "^3.14.1",
     "observable-hooks": "^4.2.4",
     "poker-state-machine": "workspace:*",
     "react": "^19.0.0",

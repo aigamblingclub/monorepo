@@ -9,12 +9,14 @@ type PlayerInfoProps = {
   isDealer?: boolean
   isBigBlind?: boolean
   isSmallBlind?: boolean
+  isWinner: boolean
 }
 
 export default function PlayerInfo({
   player,
   position,
   isCurrentPlayer,
+  isWinner,
 }: PlayerInfoProps) {
   return (
       <div className="flex flex-col items-center gap-2">
@@ -41,6 +43,11 @@ export default function PlayerInfo({
             <div className="text-gray-300 whitespace-nowrap">
               ${player.chips}
             </div>
+            {!isWinner ? null : (
+              <div className="text-gray-300 whitespace-nowrap">
+                won!!
+              </div>
+            )}
           </div>
         </div>
 
