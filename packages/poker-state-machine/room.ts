@@ -4,7 +4,6 @@ import * as Stream from "effect/Stream";
 import { POKER_ROOM_DEFAULT_STATE } from "./state_machine";
 import { currentPlayer, playersInRound, playerView, seatedPlayers } from "./queries";
 import { addPlayer, processPlayerMove, removePlayer, startRound, transitionPhase } from "./transitions";
-import type { NoSuchElementException } from "effect/Cause";
 import type { GameEvent, PlayerView, PokerState, ProcessEventError, ProcessStateError, SystemEvent } from "./schemas";
 
 export interface PokerGameService {
@@ -102,7 +101,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
         )
     }
 
-    // todo: come back to fix this, I made this on purpose to simplify error schema
     const stateProcessingStream: Stream.Stream<
         PokerState,
         ProcessStateError | ProcessEventError
@@ -110,14 +108,15 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
         stateStream,
         Stream.mapEffect(state => pipe(
             processState(state, minPlayers),
-            Effect.flatMap(Option.map(processEvent)),
-            // Effect.map(() => state)
-            Effect.flatten,
+            Effect.flatMap(Option.match({
+                onNone: () => Effect.succeed(state),
+                onSome: processEvent,
+            })),
         )),
     );
 
     // return this or put in a context somehow
-    const systemFiber = Effect.runFork(pipe(
+    const _systemFiber = Effect.runFork(pipe(
         stateProcessingStream,
         // TODO: tap logs for errors
         Stream.run(Sink.drain)
@@ -128,7 +127,7 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
         processEvent,
         playerView: playerId => pipe(
             stateProcessingStream,
-            Stream.tapError(Console.log),
+            Stream.tapError(Console.error),
             Stream.map(state => playerView(state, playerId))
         ),
         stateUpdates: stateStream,
