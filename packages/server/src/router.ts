@@ -1,5 +1,5 @@
 import { makePokerRoom } from "poker-state-machine";
-import { ErrorsSchema, GameEventSchema, PlayerViewSchema, PokerStateSchema, ProcessEventErrorSchema } from "poker-state-machine/schemas";
+import { ProcessingStateStreamErrorsSchema, GameEventSchema, PlayerViewSchema, PokerStateSchema, ProcessEventErrorSchema } from "poker-state-machine/schemas";
 import { Rpc, RpcGroup, } from "@effect/rpc";
 import { Effect, pipe, Schema } from "effect";
 
@@ -15,13 +15,13 @@ export class PokerRpc extends RpcGroup.make(
     }),
     Rpc.make('playerView', {
         success: PlayerViewSchema,
-        error: ErrorsSchema,
+        error: ProcessingStateStreamErrorsSchema,
         payload: { playerId: Schema.String },
         stream: true
     }),
     Rpc.make('stateUpdates', {
         success: PokerStateSchema,
-        error: ErrorsSchema,
+        error: ProcessingStateStreamErrorsSchema,
         stream: true
     }),
 ) {}

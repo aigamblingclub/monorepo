@@ -1,5 +1,4 @@
 import { Schema } from "effect";
-import { NoSuchElementException } from "effect/Cause";
 
 export const CardValueSchema = Schema.Union(
     ...([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] as const).map(n => Schema.Literal(n))
@@ -121,12 +120,10 @@ export const ProcessStateErrorSchema = Schema.Union(
 )
 export type ProcessStateError = typeof ProcessStateErrorSchema.Type
 
-export const ErrorsSchema = Schema.Union(
+export const ProcessingStateStreamErrorsSchema = Schema.Union(
     ProcessEventErrorSchema,
     ProcessStateErrorSchema,
-    // no schema for: NoSuchElementException
 )
-
 
 export const PlayerViewSchema = Schema.Struct({
     hand: Schema.Array(CardSchema),
