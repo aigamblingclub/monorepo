@@ -1,4 +1,3 @@
-import { Request, Response, NextFunction } from 'express';
 import hpp from 'hpp';
 import xss from 'xss-clean';
 
@@ -9,9 +8,4 @@ export const hppProtection = hpp();
 export const xssProtection = xss();
 
 // Request Sanitization
-export const sanitizeRequest = (req: Request, res: Response, next: NextFunction) => {
-  // Apply both HPP and XSS protection
-  hppProtection(req, res, () => {
-    xssProtection(req, res, next);
-  });
-};
+export const sanitizeRequest = [xss(), hpp()];
