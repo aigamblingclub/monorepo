@@ -6,7 +6,36 @@ import crypto from 'crypto';
 const router = Router();
 const prisma = new PrismaClient();
 
-// Login route (placeholder for future NEAR wallet integration)
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login or register a user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nearImplicitAddress
+ *               - nearNamedAddress
+ *             properties:
+ *               nearImplicitAddress:
+ *                 type: string
+ *                 description: NEAR wallet implicit address
+ *               nearNamedAddress:
+ *                 type: string
+ *                 description: NEAR wallet named address
+ *     responses:
+ *       200:
+ *         description: User logged in successfully
+ *       400:
+ *         description: Missing required fields
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/login', async (req, res) => {
   try {
     const { nearImplicitAddress, nearNamedAddress } = req.body;
@@ -51,7 +80,22 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Generate API key
+/**
+ * @swagger
+ * /api/auth/generate-api-key:
+ *   post:
+ *     summary: Generate a new API key for the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: API key generated successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/generate-api-key', validateApiKey, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.apiKey?.userId;
@@ -78,7 +122,22 @@ router.post('/generate-api-key', validateApiKey, async (req: AuthenticatedReques
   }
 });
 
-// List user's API keys
+/**
+ * @swagger
+ * /api/auth/api-keys:
+ *   get:
+ *     summary: List all API keys for the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of API keys retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.get('/api-keys', validateApiKey, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.apiKey?.userId;
