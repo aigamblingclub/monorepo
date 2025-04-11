@@ -55,6 +55,8 @@ function computeNextState(
     }
 }
 
+// TODO: the point of having system events is that we could add debounce or throttling
+// before emitting them, but maybe all of that should just be emulated on the frontend.
 // TODO: make minPlayers part of the Effect's context? (i.e. dependency)
 function processState(state: PokerState, minPlayers: number): Effect.Effect<Option.Option<SystemEvent>, ProcessStateError> {
     if (state.status === "WAITING" && seatedPlayers(state) >= minPlayers) {
@@ -108,6 +110,7 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
         stateStream,
         Stream.mapEffect(state => pipe(
             processState(state, minPlayers),
+            // Effect.flatMap(writeToDb)
             Effect.flatMap(Option.match({
                 onNone: () => Effect.succeed(state),
                 onSome: processEvent,
@@ -118,9 +121,11 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
     // return this or put in a context somehow
     const _systemFiber = Effect.runFork(pipe(
         stateProcessingStream,
-        // TODO: tap logs for errors
+        Stream.tapError(Console.error),
         Stream.run(Sink.drain)
     ))
+
+    Effect.runFork(currentState().pipe(Effect.tap(Console.log)))
 
     return {
         currentState,
