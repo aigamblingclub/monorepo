@@ -1,4 +1,4 @@
-import { PrismaClient } from '@/prisma/generated/index';
+import { PrismaClient } from '@/prisma';
 import { beforeAll, afterAll } from '@jest/globals';
 
 const prisma = new PrismaClient();
