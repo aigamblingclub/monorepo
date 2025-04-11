@@ -6,7 +6,36 @@ import crypto from 'crypto';
 const router = Router();
 const prisma = new PrismaClient();
 
-// Login route (placeholder for future NEAR wallet integration)
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login or register a user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nearImplicitAddress
+ *               - nearNamedAddress
+ *             properties:
+ *               nearImplicitAddress:
+ *                 type: string
+ *                 description: NEAR wallet implicit address
+ *               nearNamedAddress:
+ *                 type: string
+ *                 description: NEAR wallet named address
+ *     responses:
+ *       200:
+ *         description: User logged in successfully
+ *       400:
+ *         description: Missing required fields
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/login', async (req, res) => {
   try {
     // Commented out NEAR address validation for testing
@@ -55,7 +84,33 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Generate API key (new route for future wallet signature verification)
+/**
+ * @swagger
+ * /api/auth/generate:
+ *   post:
+ *     summary: Generate a new API key
+ *     tags: [Auth]
+ *     description: Generates a new API key for testing purposes. In the future, this will verify wallet signatures.
+ *     responses:
+ *       200:
+ *         description: API key generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 apiKey:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     keyValue:
+ *                       type: string
+ *                     isActive:
+ *                       type: boolean
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/generate', async (req, res) => {
   try {
     // TODO: In the future, this will verify the wallet signature
@@ -92,7 +147,22 @@ router.post('/generate', async (req, res) => {
   }
 });
 
-// List user's API keys
+/**
+ * @swagger
+ * /api/auth/api-keys:
+ *   get:
+ *     summary: List all API keys for the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of API keys retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.get('/api-keys', validateApiKey, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.apiKey?.userId;
