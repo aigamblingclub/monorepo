@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { sanitizeRequest } from './middleware/security';
 import { apiLimiter, authLimiter, highFrequencyLimiter } from './middleware/rateLimiter';
+import authRoutes from './routes/auth';
 
 // Load environment variables
 dotenv.config();
@@ -17,11 +18,11 @@ app.use('/api', apiLimiter); // Apply general API rate limiting
 app.use('/api/auth', authLimiter); // Apply stricter rate limiting to auth routes
 app.use('/api/game', highFrequencyLimiter); // Apply high-frequency rate limiting to game routes
 
-// API Key Authentication for all routes except the root
-app.use('/api');
-
 // Middleware
 app.use(express.json());
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
