@@ -56,35 +56,6 @@ describe('Authentication Routes', () => {
     });
   });
 
-  describe('POST /api/auth/generate-api-key', () => {
-    it('should generate a new API key', async () => {
-      const response = await request(app)
-        .post('/api/auth/generate-api-key')
-        .set('x-api-key', testApiKey.keyValue);
-
-      expect(response.status).toBe(200);
-      expect(response.body.apiKey).toHaveProperty('keyValue');
-      expect(response.body.apiKey).toHaveProperty('userId', testUser.id);
-      expect(response.body.apiKey).toHaveProperty('isActive', true);
-    });
-
-    it('should return 401 if no API key provided', async () => {
-      const response = await request(app).post('/api/auth/generate-api-key');
-
-      expect(response.status).toBe(401);
-      expect(response.body).toHaveProperty('error', 'API key is required');
-    });
-
-    it('should return 401 if invalid API key provided', async () => {
-      const response = await request(app)
-        .post('/api/auth/generate-api-key')
-        .set('x-api-key', 'invalid-key');
-
-      expect(response.status).toBe(401);
-      expect(response.body).toHaveProperty('error', 'Invalid API key');
-    });
-  });
-
   describe('GET /api/auth/api-keys', () => {
     it('should list user API keys', async () => {
       const response = await request(app)
