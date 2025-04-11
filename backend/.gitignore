@@ -36,3 +36,10 @@ coverage
 # OS
 .DS_Store
 Thumbs.db 
+
+# Prisma
+src/prisma/generated/
+
+# Database
+src/prisma/database.sqlite
+src/prisma/database.sqlite-journal 
