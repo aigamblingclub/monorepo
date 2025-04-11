@@ -2,7 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.config';
-import { sanitizeRequest } from './middleware/security';
+import { securityMiddleware } from './middleware/security';
 import { apiLimiter, authLimiter, highFrequencyLimiter } from './middleware/rateLimiter';
 import authRoutes from './routes/auth';
 
@@ -13,7 +13,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Security Middleware
-app.use(sanitizeRequest);
+app.use(securityMiddleware);
 
 // Apply rate limiting
 app.use('/api', apiLimiter); // Apply general API rate limiting
