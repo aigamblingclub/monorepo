@@ -1,5 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger.config';
 import { securityMiddleware } from './middleware/security';
 import { apiLimiter, authLimiter, highFrequencyLimiter } from './middleware/rateLimiter';
 import authRoutes from './routes/auth';
@@ -21,6 +23,9 @@ app.use('/api/game', highFrequencyLimiter); // Apply high-frequency rate limitin
 // Middleware
 app.use(express.json());
 
+// Swagger Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Routes
 app.use('/api/auth', authRoutes);
 
@@ -32,4 +37,5 @@ app.get('/', (req, res) => {
 // Start server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  console.log(`API Documentation available at http://localhost:${port}/api-docs`);
 });
