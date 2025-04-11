@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PrismaClient } from '@/prisma/generated/index';
+import { PrismaClient } from '@/prisma';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
 

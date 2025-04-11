@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { PrismaClient } from '@/prisma/generated/index';
+import { PrismaClient } from '@/prisma';
 import express from 'express';
 import authRoutes from '@/routes/auth';
 
@@ -57,7 +57,7 @@ describe('Authentication Routes', () => {
       expect(response.body.user).toHaveProperty('nearImplicitAddress', '0x1234567890abcdef');
       expect(response.body.user).toHaveProperty('nearNamedAddress', 'updated.near');
     });
-    
+
     it('should return 400 if missing required fields', async () => {
       const response = await request(app).post('/api/auth/login').send({
         nearImplicitAddress: 'test.near',
