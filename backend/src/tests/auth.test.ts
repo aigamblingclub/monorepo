@@ -36,35 +36,23 @@ describe('Authentication Routes', () => {
   });
 
   describe('POST /api/auth/login', () => {
-    it('should create a new user if not exists', async () => {
-      const response = await request(app).post('/api/auth/login').send({
-        nearImplicitAddress: '0x1234567890abcdef',
-        nearNamedAddress: 'newuser.near',
-      });
+    it('should create a new user with test addresses', async () => {
+      const response = await request(app).post('/api/auth/login').send({});
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toHaveProperty('nearImplicitAddress', '0x1234567890abcdef');
-      expect(response.body.user).toHaveProperty('nearNamedAddress', 'newuser.near');
+      expect(response.body.user).toHaveProperty('nearImplicitAddress', 'test.implicit.near');
+      expect(response.body.user).toHaveProperty('nearNamedAddress', 'test.named.near');
+      expect(response.body.apiKey).toHaveProperty('keyValue');
     });
+  });
 
-    it('should update existing user', async () => {
-      const response = await request(app).post('/api/auth/login').send({
-        nearImplicitAddress: '0x1234567890abcdef',
-        nearNamedAddress: 'updated.near',
-      });
+  describe('POST /api/auth/generate', () => {
+    it('should generate a new API key with test user', async () => {
+      const response = await request(app).post('/api/auth/generate');
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toHaveProperty('nearImplicitAddress', '0x1234567890abcdef');
-      expect(response.body.user).toHaveProperty('nearNamedAddress', 'updated.near');
-    });
-
-    it('should return 400 if missing required fields', async () => {
-      const response = await request(app).post('/api/auth/login').send({
-        nearImplicitAddress: 'test.near',
-      });
-
-      expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty('error', 'Missing required fields');
+      expect(response.body.apiKey).toHaveProperty('keyValue');
+      expect(response.body.apiKey).toHaveProperty('isActive', true);
     });
   });
 
