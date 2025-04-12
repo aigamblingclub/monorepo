@@ -8,8 +8,8 @@ Bun.serve({
             method: 'POST',
             body: JSON.stringify(requestJsonBody),
         })
-        const responseJsonBody = await response.json()
-        console.log({ responseJsonBody })
+        // const responseJsonBody = await response.json()
+        // console.log({ responseJsonBody, response })
         return response
     }
 })
