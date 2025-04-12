@@ -1,8 +1,13 @@
+import { Rpc, RpcGroup } from "@effect/rpc";
+import { Effect, Schema } from "effect";
 import { makePokerRoom } from "poker-state-machine";
-import { ProcessingStateStreamErrorsSchema, GameEventSchema, PlayerViewSchema, PokerStateSchema, ProcessEventErrorSchema } from "poker-state-machine/schemas";
-import { Rpc, RpcGroup, RpcClient } from "@effect/rpc";
-import { Effect, pipe, Schema } from "effect";
-
+import {
+    ProcessingStateStreamErrorsSchema,
+    GameEventSchema,
+    PlayerViewSchema,
+    PokerStateSchema,
+    ProcessEventErrorSchema
+} from "poker-state-machine/schemas";
 
 export class PokerRpc extends RpcGroup.make(
     Rpc.make('currentState', {
@@ -31,37 +36,17 @@ export const PokerRpcLive = PokerRpc.toLayer(Effect.gen(function* () {
     const ROOM = yield* makePokerRoom(2)
 
     return {
-        currentState: (_, headers) => {
-            console.log('ta chamano aq?')
+        currentState: (_payload, _headers) => {
             return ROOM.currentState()
         },
-        processEvent: (payload, headers) => {
-            console.log('ta chamano aq?')
+        processEvent: (payload, _headers) => {
             return ROOM.processEvent(payload.event)
         },
-        playerView: (payload, headers) => {
-            console.log('ta chamano aq?')
+        playerView: (payload, _headers) => {
             return ROOM.playerView(payload.playerId)
         },
-        stateUpdates: (_, headers) => {
-            console.log('ta chamano aq?')
+        stateUpdates: (_payload, _headers) => {
             return ROOM.stateUpdates
         },
     }
 }))
-
-Effect.gen(function* () {
-    const client = yield*  RpcClient.make(PokerRpc)
-
-    const state = yield* client.currentState()
-
-
-    const _ = yield* client.processEvent({
-        event: {
-            type: 'table',
-            action: 'join',
-            playerId: 'asdasda'
-        }
-    })
-
-})

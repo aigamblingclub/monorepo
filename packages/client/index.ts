@@ -1,26 +1,28 @@
-import { FetchHttpClient } from "@effect/platform"
 import { RpcClient, RpcSerialization } from "@effect/rpc"
-import { Chunk, Console, Effect, Layer, Stream } from "effect"
-import {  } from 'poker-state-machine'
+import { Console, Effect, Layer, pipe } from "effect"
 import { PokerRpc } from "../server/src/router"
+import { layerWebSocket } from "@effect/platform-bun/BunSocket"
 
-// Choose which protocol to use
-const ProtocolLive = RpcClient.layerProtocolHttp({
-  url: "http://localhost:3001 /rpc"
-}).pipe(
-  Layer.provide([
-    // use fetch for http requests
-    FetchHttpClient.layer,
-    // use ndjson for serialization
-    RpcSerialization.layerJson
-  ])
+const ProtocolLive = pipe(
+    RpcClient.layerProtocolSocket,
+    Layer.provide([
+        // is this completely unnecessary? looks like it
+        // FetchHttpClient.layer,
+        RpcSerialization.layerJson,
+        layerWebSocket("http://localhost:3000/rpc")
+    ])
 )
 
-// Use the client
 const program = Effect.gen(function* () {
-  const client = yield* RpcClient.make(PokerRpc)
-  let state = yield* Stream.runCollect(client.currentState())
-  return Console.log(state)
-}).pipe(Effect.scoped)
+    const client = yield* RpcClient.make(PokerRpc)
+    const state = yield* client.currentState()
+    yield* Console.log(state)
+    return state
+})
 
-program.pipe(Effect.provide(ProtocolLive), Effect.runPromise).then(console.log)
+const _ = await pipe(
+    program,
+    Effect.scoped,
+    Effect.provide(ProtocolLive),
+    Effect.runPromise
+)
