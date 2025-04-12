@@ -16,9 +16,11 @@ const WebAppLayer = Layer.unwrapScoped(Effect.gen(function* () {
 BunRuntime.runMain(
     Layer.launch(
         WebAppLayer.pipe(
-            Layer.provideMerge(PokerRpcLive),
-            Layer.provideMerge(RpcSerialization.layerJson),
-            Layer.provideMerge(BunHttpServer.layer({ port: 3000 }))
+            Layer.provide([
+                PokerRpcLive,
+                RpcSerialization.layerJson,
+                BunHttpServer.layer({ port: 3000 })
+            ])
         )
     )
 )
