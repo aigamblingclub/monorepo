@@ -81,9 +81,13 @@ async function set(
     });
 
     const preprocessed = preprocess(item.content.text);
-    
+
     // If text is shorter than chunk size, don't split it
     if (preprocessed.length <= chunkSize) {
+        elizaLogger.debug("Creating knowledge item:", {
+            id: item.id,
+            text: preprocessed,
+        });
         const embedding = await embed(runtime, preprocessed);
         await runtime.knowledgeManager.createMemory({
             id: stringToUuid(item.id + preprocessed),
@@ -101,8 +105,11 @@ async function set(
     }
 
     const fragments = await splitChunks(preprocessed, chunkSize, bleed);
-
+    elizaLogger.debug("Splitting chunks:", "fragments length", {
+        fragmentsLength: fragments.length,
+    });
     for (const fragment of fragments) {
+        elizaLogger.debug("Embedding fragment");
         const embedding = await embed(runtime, fragment);
         await runtime.knowledgeManager.createMemory({
             // We namespace the knowledge base uuid to avoid id

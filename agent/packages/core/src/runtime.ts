@@ -45,6 +45,7 @@ import {
     type Adapter,
     type Service,
     type ServiceType,
+    type IPdfService,
     type State,
     type UUID,
     type Action,
@@ -187,7 +188,7 @@ export class AgentRuntime implements IAgentRuntime {
 
         if (this.memoryManagers.has(manager.tableName)) {
             elizaLogger.warn(
-                `Memory manager ${manager.tableName} is already registered. Skipping registration.`,
+                `Memory manager ${manager.tableName} is already registered. Skipping registration.`
             );
             return;
         }
@@ -365,18 +366,18 @@ export class AgentRuntime implements IAgentRuntime {
 
         this.imageModelProvider =
             this.character.imageModelProvider ?? this.modelProvider;
-        
+
         this.imageVisionModelProvider =
             this.character.imageVisionModelProvider ?? this.modelProvider;
-            
+
         elizaLogger.info(
           `${this.character.name}(${this.agentId}) - Selected model provider:`,
           this.modelProvider
         );
 
         elizaLogger.info(
-          `${this.character.name}(${this.agentId}) - Selected image model provider:`,
-          this.imageModelProvider
+            `${this.character.name}(${this.agentId}) - Selected image model provider:`,
+            this.imageModelProvider
         );
 
         elizaLogger.info(
@@ -663,6 +664,23 @@ export class AgentRuntime implements IAgentRuntime {
                     contentItem,
                     isShared,
                 );
+
+                // check if the file is already processed
+                const isProcessed =
+                    await this.ragKnowledgeManager.isFileProcessed(knowledgeId);
+
+                elizaLogger.debug("[RAG Check] Checked if file is processed", {
+                    knowledgeId,
+                    isProcessed,
+                });
+
+                if (isProcessed) {
+                    elizaLogger.info(
+                        `File ${contentItem} already processed, skipping`
+                    );
+                    continue;
+                }
+
                 const fileExtension = contentItem
                     .split(".")
                     .pop()
@@ -715,11 +733,46 @@ export class AgentRuntime implements IAgentRuntime {
                             })),
                         });
 
-                        // Read file content
-                        const content: string = await readFile(
-                            filePath,
-                            "utf8",
-                        );
+                        // Read file content based on file type
+                        let content: string;
+
+                        if (fileExtension === "pdf") {
+                            // For PDF files, read as binary buffer and convert to text
+                            elizaLogger.info(
+                                `Reading PDF file as binary: ${filePath}`
+                            );
+                            const pdfBuffer = await readFile(filePath);
+
+                            // Get the PDF service
+                            const pdfService = this.getService<IPdfService>(
+                                "pdf" as ServiceType
+                            );
+                            if (!pdfService) {
+                                elizaLogger.error(
+                                    "PDF service not found. Cannot process PDF file."
+                                );
+                                hasError = true;
+                                continue;
+                            }
+
+                            // Convert PDF buffer to text
+                            elizaLogger.info(
+                                `Converting PDF to text: ${filePath}`
+                            );
+                            content = await pdfService.convertPdfToText(
+                                pdfBuffer
+                            );
+                            elizaLogger.info(
+                                `PDF conversion complete. Text length: ${content.length}`
+                            );
+                        } else {
+                            // For text files, read as UTF-8
+                            content = await readFile(
+                                filePath,
+                                "utf8",
+                            );
+                        }
+
                         if (!content) {
                             hasError = true;
                             continue;
@@ -1686,6 +1739,11 @@ Text: ${attachment.text}
         ) as Evaluator[];
         const actionsData = resolvedActions.filter(Boolean) as Action[];
 
+        elizaLogger.debug(
+            "characterMessageExamples",
+            initialState.characterMessageExamples
+        );
+
         const actionState = {
             actionNames:
                 "Possible response actions: " + formatActionNames(actionsData),
@@ -1696,13 +1754,14 @@ Text: ${attachment.text}
                           formatActions(actionsData),
                       )
                     : "",
-            actionExamples:
-                actionsData.length > 0
-                    ? addHeader(
-                          "# Action Examples",
-                          composeActionExamples(actionsData, 10),
-                      )
-                    : "",
+            actionExamples: initialState.characterMessageExamples
+                ? initialState.characterMessageExamples
+                : actionsData.length > 0
+                ? addHeader(
+                      "# Action Examples",
+                      composeActionExamples(actionsData, 10) // default examples
+                  )
+                : "",
             evaluatorsData,
             evaluators:
                 evaluatorsData.length > 0
@@ -1796,12 +1855,12 @@ const formatKnowledge = (knowledge: KnowledgeItem[]) => {
     return knowledge.map(item => {
         // Get the main content text
         const text = item.content.text;
-        
+
         // Clean up formatting but maintain natural text flow
         const cleanedText = text
             .trim()
             .replace(/\n{3,}/g, '\n\n'); // Replace excessive newlines
-            
+
         return cleanedText;
     }).join('\n\n'); // Separate distinct pieces with double newlines
 };
