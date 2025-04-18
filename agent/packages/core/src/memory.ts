@@ -66,6 +66,7 @@ export class MemoryManager implements IMemoryManager {
 
         try {
             // Generate embedding from text content
+            elizaLogger.debug("Generating embedding for memory:", memory.id);
             memory.embedding = await embed(this.runtime, memoryText);
         } catch (error) {
             elizaLogger.error("Failed to generate embedding:", error);

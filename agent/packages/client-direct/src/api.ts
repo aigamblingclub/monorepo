@@ -1,5 +1,5 @@
 import express from "express";
-import type { Router } from 'express';
+import type { Router } from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
 import path from "path";
@@ -13,6 +13,7 @@ import {
     validateCharacterConfig,
     ServiceType,
     type Character,
+    stringToUuid,
 } from "@elizaos/core";
 
 // import type { TeeLogQuery, TeeLogService } from "@elizaos/plugin-tee-log";
@@ -54,7 +55,7 @@ function validateUUIDParams(
 export function createApiRouter(
     agents: Map<string, IAgentRuntime>,
     directClient: DirectClient
-):Router {
+): Router {
     const router = express.Router();
 
     router.use(cors());
@@ -83,7 +84,7 @@ export function createApiRouter(
         res.json({ agents: agentsList });
     });
 
-    router.get('/storage', async (req, res) => {
+    router.get("/storage", async (req, res) => {
         try {
             const uploadDir = path.join(process.cwd(), "data", "characters");
             const files = await fs.promises.readdir(uploadDir);
@@ -243,12 +244,30 @@ export function createApiRouter(
     //     }
     // });
 
-    router.get("/agents/:agentId/:roomId/memories", async (req, res) => {
-        const { agentId, roomId } = validateUUIDParams(req.params, res) ?? {
+    // simplified the api, create roomId here and not in the client
+    // router.get("/agents/:agentId/:roomId/memories", async (req, res) => {
+    //     const { agentId, roomId } = validateUUIDParams(req.params, res) ?? {
+    //         agentId: null,
+    //         roomId: null,
+    //     };
+    //     if (!agentId || !roomId) return;
+
+    router.get("/agents/:agentId/memories", async (req, res) => {
+        // const { agentId, roomId } = validateUUIDParams(req.params, res) ?? {
+        const { agentId } = validateUUIDParams(req.params, res) ?? {
             agentId: null,
             roomId: null,
         };
-        if (!agentId || !roomId) return;
+        // if (!agentId || !roomId) return;
+        if (!agentId) return;
+        elizaLogger.debug(
+            "api client [GET] /agents/:agentId/:roomId/memories",
+            {
+                agentId,
+                // roomId,
+            }
+        );
+        const roomId = stringToUuid(`default-room-${agentId}`);
 
         let runtime = agents.get(agentId);
 
@@ -266,6 +285,12 @@ export function createApiRouter(
 
         try {
             const memories = await runtime.messageManager.getMemories({
+                roomId,
+                count: 100,
+                unique: false,
+            });
+            elizaLogger.debug("api client [GET] memories", {
+                memoriesLength: memories.length,
                 roomId,
             });
             const response = {
@@ -417,8 +442,9 @@ export function createApiRouter(
                     characterJson
                 );
             } else if (characterPath) {
-                character =
-                    await directClient.loadCharacterTryPath(characterPath);
+                character = await directClient.loadCharacterTryPath(
+                    characterPath
+                );
             } else {
                 throw new Error("No character path or JSON provided");
             }

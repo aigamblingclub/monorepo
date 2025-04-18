@@ -22,6 +22,8 @@ import {
 import { defaultCharacter } from "./defaultCharacter.ts";
 
 import { bootstrapPlugin } from "@elizaos/plugin-bootstrap";
+import { createNodePlugin } from "@elizaos/plugin-node";
+
 import JSON5 from 'json5';
 
 import fs from "fs";
@@ -383,12 +385,21 @@ async function handlePluginImporting(plugins: string[]) {
                             .replace("@elizaos-plugins/plugin-", "")
                             .replace(/-./g, (x) => x[1].toUpperCase()) +
                         "Plugin"; // Assumes plugin function is camelCased with Plugin suffix
-                    if (!importedPlugin[functionName] && !importedPlugin.default) {
-                      elizaLogger.warn(plugin, 'does not have an default export or', functionName)
+                    if (
+                        !importedPlugin[functionName] &&
+                        !(importedPlugin as any).default
+                    ) {
+                        elizaLogger.warn(
+                            plugin,
+                            "does not have an default export or",
+                            functionName
+                        );
                     }
-                    return {...(
-                        importedPlugin.default || importedPlugin[functionName]
-                    ), npmName: plugin };
+                    return {
+                        ...((importedPlugin as any).default ||
+                            importedPlugin[functionName]),
+                        npmName: plugin,
+                    };
                 } catch (importError) {
                     console.error(
                         `Failed to import plugin: ${plugin}`,
@@ -397,7 +408,7 @@ async function handlePluginImporting(plugins: string[]) {
                     return false; // Return null for failed imports
                 }
             })
-        )
+        );
         // remove plugins that failed to load, so agent can try to start
         return importedPlugins.filter(p => !!p);
     } else {
@@ -614,22 +625,21 @@ export async function initializeClients(
     return clients;
 }
 
+let nodePlugin: any | undefined;
+
 export async function createAgent(
     character: Character,
     token: string
 ): Promise<AgentRuntime> {
     elizaLogger.log(`Creating runtime for character ${character.name}`);
+    nodePlugin ??= createNodePlugin();
     return new AgentRuntime({
         token,
         modelProvider: character.modelProvider,
         evaluators: [],
         character,
         // character.plugins are handled when clients are added
-        plugins: [
-            bootstrapPlugin,
-        ]
-            .flat()
-            .filter(Boolean),
+        plugins: [bootstrapPlugin, nodePlugin].flat().filter(Boolean),
         providers: [],
         managers: [],
         fetch: logFetch,

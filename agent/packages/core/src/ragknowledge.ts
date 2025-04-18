@@ -9,7 +9,7 @@ import {
     KnowledgeScope,
 } from "./types.ts";
 import { stringToUuid } from "./uuid.ts";
-import { existsSync } from "fs";
+import { existsSync, statSync } from "fs";
 import { join } from "path";
 
 /**
@@ -149,19 +149,19 @@ export class RAGKnowledgeManager implements IRAGKnowledgeManager {
         if (!text || !terms.length) {
             return false;
         }
-    
+
         const words = text.toLowerCase().split(" ").filter(w => w.length > 0);
-        
+
         // Find all positions for each term (not just first occurrence)
-        const allPositions = terms.flatMap(term => 
+        const allPositions = terms.flatMap(term =>
             words.reduce((positions, word, idx) => {
                 if (word.includes(term)) positions.push(idx);
                 return positions;
             }, [] as number[])
         ).sort((a, b) => a - b);
-    
+
         if (allPositions.length < 2) return false;
-    
+
         // Check proximity
         for (let i = 0; i < allPositions.length - 1; i++) {
             if (Math.abs(allPositions[i] - allPositions[i + 1]) <= 5) {
@@ -173,7 +173,7 @@ export class RAGKnowledgeManager implements IRAGKnowledgeManager {
                 return true;
             }
         }
-    
+
         return false;
     }
 
@@ -213,6 +213,9 @@ export class RAGKnowledgeManager implements IRAGKnowledgeManager {
                     searchText = `${relevantContext} ${processedQuery}`;
                 }
 
+                elizaLogger.debug("getKnowledge, Embedding search text", {
+                    searchText,
+                });
                 const embeddingArray = await embed(this.runtime, searchText);
 
                 const embedding = new Float32Array(embeddingArray);
@@ -294,6 +297,11 @@ export class RAGKnowledgeManager implements IRAGKnowledgeManager {
 
         try {
             // Process main document
+            elizaLogger.debug("Creating knowledge item:", {
+                id: item.id,
+                text: item.content.text,
+                metadata: item.content.metadata,
+            });
             const processedContent = this.preprocess(item.content.text);
             const mainEmbeddingArray = await embed(
                 this.runtime,
@@ -318,9 +326,11 @@ export class RAGKnowledgeManager implements IRAGKnowledgeManager {
             });
 
             // Generate and store chunks
+            elizaLogger.debug("Splitting chunks:");
             const chunks = await splitChunks(processedContent, 512, 20);
 
             for (const [index, chunk] of chunks.entries()) {
+                elizaLogger.debug("Embedding chunk");
                 const chunkEmbeddingArray = await embed(this.runtime, chunk);
                 const chunkEmbedding = new Float32Array(chunkEmbeddingArray);
                 const chunkId = `${item.id}-chunk-${index}` as UUID;
@@ -378,11 +388,112 @@ export class RAGKnowledgeManager implements IRAGKnowledgeManager {
         await this.runtime.databaseAdapter.removeKnowledge(id);
     }
 
+    /**
+     * Remove um arquivo e todos os seus chunks do banco de dados.
+     * @param scopedId ID do arquivo no banco de dados
+     */
+    private async removeFileAndChunks(scopedId: UUID): Promise<void> {
+        try {
+            // Remover o documento principal
+            await this.removeKnowledge(scopedId);
+
+            // Buscar todos os chunks relacionados a este arquivo usando o parâmetro query
+            const chunks = await this.runtime.databaseAdapter.getKnowledge({
+                agentId: this.runtime.agentId,
+                query: `originalId = '${scopedId}' AND isChunk = 1`,
+            });
+
+            // Remover todos os chunks
+            for (const chunk of chunks) {
+                await this.removeKnowledge(chunk.id);
+            }
+
+            elizaLogger.info(
+                `Removed file ${scopedId} and ${chunks.length} chunks`
+            );
+        } catch (error) {
+            elizaLogger.error(`Error removing file and chunks: ${error}`);
+        }
+    }
+
     async clearKnowledge(shared?: boolean): Promise<void> {
         await this.runtime.databaseAdapter.clearKnowledge(
             this.runtime.agentId,
             shared ? shared : false
         );
+    }
+
+    /**
+     * Verifica se um arquivo já foi processado e convertido em conhecimento.
+     * @param scopedId O ID do arquivo a ser verificado
+     * @returns true se o arquivo já foi processado, false caso contrário
+     */
+    async isFileProcessed(scopedId: UUID): Promise<boolean> {
+        try {
+            // Buscar o último chunk para este documento usando o parâmetro query
+            // Ordenamos por chunkIndex em ordem decrescente e limitamos a 1 resultado
+            const lastChunk = await this.runtime.databaseAdapter.getKnowledge({
+                agentId: this.runtime.agentId,
+                query: `SELECT * FROM knowledge WHERE (agentId = ? OR isShared = 1) AND originalId = '${scopedId}' ORDER BY chunkIndex DESC LIMIT 1`,
+            });
+
+            if (lastChunk.length === 0) {
+                return false; // Nenhum chunk encontrado
+            }
+
+            // Verificar se o último chunk indica que o processamento foi concluído
+            return (
+                lastChunk[0].content.metadata?.processingStatus === "completed"
+            );
+        } catch (error) {
+            elizaLogger.error(`Error checking if file is processed: ${error}`);
+            return false;
+        }
+    }
+
+    /**
+     * Verifica se um arquivo foi modificado desde a última vez que foi processado.
+     * @param filePath Caminho do arquivo
+     * @param scopedId ID do arquivo no banco de dados
+     * @returns true se o arquivo foi modificado, false caso contrário
+     */
+    private async isFileModified(
+        filePath: string,
+        scopedId: UUID
+    ): Promise<boolean> {
+        try {
+            // Buscar o último chunk para este documento
+            const lastChunk = await this.runtime.databaseAdapter.getKnowledge({
+                agentId: this.runtime.agentId,
+                query: `originalId = '${scopedId}' AND isChunk = 1 ORDER BY chunkIndex DESC LIMIT 1`,
+                limit: 1,
+            });
+
+            if (lastChunk.length === 0) {
+                return true; // Se não encontramos o arquivo no banco, consideramos como modificado
+            }
+
+            // Obter a data de processamento do último chunk
+            const processedAt = lastChunk[0].content.metadata?.processedAt || 0;
+
+            // Obter a data de modificação do arquivo no sistema de arquivos
+            const filePathFull = join(this.knowledgeRoot, filePath);
+            const fileExists = existsSync(filePathFull);
+
+            if (!fileExists) {
+                return true; // Se o arquivo não existe mais, consideramos como modificado
+            }
+
+            // Obter a data de modificação do arquivo
+            const fileStat = statSync(filePathFull);
+            const fileModifiedAt = fileStat.mtimeMs;
+
+            // Se o arquivo foi modificado após o processamento, consideramos como modificado
+            return fileModifiedAt > (processedAt as number);
+        } catch (error) {
+            elizaLogger.error(`Error checking if file is modified: ${error}`);
+            return true; // Em caso de erro, assumimos que o arquivo foi modificado
+        }
     }
 
     /**
@@ -531,107 +642,227 @@ export class RAGKnowledgeManager implements IRAGKnowledgeManager {
                 file.isShared || false
             );
 
+            // Check if the file has already been processed
+            const isProcessed = await this.isFileProcessed(scopedId);
+
+            if (isProcessed) {
+                // Verificar se o arquivo foi modificado desde a última vez que foi processado
+                const isModified = await this.isFileModified(
+                    file.path,
+                    scopedId
+                );
+
+                if (!isModified) {
+                    elizaLogger.info(
+                        `[File Progress] File ${file.path} already processed and not modified. Skipping.`
+                    );
+                    return;
+                } else {
+                    elizaLogger.info(
+                        `[File Progress] File ${file.path} was modified since last processing. Reprocessing.`
+                    );
+                    // Remover o conhecimento existente para evitar duplicatas
+                    await this.removeFileAndChunks(scopedId);
+                }
+            }
+
+            // Add detailed logging for content type and sample
+            elizaLogger.debug(
+                `[File Content] Type: ${file.type}, Content sample: ${content.substring(0, 100)}`
+            );
+
+            // Check for binary content in text
+            if (
+                file.type === "pdf" &&
+                /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(content)
+            ) {
+                elizaLogger.warn(
+                    `[File Content] Binary content detected in PDF file. This may indicate improper PDF processing.`
+                );
+            }
+
             // Step 1: Preprocessing
-            //const preprocessStart = Date.now();
             const processedContent = this.preprocess(content);
             timeMarker("Preprocessing");
 
-            // Step 2: Main document embedding
-            const mainEmbeddingArray = await embed(
-                this.runtime,
-                processedContent
+            // Log preprocessed content sample
+            elizaLogger.debug(
+                `[Preprocessed Content] Sample: ${processedContent.substring(
+                    0,
+                    100
+                )}`
             );
-            const mainEmbedding = new Float32Array(mainEmbeddingArray);
-            timeMarker("Main embedding");
 
-            // Step 3: Create main document
-            await this.runtime.databaseAdapter.createKnowledge({
-                id: scopedId,
-                agentId: this.runtime.agentId,
-                content: {
-                    text: content,
-                    metadata: {
-                        source: file.path,
-                        type: file.type,
-                        isShared: file.isShared || false,
-                    },
-                },
-                embedding: mainEmbedding,
-                createdAt: Date.now(),
-            });
-            timeMarker("Main document storage");
+            // Calculate dynamic chunk size based on content length
+            // Target around 2000 tokens per chunk (approximately 8000 characters)
+            const contentLength = processedContent.length;
+            const baseChunkSize = 8000;
+            const chunkSize = Math.min(
+                baseChunkSize,
+                Math.floor(contentLength / 10)
+            );
+            const chunkOverlap = Math.floor(chunkSize * 0.1); // 10% overlap
 
-            // Step 4: Generate chunks
-            const chunks = await splitChunks(processedContent, 512, 20);
+            // Split content into smaller chunks
+            const chunks = await splitChunks(
+                processedContent,
+                chunkSize,
+                chunkOverlap
+            );
             const totalChunks = chunks.length;
-            elizaLogger.info(`Generated ${totalChunks} chunks`);
+            elizaLogger.info(
+                `Generated ${totalChunks} chunks with size ${chunkSize} and overlap ${chunkOverlap}`
+            );
+
+            // Log first chunk sample
+            if (chunks.length > 0) {
+                elizaLogger.debug(
+                    `[First Chunk] Sample: ${chunks[0].substring(0, 100)}`
+                );
+            }
+
             timeMarker("Chunk generation");
 
-            // Step 5: Process chunks with larger batches
-            const BATCH_SIZE = 10; // Increased batch size
-            let processedChunks = 0;
+            // Calculate dynamic batch size based on chunk length
+            const calculateBatchSize = (chunkLength: number) => {
+                // Assuming roughly 4 characters per token
+                const estimatedTokens = chunkLength / 4;
+                // Target staying under 8000 tokens per batch
+                const tokensPerBatch = 7000;
+                const recommendedBatchSize = Math.max(
+                    1,
+                    Math.floor(tokensPerBatch / estimatedTokens)
+                );
+                return Math.min(10, recommendedBatchSize); // Cap at 10 chunks per batch
+            };
 
-            for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+            // Process chunks with dynamic batch sizes
+            let processedChunks = 0;
+            let failedChunks = 0;
+
+            for (let i = 0; i < chunks.length; ) {
+                const currentChunk = chunks[i];
+                const batchSize = calculateBatchSize(currentChunk.length);
                 const batchStart = Date.now();
+
                 const batch = chunks.slice(
                     i,
-                    Math.min(i + BATCH_SIZE, chunks.length)
+                    Math.min(i + batchSize, chunks.length)
                 );
-
-                // Process embeddings in parallel
-                const embeddings = await Promise.all(
-                    batch.map((chunk) => embed(this.runtime, chunk))
-                );
-
-                // Batch database operations
-                await Promise.all(
-                    embeddings.map(async (embeddingArray, index) => {
-                        const chunkId =
-                            `${scopedId}-chunk-${i + index}` as UUID;
-                        const chunkEmbedding = new Float32Array(embeddingArray);
-
-                        await this.runtime.databaseAdapter.createKnowledge({
-                            id: chunkId,
-                            agentId: this.runtime.agentId,
-                            content: {
-                                text: batch[index],
-                                metadata: {
-                                    source: file.path,
-                                    type: file.type,
-                                    isShared: file.isShared || false,
-                                    isChunk: true,
-                                    originalId: scopedId,
-                                    chunkIndex: i + index,
-                                    originalPath: file.path,
-                                },
-                            },
-                            embedding: chunkEmbedding,
-                            createdAt: Date.now(),
-                        });
-                    })
-                );
-
-                processedChunks += batch.length;
-                const batchTime = (Date.now() - batchStart) / 1000;
                 elizaLogger.info(
-                    `[Batch Progress] ${file.path}: Processed ${processedChunks}/${totalChunks} chunks (${batchTime.toFixed(2)}s for batch)`
+                    `Processing batch of ${batch.length} chunks (chunks ${i} to ${i + batch.length - 1})`
                 );
+
+                try {
+                    // Process embeddings in parallel with error handling for each chunk
+                    const embeddings = await Promise.all(
+                        batch.map(async (chunk, index) => {
+                            try {
+                                const embedding = await embed(
+                                    this.runtime,
+                                    chunk
+                                );
+                                return { success: true, embedding, index };
+                            } catch (error) {
+                                elizaLogger.error(
+                                    `Error embedding chunk ${i + index}:`,
+                                    error
+                                );
+                                failedChunks++;
+                                return { success: false, index };
+                            }
+                        })
+                    );
+
+                    // Process successful embeddings
+                    await Promise.all(
+                        embeddings
+                            .filter(
+                                (
+                                    result
+                                ): result is {
+                                    success: true;
+                                    embedding: number[];
+                                    index: number;
+                                } =>
+                                    result.success &&
+                                    Array.isArray(result.embedding)
+                            )
+                            .map(async ({ embedding, index }) => {
+                                const chunkId = `${scopedId}-chunk-${
+                                    i + index
+                                }` as UUID;
+                                const chunkEmbedding = new Float32Array(
+                                    embedding
+                                );
+
+                                await this.runtime.databaseAdapter.createKnowledge(
+                                    {
+                                        id: chunkId,
+                                        agentId: this.runtime.agentId,
+                                        content: {
+                                            text: batch[index],
+                                            metadata: {
+                                                source: file.path,
+                                                type: file.type,
+                                                isShared: file.isShared || false,
+                                                isChunk: true,
+                                                originalId: scopedId,
+                                                chunkIndex: i + index,
+                                                originalPath: file.path,
+                                                // only add completed status if it's the last chunk
+                                                ...(i + index ===
+                                                totalChunks - 1
+                                                    ? {
+                                                          processingStatus:
+                                                              "completed",
+                                                          totalChunks:
+                                                              totalChunks,
+                                                          processedAt:
+                                                              Date.now(),
+                                                      }
+                                                    : {}),
+                                            },
+                                        },
+                                        embedding: chunkEmbedding,
+                                        createdAt: Date.now(),
+                                    }
+                                );
+                            })
+                    );
+
+                    processedChunks += batch.length;
+                    const batchTime = (Date.now() - batchStart) / 1000;
+                    elizaLogger.info(
+                        `[Batch Progress] ${file.path}: Processed ${processedChunks}/${totalChunks} chunks (${batchTime.toFixed(2)}s for batch)`
+                    );
+
+                    i += batch.length;
+                } catch (error) {
+                    elizaLogger.error(
+                        `Error processing batch starting at chunk ${i}:`,
+                        error
+                    );
+                    // Move to next batch even if current fails
+                    i += batch.length;
+                    failedChunks += batch.length;
+                }
             }
 
             const totalTime = (Date.now() - startTime) / 1000;
             elizaLogger.info(
-                `[Complete] Processed ${file.path} in ${totalTime.toFixed(2)}s`
+                `[Complete] Processed ${file.path} in ${totalTime.toFixed(2)}s. ` +
+                `Successfully processed ${processedChunks - failedChunks}/${totalChunks} chunks. ` +
+                `Failed chunks: ${failedChunks}`
             );
-        } catch (error) {
-            if (
-                file.isShared &&
-                error?.code === "SQLITE_CONSTRAINT_PRIMARYKEY"
-            ) {
-                elizaLogger.info(
-                    `Shared knowledge ${file.path} already exists in database, skipping creation`
+
+            if (failedChunks > 0) {
+                elizaLogger.warn(
+                    `Some chunks (${failedChunks}) failed to process for ${file.path}. ` +
+                    `The document will be partially indexed.`
                 );
-                return;
             }
+        } catch (error) {
             elizaLogger.error(`Error processing file ${file.path}:`, error);
             throw error;
         }

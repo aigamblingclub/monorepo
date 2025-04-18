@@ -87,6 +87,12 @@ export const apiClient = {
             body: formData,
         });
     },
+    getMessageHistory: (agentId: string) => {
+        return fetcher({
+            url: `/agents/${agentId}/memories`,
+            method: "GET",
+        });
+    },
     getAgents: () => fetcher({ url: "/agents" }),
     getAgent: (agentId: string): Promise<{ id: UUID; character: Character }> =>
         fetcher({ url: `/agents/${agentId}` }),
