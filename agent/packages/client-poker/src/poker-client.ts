@@ -146,6 +146,105 @@ export class PokerClient implements Client {
         elizaLogger.info("PokerClient stopped");
     }
 
+    async joinGame(gameId: string): Promise<void> {
+        try {
+            this.playerName = this.runtime?.character.name || "ElizaPokerBot";
+            elizaLogger.info(
+                "Attempting to join game",
+                gameId,
+                "as",
+                this.playerName
+            );
+            this.playerId = await this.apiConnector.joinGame(
+                gameId,
+                this.playerName
+            );
+            this.gameId = gameId;
+            elizaLogger.info(
+                `Agent joined game ${gameId} as player ${this.playerName} (ID: ${this.playerId})`
+            );
+            // The apiConnector.joinGame method calls setPlayerReady internally
+            this.playerReadySet = true;
+            // Reset backoff on successful join
+            this.joinBackoffMs = 5000;
+        } catch (error: any) {
+            elizaLogger.error("Failed to join game:", error);
+
+            // Check if error is because player is already in this game
+            if (
+                error.message?.includes(
+                    "Player is already in an active game"
+                ) &&
+                error.gameId
+            ) {
+                // Use the gameId from the error response
+                elizaLogger.info(
+                    `Player already in game ${error.gameId}, connecting to existing game`
+                );
+
+                // Verificar o estado atual do jogador usando o novo endpoint
+                try {
+                    const playerGameStatus =
+                        await this.apiConnector.checkPlayerGame();
+
+                    if (playerGameStatus.inGame && playerGameStatus.gameId) {
+                        this.gameId = playerGameStatus.gameId;
+
+                        // Atualizar o ID do jogador se estiver disponível
+                        const ourPlayer = playerGameStatus.game?.players.find(
+                            (player) => player.name === this.playerName
+                        );
+
+                        if (ourPlayer) {
+                            this.playerId = ourPlayer.id;
+                            elizaLogger.info(
+                                `Found player ID: ${this.playerId} in existing game`
+                            );
+
+                            // Verificar se o jogador precisa ser marcado como ready
+                            if (!ourPlayer.isReady) {
+                                elizaLogger.info(
+                                    "Player is not ready yet, setting ready status"
+                                );
+                                try {
+                                    await this.apiConnector.setPlayerReady();
+                                    elizaLogger.info(
+                                        "Successfully set player ready status"
+                                    );
+                                    // Mark that we've set the player ready
+                                    this.playerReadySet = true;
+                                } catch (readyError) {
+                                    elizaLogger.error(
+                                        "Error setting player ready status:",
+                                        readyError
+                                    );
+                                }
+                            } else {
+                                elizaLogger.info(
+                                    "Player is already ready according to server"
+                                );
+                                this.playerReadySet = true; // Update flag to match server state
+                            }
+
+                            return; // Successfully connected to existing game
+                        }
+                    }
+                } catch (e) {
+                    elizaLogger.error(
+                        "Error retrieving player data from existing game:",
+                        e
+                    );
+                }
+            } else if (error.message?.includes("Game is full")) {
+                // If game is full, increase backoff time
+                this.joinBackoffMs = Math.min(this.joinBackoffMs * 2, 30000);
+            }
+
+            // Reset state since join failed and we couldn't recover
+            this.resetGame();
+        }
+    }
+
     private async handleGameUpdate(gameState: GameState): Promise<void> {
         try {
             // Handle game over state
@@ -264,6 +363,131 @@ export class PokerClient implements Client {
             }
         } catch (error) {
             elizaLogger.error("Error handling game update:", error);
+        }
+    }
+
+    // Método auxiliar para verificar se o jogador já está em um jogo e conectar a ele
+    private async checkAndConnectToExistingGame(): Promise<boolean> {
+        try {
+            elizaLogger.info("Checking for existing game");
+            // Verificar se já está em um jogo usando o endpoint específico
+            const playerGameStatus = await this.apiConnector.checkPlayerGame();
+            elizaLogger.info(
+                `Player game status: ${JSON.stringify(playerGameStatus)}`
+            );
+            if (playerGameStatus.inGame && playerGameStatus.gameId) {
+                // Jogador já está em um jogo, conectar a ele
+                elizaLogger.info(
+                    `Player already in game: ${playerGameStatus.gameId}`
+                );
+                this.gameId = playerGameStatus.gameId;
+
+                // Store the current game state
+                if (playerGameStatus.game) {
+                    this.gameState = {
+                        id: playerGameStatus.game.id,
+                        players: playerGameStatus.game.players.map((p) => ({
+                            id: p.id,
+                            name: p.name,
+                            isReady: p.isReady,
+                            chips: 0,
+                            currentBet: 0,
+                            isFolded: false,
+                        })),
+                        gameState: playerGameStatus.game.state as
+                            | "waiting"
+                            | "preflop"
+                            | "flop"
+                            | "turn"
+                            | "river"
+                            | "showdown",
+                        pot: 0,
+                        isGameOver: false,
+                        lastUpdateTime: playerGameStatus.game.createdAt,
+                        currentBet: 0,
+                        communityCards: [],
+                    };
+                }
+
+                // Verificar se o player precisa ser marcado como ready
+                const ourPlayer = playerGameStatus.game?.players.find(
+                    (player) => player.name === this.playerName
+                );
+
+                if (ourPlayer) {
+                    // Save the player ID
+                    // this.playerId = ourPlayer.id;
+
+                    // Only set ready if player is not already ready and we haven't set it yet
+                    if (!ourPlayer.isReady && !this.playerReadySet) {
+                        elizaLogger.info(
+                            "Player is not ready yet, setting ready status"
+                        );
+                        try {
+                            await this.apiConnector.setPlayerReady();
+                            elizaLogger.info(
+                                "Successfully set player ready status"
+                            );
+
+                            // Mark that we've set the player ready
+                            this.playerReadySet = true;
+
+                            // Update local state to avoid repeated calls
+                            if (this.gameState && this.gameState.players) {
+                                const playerIndex =
+                                    this.gameState.players.findIndex(
+                                        (p) => p.name === this.playerName
+                                    );
+                                if (playerIndex >= 0) {
+                                    this.gameState.players[
+                                        playerIndex
+                                    ].isReady = true;
+                                }
+                            }
+                        } catch (error) {
+                            elizaLogger.error(
+                                "Error setting player ready status:",
+                                error
+                            );
+                        }
+                    } else {
+                        // If already ready or we've already set it
+                        if (ourPlayer.isReady) {
+                            elizaLogger.info(
+                                "Player is already ready according to server"
+                            );
+                            this.playerReadySet = true; // Update our flag to match server state
+                        } else if (this.playerReadySet) {
+                            elizaLogger.info(
+                                "Player ready status already set in this session"
+                            );
+                        }
+                    }
+                }
+
+                return true; // Conectado a um jogo existente
+            } else {
+                elizaLogger.info(
+                    "Player is not in a game, checking for available games"
+                );
+                const availableGames =
+                    await this.apiConnector.getAvailableGames();
+                elizaLogger.info(
+                    `Available games: ${JSON.stringify(availableGames)}`
+                );
+
+                if (availableGames.length > 0) {
+                    // Entrar no primeiro jogo disponível
+                    await this.joinGame(availableGames[0].id);
+                    return true; // Tentativa de entrada em um jogo
+                } else {
+                    elizaLogger.info("No available games found to join");
+                    return false; // Nenhum jogo disponível para entrar
+                }
+            }
+        } catch (error) {
+            elizaLogger.error("Error checking player game status:", error);
+            return false;
         }
     }
 }
