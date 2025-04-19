@@ -703,4 +703,232 @@ export class PokerClient implements Client {
 
         return maxConsecutive >= 4; // 4 cartas consecutivas indicam potencial de straight
     }
+
+    private prepareGameContext(gameState: GameState): string {
+        const playerInfo = gameState.players.find(
+            (p) => p.id === this.playerId
+        );
+
+        if (!playerInfo) {
+            return "Não foi possível encontrar suas informações no jogo. Decisão: FOLD";
+        }
+
+        const currentPlayer =
+            gameState.players[gameState.currentPlayerIndex ?? -1];
+        const isMyTurn = currentPlayer?.id === this.playerId;
+
+        // Format cards for display
+        const formatCard = (card: Card) => `${card.rank}${card.suit}`;
+        const formatCards = (cards: Card[]) => cards.map(formatCard).join(" ");
+
+        // Análise básica da mão
+        let handStrength = "desconhecida";
+        if (playerInfo.hand && playerInfo.hand.length === 2) {
+            // Verificar se tem par na mão
+            if (playerInfo.hand[0].rank === playerInfo.hand[1].rank) {
+                handStrength = "forte - par na mão";
+            }
+            // Verificar se tem cartas altas
+            else if (
+                ["A", "K", "Q", "J"].includes(playerInfo.hand[0].rank) ||
+                ["A", "K", "Q", "J"].includes(playerInfo.hand[1].rank)
+            ) {
+                handStrength = "média - carta alta";
+            }
+            // Verificar se tem cartas do mesmo naipe
+            else if (playerInfo.hand[0].suit === playerInfo.hand[1].suit) {
+                handStrength = "potencial de flush";
+            }
+            // Cartas sequenciais
+            else {
+                const ranks = [
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    "10",
+                    "J",
+                    "Q",
+                    "K",
+                    "A",
+                ];
+                const rank1Index = ranks.indexOf(playerInfo.hand[0].rank);
+                const rank2Index = ranks.indexOf(playerInfo.hand[1].rank);
+                if (Math.abs(rank1Index - rank2Index) === 1) {
+                    handStrength = "potencial de straight";
+                } else {
+                    handStrength = "fraca";
+                }
+            }
+        }
+
+        // Calcular quantos jogadores ainda estão ativos
+        const activePlayers = gameState.players.filter(
+            (p) => !p.isFolded
+        ).length;
+
+        // Calcular minha posição relativa em fichas comparado aos outros jogadores
+        const allChips = gameState.players.map((p) => p.chips);
+        const myChipRank =
+            allChips.filter((chips) => chips > (playerInfo.chips || 0)).length +
+            1;
+        const totalPlayers = gameState.players.length;
+
+        // Calcular o pot odds (relação entre o tamanho do pote e o custo para continuar)
+        const potOdds =
+            gameState.currentBet > 0
+                ? `${
+                      Math.round((gameState.pot / gameState.currentBet) * 100) /
+                      100
+                  }:1`
+                : "N/A";
+
+        const context = [
+            `Fase do jogo: ${gameState.gameState}`,
+            `Pot atual: ${gameState.pot}`,
+            `Aposta atual: ${gameState.currentBet}`,
+            `Suas cartas: ${
+                playerInfo.hand ? formatCards(playerInfo.hand) : "Desconhecidas"
+            }`,
+            `Força estimada da sua mão: ${handStrength}`,
+            `Cartas comunitárias: ${formatCards(gameState.communityCards)}`,
+            `Suas fichas: ${playerInfo.chips}`,
+            `Sua posição em fichas: ${myChipRank}º de ${totalPlayers}`,
+            `Sua aposta atual: ${playerInfo.currentBet}`,
+            `Pot odds: ${potOdds}`,
+            `Última ação: ${gameState.lastAction || "Nenhuma"}`,
+            `Último aumento: ${gameState.lastRaiseAmount || 0}`,
+            `Jogadores ativos: ${activePlayers} de ${totalPlayers}`,
+            `\nJogadores:`,
+            ...gameState.players.map(
+                (p) =>
+                    `${p.name}: ${p.chips} fichas, aposta ${p.currentBet}, ${
+                        p.isFolded ? "foldou" : "ativo"
+                    }`
+            ),
+            `\nHistórico da rodada:`,
+            ...(gameState.roundHistory || []),
+        ].join("\n");
+
+        return context;
+    }
+
+    private parseAgentResponse(response: string): PokerDecision {
+        try {
+            const normalized = response.trim().toUpperCase();
+            elizaLogger.info(`Parsing agent response: "${normalized}"`);
+
+            // Padrões regex para detectar diferentes formatos de resposta
+            const foldPattern = /\b(FOLD|DESISTIR|PASSAR|PASSO|F)\b/;
+            const checkPattern = /\b(CHECK|CHECAR|PASS|PASSAR|C)\b/;
+            const callPattern = /\b(CALL|CHAMAR|PAGAR|COBRIR)\b/;
+            const raisePattern =
+                /\b(RAISE|RAISE TO|AUMENTAR|BET|APOSTAR|R)[ :]+(\d+)\b/;
+            const allInPattern = /\b(ALL[ -]IN|ALL|TUDO|ALL-IN)\b/;
+
+            // Verificar cada padrão em ordem de prioridade
+            if (allInPattern.test(normalized)) {
+                // All-in é uma forma de RAISE com todas as fichas
+                return { action: PlayerAction.RAISE, amount: 999999 }; // Usamos um valor muito alto para representar all-in
+            }
+
+            const raiseMatch = normalized.match(raisePattern);
+            if (raiseMatch && raiseMatch[2]) {
+                const amount = parseInt(raiseMatch[2]);
+                if (!isNaN(amount) && amount > 0) {
+                    return { action: PlayerAction.RAISE, amount };
+                }
+            }
+
+            if (callPattern.test(normalized)) {
+                return { action: PlayerAction.CALL };
+            }
+
+            if (checkPattern.test(normalized)) {
+                return { action: PlayerAction.CHECK };
+            }
+
+            if (foldPattern.test(normalized)) {
+                return { action: PlayerAction.FOLD };
+            }
+
+            // Se a resposta contém algum texto que pode ser interpretado como uma jogada mais agressiva
+            if (
+                normalized.includes("APOSTA") ||
+                normalized.includes("RAISE") ||
+                normalized.includes("AUMENTA") ||
+                normalized.includes("BET")
+            ) {
+                // Sem valor específico, optamos por um raise padrão
+                return { action: PlayerAction.RAISE, amount: 20 };
+            }
+
+            // Se contém texto que pode ser interpretado como CALL
+            if (
+                normalized.includes("CALL") ||
+                normalized.includes("CHAMA") ||
+                normalized.includes("PAGA") ||
+                normalized.includes("IGUAL")
+            ) {
+                return { action: PlayerAction.CALL };
+            }
+
+            // Se contém texto que pode ser interpretado como CHECK
+            if (
+                normalized.includes("CHECK") ||
+                normalized.includes("PASSA") ||
+                normalized.includes("CHEC")
+            ) {
+                return { action: PlayerAction.CHECK };
+            }
+
+            // Se não conseguimos interpretar claramente, usamos uma heurística baseada
+            // no conteúdo da resposta para tentar inferir a intenção
+
+            // Analisar o contexto da resposta para determinar a intenção
+            const isAggressive =
+                normalized.includes("FORTE") ||
+                normalized.includes("BOM") ||
+                normalized.includes("AGRESSIV") ||
+                normalized.includes("AUMENTA");
+
+            const isConservative =
+                normalized.includes("FRACA") ||
+                normalized.includes("RUIM") ||
+                normalized.includes("PIOR") ||
+                normalized.includes("SAIR");
+
+            // Decisão baseada na intenção percebida na resposta
+            if (isAggressive) {
+                // Se parece agressivo, fazer CALL ou RAISE
+                elizaLogger.warn(
+                    "Using context-based interpretation: aggressive response detected, choosing CALL",
+                    response
+                );
+                return { action: PlayerAction.CALL };
+            } else if (isConservative) {
+                // Se parece conservador, fazer FOLD
+                elizaLogger.warn(
+                    "Using context-based interpretation: conservative response detected, choosing FOLD",
+                    response
+                );
+                return { action: PlayerAction.FOLD };
+            } else {
+                // Caso não tenha contexto claro, CHECK é a opção mais neutra
+                elizaLogger.warn(
+                    "Could not clearly parse agent response, choosing CHECK as default action",
+                    response
+                );
+                return { action: PlayerAction.CHECK };
+            }
+        } catch (error) {
+            elizaLogger.error("Error parsing agent response:", error);
+            // Em caso de erro, escolhemos a opção mais segura (CHECK se possível, FOLD como fallback)
+            return { action: PlayerAction.FOLD };
+        }
+    }
 }
