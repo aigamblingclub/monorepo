@@ -18,6 +18,10 @@
             "outputs": ["dist/**"],
             "dependsOn": []
         },
+        "@elizaos/client-poker#build": {
+            "outputs": ["dist/**"],
+            "dependsOn": []
+        },
         "eliza-docs#build": {
             "outputs": ["build/**"]
         },

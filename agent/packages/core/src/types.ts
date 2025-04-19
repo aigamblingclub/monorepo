@@ -753,6 +753,9 @@ export type Character = {
     /** Optional model endpoint override */
     modelEndpointOverride?: string;
 
+    /** List of client types to enable */
+    clients?: string[];
+
     /** Optional prompt templates */
     templates?: {
         goalsTemplate?: TemplateType;
