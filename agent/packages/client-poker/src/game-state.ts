@@ -31,3 +31,41 @@ export interface WinnerInfo {
     winningHand: Card[];
     handDescription: string;
 }
+
+export interface GameState {
+    id: string;
+    players: PlayerState[];
+    gameState: "waiting" | "preflop" | "flop" | "turn" | "river" | "showdown";
+    pot: number;
+    isGameOver: boolean;
+    lastUpdateTime: string;
+    currentBet: number;
+    lastAction?: string;
+    lastRaiseAmount?: number;
+    currentPlayerIndex?: number;
+    communityCards: Card[];
+    roundHistory?: string[];
+    winner?: WinnerInfo;
+    finalHands?: Array<PlayerState & { hand: Card[] }>;
+    finalCommunityCards?: Card[];
+    finalPot?: number;
+}
+
+export interface AvailableGame {
+    id: string;
+    players: Array<{
+        id?: string;
+        name: string;
+        isReady: boolean;
+    }>;
+    createdAt: string;
+    state?: string;
+    playersNeeded?: number;
+}
+
+export interface AvailableGamesResponse {
+    games: AvailableGame[];
+    maxGames: number;
+    currentGames: number;
+    canCreateNew: boolean;
+}
