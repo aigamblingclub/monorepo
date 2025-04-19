@@ -5,30 +5,29 @@ import {
     AvailableGamesResponse,
     AvailableGame,
 } from "./game-state";
-import { ApiError } from './types';
 
 export class ApiConnector {
     private baseUrl: string;
-    private playerId: string;
-    private playerName: string;
+    private playerId: string | null = null;
+    private playerName: string | null = null;
     private apiKey: string | null = null;
 
-    constructor(baseUrl: string, playerId: string, playerName: string) {
+    constructor(baseUrl: string, apiKey?: string) {
         this.baseUrl = baseUrl;
-        this.playerId = playerId;
-        this.playerName = playerName;
+        this.apiKey = apiKey || null;
         elizaLogger.log("ApiConnector initialized with base URL:", baseUrl);
+        if (apiKey) {
+            elizaLogger.log("ApiConnector initialized with API key");
+        }
     }
 
     private getHeaders(): HeadersInit {
         const headers: HeadersInit = {
             "Content-Type": "application/json",
-            "X-Player-ID": this.playerId,
-            "X-Player-Name": this.playerName,
         };
 
         if (this.apiKey) {
-            headers["X-API-Key"] = this.apiKey;
+            headers["x-api-key"] = this.apiKey;
             elizaLogger.debug("Adding API key to request headers");
         } else {
             elizaLogger.warn("No API key available for request");
@@ -36,7 +35,7 @@ export class ApiConnector {
 
         elizaLogger.debug("Request headers:", {
             ...headers,
-            "X-API-Key": this.apiKey ? "[REDACTED]" : "undefined",
+            "x-api-key": this.apiKey ? "[REDACTED]" : "undefined",
         });
         return headers;
     }
@@ -45,7 +44,7 @@ export class ApiConnector {
         return this.baseUrl;
     }
 
-    getPlayerId(): string {
+    getPlayerId(): string | null {
         return this.playerId;
     }
 
@@ -53,55 +52,61 @@ export class ApiConnector {
         this.apiKey = apiKey;
         elizaLogger.info("API key updated");
     }
+    async checkPlayerGame(): Promise<{
+        inGame: boolean;
+        gameId?: string;
+        game?: {
+            id: string;
+            state: string;
+            players: Array<{
+                id: string;
+                name: string;
+                isReady: boolean;
+            }>;
+            createdAt: string;
+        };
+    }> {
+        try {
+            const url = `${this.baseUrl}/api/game/player-game`;
+            elizaLogger.log(`Checking if player is in a game: ${url}`);
 
-    clearApiKey() {
-        this.apiKey = null;
-        elizaLogger.info("API key cleared");
-    }
+            const response = await fetch(url, {
+                headers: this.getHeaders(),
+            });
 
-    private async handleResponse<T>(response: Response): Promise<T> {
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new ApiError(
-                error.message || 'API request failed',
-                response.status,
-                error.code
-            );
+            if (!response.ok) {
+                const errorText = await response.text();
+                elizaLogger.error(
+                    `HTTP error (${response.status}): ${errorText}`
+                );
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            elizaLogger.log(`Player game check result:`, data);
+
+            // If player is in a game, update local state
+            if (data.inGame && data.gameId) {
+                // O jogador que fez a requisição é o dono do apiKey
+                // Não precisamos procurar, todos os dados são sobre ele
+
+                if (data.player) {
+                    // Buscamos o nome se disponível
+                    const playerInfo = data.player;
+                    this.playerName = playerInfo.name;
+
+                    elizaLogger.info(
+                        `Found player in game: ${data.gameId},player: ${
+                            playerInfo.name
+                        }, ready: ${!!playerInfo?.isReady}`
+                    );
+                }
+            }
+
+            return data;
+        } catch (error) {
+            elizaLogger.error(`Error checking player game:`, error);
+            return { inGame: false };
         }
-        return response.json();
-    }
-
-    public async get<T>(endpoint: string): Promise<T> {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            method: 'GET',
-            headers: this.getHeaders(),
-        });
-        return this.handleResponse<T>(response);
-    }
-
-    public async post<T>(endpoint: string, data: any): Promise<T> {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify(data),
-        });
-        return this.handleResponse<T>(response);
-    }
-
-    public async put<T>(endpoint: string, data: any): Promise<T> {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            method: 'PUT',
-            headers: this.getHeaders(),
-            body: JSON.stringify(data),
-        });
-        return this.handleResponse<T>(response);
-    }
-
-    public async delete<T>(endpoint: string): Promise<T> {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            method: 'DELETE',
-            headers: this.getHeaders(),
-        });
-        return this.handleResponse<T>(response);
     }
 }
