@@ -610,4 +610,97 @@ export class PokerClient implements Client {
             return { action: PlayerAction.FOLD };
         }
     }
+
+    // Verifica se a mão tem pelo menos uma carta alta (A, K, Q, J)
+    private hasHighCard(hand: Card[]): boolean {
+        const highCards = ["A", "K", "Q", "J"];
+        return hand.some((card) => highCards.includes(card.rank));
+    }
+
+    // Verifica se a mão tem um par
+    private hasPair(hand: Card[]): boolean {
+        return hand.length === 2 && hand[0].rank === hand[1].rank;
+    }
+
+    // Função auxiliar para avaliar a força da mão
+    private hasStrongHand(hand: Card[], communityCards: Card[]): boolean {
+        // Implementação simples para verificar se tem um par ou melhor
+        if (!hand || hand.length < 2) return false;
+
+        // Verificar se tem par na mão
+        if (hand[0].rank === hand[1].rank) return true;
+
+        // Verificar se forma par com alguma carta comunitária
+        for (const handCard of hand) {
+            for (const communityCard of communityCards) {
+                if (handCard.rank === communityCard.rank) return true;
+            }
+        }
+
+        // Verificar se tem cartas altas (A, K, Q)
+        const highCards = ["A", "K", "Q"];
+        if (
+            highCards.includes(hand[0].rank) ||
+            highCards.includes(hand[1].rank)
+        ) {
+            // Com carta alta e estágio avançado do jogo, considerar como potencialmente forte
+            if (communityCards.length >= 3) {
+                return this.hasDrawPotential(hand, communityCards);
+            }
+        }
+
+        return false;
+    }
+
+    // Verifica se há potencial para straight ou flush
+    private hasDrawPotential(hand: Card[], communityCards: Card[]): boolean {
+        // Combinar mão e cartas comunitárias
+        const allCards = [...hand, ...communityCards];
+
+        // Verificar potencial de flush (4+ cartas do mesmo naipe)
+        const suitCounts: Record<string, number> = {};
+        for (const card of allCards) {
+            suitCounts[card.suit] = (suitCounts[card.suit] || 0) + 1;
+        }
+
+        if (Object.values(suitCounts).some((count) => count >= 4)) {
+            return true;
+        }
+
+        // Verificar potencial de straight (sequência com no máximo 1 gap)
+        const ranks = [
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "J",
+            "Q",
+            "K",
+            "A",
+        ];
+        const rankIndices = allCards
+            .map((card) => ranks.indexOf(card.rank))
+            .sort((a, b) => a - b);
+
+        let consecutiveCount = 1;
+        let maxConsecutive = 1;
+
+        for (let i = 1; i < rankIndices.length; i++) {
+            if (rankIndices[i] === rankIndices[i - 1]) continue; // Ignorar duplicatas
+
+            if (rankIndices[i] === rankIndices[i - 1] + 1) {
+                consecutiveCount++;
+                maxConsecutive = Math.max(maxConsecutive, consecutiveCount);
+            } else {
+                consecutiveCount = 1;
+            }
+        }
+
+        return maxConsecutive >= 4; // 4 cartas consecutivas indicam potencial de straight
+    }
 }
