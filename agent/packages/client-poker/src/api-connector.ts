@@ -356,4 +356,45 @@ export class ApiConnector {
             return [];
         }
     }
+
+    async submitAction(
+        gameId: string,
+        playerId: string,
+        decision: PokerDecision
+    ): Promise<void> {
+        try {
+            const playerIdForAction = playerId;
+            const url = `${this.baseUrl}/api/game/action`;
+            elizaLogger.log(
+                `Submitting action to game ${gameId} for player ${this.playerName} (ID: ${playerIdForAction})`,
+                decision
+            );
+
+            const response = await fetch(url, {
+                method: "POST",
+                headers: this.getHeaders(),
+                body: JSON.stringify({
+                    gameId,
+                    playerId: playerIdForAction,
+                    action: decision.action,
+                    amount: decision.amount,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                elizaLogger.error(
+                    `HTTP error (${response.status}): ${errorText}`
+                );
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            elizaLogger.log(
+                `Successfully submitted action for player ${this.playerName}`
+            );
+        } catch (error) {
+            elizaLogger.error(`Error submitting action:`, error);
+            throw error;
+        }
+    }
 }
