@@ -1,4 +1,5 @@
 import { DirectClient } from "@elizaos/client-direct";
+import { PokerClient, createPokerClient } from "@elizaos/client-poker";
 import {
     type Adapter,
     AgentRuntime,
@@ -608,14 +609,25 @@ export async function initializeClients(
     // const clientTypes = clients.map((c) => c.name);
     // elizaLogger.log("initializeClients", clientTypes, "for", character.name);
 
+    // Verificar se o personagem tem o cliente de poker configurado
+    if (character.clients?.includes("poker")) {
+        try {
+            const pokerClient = createPokerClient(runtime);
+            const startedClient = await pokerClient.start(runtime);
+            elizaLogger.info("Initialized poker client");
+            clients.push(startedClient);
+        } catch (error) {
+            elizaLogger.error("Failed to initialize poker client:", error);
+            throw error;
+        }
+    }
+
     if (character.plugins?.length > 0) {
         for (const plugin of character.plugins) {
             if (plugin.clients) {
                 for (const client of plugin.clients) {
                     const startedClient = await client.start(runtime);
-                    elizaLogger.debug(
-                        `Initializing client: ${client.name}`
-                    );
+                    elizaLogger.debug(`Initializing client: ${client.name}`);
                     clients.push(startedClient);
                 }
             }
