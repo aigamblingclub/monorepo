@@ -490,4 +490,124 @@ export class PokerClient implements Client {
             return false;
         }
     }
+
+    private async makeDecision(gameState: GameState): Promise<PokerDecision> {
+        try {
+            if (!this.runtime) return { action: PlayerAction.FOLD };
+            elizaLogger.info("gameState:", gameState);
+            // Preparar contexto para o modelo
+            const context = this.prepareGameContext(gameState);
+
+            // Consultar o agente para tomar uma decisão
+            elizaLogger.info("Asking agent for poker decision");
+
+            const response = await generateText({
+                runtime: this.runtime,
+                context: context,
+                modelClass: ModelClass.MEDIUM,
+                customSystemPrompt: `Você é um jogador de poker experiente chamado ${
+                    this.runtime.character.name || "PokerBot"
+                }.
+
+                Na mesa temos ${gameState.players.length} jogadores. Na mesa ${
+                    this.gameId
+                }
+                Seu objetivo é maximizar seus ganhos usando estratégia avançada de poker.
+                Analise cuidadosamente a situação atual do jogo e tome uma decisão estratégica.
+
+                Considere os seguintes elementos para sua decisão:
+                1. A força da sua mão atual
+                2. Suas chances de melhorar com as cartas comunitárias
+                3. O tamanho do pote e da aposta atual
+                4. Sua posição na mesa e quantidade de fichas
+                5. O comportamento dos outros jogadores
+
+                Evite dar fold constantemente - use check, call ou raise quando apropriado.
+                Uma estratégia de poker bem sucedida envolve uma mistura de jogadas conservadoras e agressivas.
+
+                IMPORTANTE: Responda APENAS com um dos seguintes formatos:
+                - "FOLD" (quando quiser desistir)
+                - "CHECK" (quando quiser passar sem apostar)
+                - "CALL" (quando quiser igualar a aposta atual)
+                - "RAISE X" (onde X é o valor total da aposta, incluindo a aposta atual)
+
+                NÃO inclua explicações ou comentários adicionais - apenas a ação.`,
+            });
+            elizaLogger.info(`Agent response: ${response}`);
+            elizaLogger.info(`Agent context: ${context}`);
+            // Analisar a resposta para extrair a ação
+            const decision = this.parseAgentResponse(response);
+            elizaLogger.info(`Agent decision: ${JSON.stringify(decision)}`);
+
+            // Substituir a lógica aleatória por uma análise estratégica determinística
+            if (decision.action === PlayerAction.FOLD) {
+                // Obter informações do jogador e do estado do jogo
+                const playerInfo = gameState.players.find(
+                    (p) => p.id === this.playerId
+                );
+
+                if (playerInfo) {
+                    // Se não há aposta atual, sempre é melhor CHECK do que FOLD
+                    if (gameState.currentBet === 0) {
+                        elizaLogger.info(
+                            "Overriding FOLD to CHECK when no current bet"
+                        );
+                        return { action: PlayerAction.CHECK };
+                    }
+
+                    // Se o jogador tem uma mão forte, considerar CALL ou CHECK em vez de FOLD
+                    if (
+                        playerInfo.hand &&
+                        this.hasStrongHand(
+                            playerInfo.hand,
+                            gameState.communityCards
+                        )
+                    ) {
+                        // Se a aposta é pequena em relação às fichas do jogador, fazer CALL
+                        if (gameState.currentBet <= playerInfo.chips / 10) {
+                            elizaLogger.info(
+                                "Overriding FOLD to CALL with strong hand and small bet"
+                            );
+                            return { action: PlayerAction.CALL };
+                        }
+                    }
+
+                    // Se a fase do jogo é preflop e o jogador tem boas cartas iniciais
+                    if (gameState.gameState === "preflop" && playerInfo.hand) {
+                        const hasHighCard = this.hasHighCard(playerInfo.hand);
+                        const hasPair = this.hasPair(playerInfo.hand);
+
+                        // Com par inicial ou cartas altas, vale a pena continuar na mão
+                        if (hasPair || hasHighCard) {
+                            // Se a aposta é razoável
+                            if (gameState.currentBet <= playerInfo.chips / 5) {
+                                elizaLogger.info(
+                                    "Overriding FOLD to CALL with strong starting hand"
+                                );
+                                return { action: PlayerAction.CALL };
+                            }
+                        }
+                    }
+
+                    // Em estágios finais (turn/river) com pot substancial, considere CALL em apostas pequenas
+                    if (
+                        (gameState.gameState === "turn" ||
+                            gameState.gameState === "river") &&
+                        gameState.pot > playerInfo.chips / 2 &&
+                        gameState.currentBet <= playerInfo.chips / 20
+                    ) {
+                        elizaLogger.info(
+                            "Overriding FOLD to CALL with large pot and small bet in late stage"
+                        );
+                        return { action: PlayerAction.CALL };
+                    }
+                }
+            }
+
+            return decision;
+        } catch (error) {
+            elizaLogger.error("Error making decision:", error);
+            return { action: PlayerAction.FOLD };
+        }
+    }
 }
