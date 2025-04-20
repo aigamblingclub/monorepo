@@ -79,17 +79,23 @@ export const TableActionSchema = Schema.Union(
 )
 export type TableAction = typeof TableActionSchema.Type
 
+export const MoveEventSchema = Schema.Struct({
+    type: Schema.Literal('move'),
+    playerId: Schema.String,
+    move: MoveSchema
+})
+export type MoveEvent = typeof MoveEventSchema.Type
+
+export const TableEventSchema = Schema.Struct({
+    type: Schema.Literal('table'),
+    playerId: Schema.String,
+    action: TableActionSchema,
+})
+export type TableEvent = typeof TableEventSchema.Type
+
 export const PlayerEventSchema = Schema.Union(
-    Schema.Struct({
-        type: Schema.Literal('move'),
-        playerId: Schema.String,
-        move: MoveSchema
-    }),
-    Schema.Struct({
-        type: Schema.Literal('table'),
-        playerId: Schema.String,
-        action: TableActionSchema,
-    })
+    MoveEventSchema,
+    TableEventSchema
 )
 export type PlayerEvent = typeof PlayerEventSchema.Type
 
