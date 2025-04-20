@@ -87,7 +87,7 @@ function processState(state: PokerState, minPlayers: number): Effect.Effect<Opti
     return Effect.succeed(Option.none())
 }
 
-export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameService, never, never> => Effect.gen(function* (_) {
+export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameService, never, never> => Effect.gen(function* (_adapter) {
     const stateRef = yield* Ref.make(POKER_ROOM_DEFAULT_STATE)
     const stateUpdateQueue = yield* Queue.unbounded<PokerState>()
     const stateStream = Stream.fromQueue(stateUpdateQueue)
@@ -116,23 +116,27 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
                 onSome: processEvent,
             })),
         )),
+        Stream.tapError(Console.error),
     );
 
     // return this or put in a context somehow
-    const _systemFiber = Effect.runFork(pipe(
+    const _systemFiber = pipe(
         stateProcessingStream,
-        Stream.tapError(Console.error),
-        Stream.run(Sink.drain)
-    ))
+        Stream.run(Sink.drain),
+        Effect.runFork,
+    )
 
-    Effect.runFork(currentState().pipe(Effect.tap(Console.log)))
+    const _debugFiber = pipe(
+        currentState(),
+        Effect.tap(Console.log),
+        Effect.runFork
+    )
 
     return {
         currentState,
         processEvent,
         playerView: playerId => pipe(
             stateProcessingStream,
-            Stream.tapError(Console.error),
             Stream.map(state => playerView(state, playerId))
         ),
         stateUpdates: stateStream,

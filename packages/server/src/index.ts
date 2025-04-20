@@ -4,14 +4,16 @@ import { RpcSerialization, RpcServer } from "@effect/rpc";
 import { Effect, Layer } from "effect";
 import { PokerRpc, PokerRpcLive } from "./router";
 
-const WebAppLayer = Layer.unwrapScoped(Effect.gen(function* () {
-  const webApp = yield* RpcServer.toHttpAppWebsocket(PokerRpc)
+const WebAppLayer = Layer.unwrapScoped(
+    Effect.gen(function* () {
+        const webApp = yield* RpcServer.toHttpAppWebsocket(PokerRpc)
 
-  return HttpRouter.empty.pipe(
-    HttpRouter.mountApp('/rpc', webApp),
-    HttpServer.serve(),
-  )
-}))
+        return HttpRouter.empty.pipe(
+            HttpRouter.mountApp('/rpc', webApp),
+            HttpServer.serve(),
+        )
+    })
+)
 
 BunRuntime.runMain(
     Layer.launch(
@@ -24,3 +26,11 @@ BunRuntime.runMain(
         )
     )
 )
+
+
+type Swap<A, B> = {
+    swap: Swap<B, A>
+    cur: A
+} & unknown
+
+type _ = Swap<'a', 'b'>

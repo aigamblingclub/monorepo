@@ -1,8 +1,7 @@
 /*
     transitions: functions that operate on the current poker state to return the next one.
  */
-
-import { Option } from "effect";
+import { Option, pipe } from "effect";
 import { determineHandType, determineWinningHand, getShuffledDeck } from "./poker";
 import { bigBlind, players, playersInRound, playingPlayers, roundRotation, seatedPlayers, smallBlind } from "./queries";
 import type { Move, PokerState } from "./schemas";
@@ -76,25 +75,27 @@ export function rotateBlinds(state: PokerState): PokerState {
 
 export type StateTransition = (state: PokerState) => PokerState
 
-export function composeTransitions(transitions: StateTransition[]): StateTransition {
-    return initial => transitions.reduce((state, f) => f(state), initial)
-}
+// export function composeTransitions(transitions: StateTransition[]): StateTransition {
+//     return initial => transitions.reduce((state, f) => f(state), initial)
+// }
 
 // precondition: cards are dealt
 export const collectBlinds: StateTransition = state => {
     const bigBlindId = bigBlind(state).id;
     const smallBlindId = smallBlind(state).id;
-    return composeTransitions([
+    return pipe(
+        state,
         (state: PokerState) => playerBet(state, smallBlindId, SMALL_BLIND),
         (state: PokerState) => playerBet(state, bigBlindId, BIG_BLIND),
-    ])(state)
+    )
 }
 
-export const startRound: StateTransition = composeTransitions([
+export const startRound: StateTransition = (state: PokerState) => pipe(
+    state,
     dealCards,
     rotateBlinds,
-    collectBlinds
-])
+    collectBlinds,
+)
 
 function shiftBetRotation(state: PokerState): PokerState {
     const players = roundRotation(state);
