@@ -1,8 +1,9 @@
 import pino, { type LogFn } from "pino";
 import pretty from "pino-pretty";
+import fs from "fs";
+import path from "path";
 
 import { parseBooleanFromText } from "./parsing.ts";
-
 
 const customLevels: Record<string, number> = {
     fatal: 60,
@@ -12,6 +13,7 @@ const customLevels: Record<string, number> = {
     log: 29,
     progress: 28,
     success: 27,
+    workflow: 25,
     debug: 20,
     trace: 10,
 };
@@ -68,5 +70,45 @@ const options = {
 };
 
 export const elizaLogger = pino(options, createStream());
+
+// Adiciona função específica para workflow que escreve em arquivo
+const logDir = path.join(process.cwd(), "logs");
+if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+}
+
+const originalWorkflow = elizaLogger.workflow;
+elizaLogger.workflow = (...args: Parameters<typeof originalWorkflow>) => {
+    // Chama o logger original para manter o console
+    originalWorkflow.apply(elizaLogger, args);
+
+    // Escreve no arquivo de workflow
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toISOString().split('T')[1].split('.')[0];
+
+    const logFile = path.join(logDir, `${date}.workflow.log`);
+
+    // Extrai apenas a mensagem do objeto
+    let message = '';
+    if (typeof args[0] === 'string') {
+        message = args.join(' ');
+    } else {
+        const obj = args[0] as Record<string, any>;
+        if (obj.msg) {
+            try {
+                const msgObj = JSON.parse(obj.msg);
+                message = msgObj.content?.text || obj.msg;
+            } catch {
+                message = obj.msg;
+            }
+        } else {
+            message = JSON.stringify(obj);
+        }
+    }
+
+    const logMessage = `${date} ${time} - ${message}\n`;
+    fs.appendFileSync(logFile, logMessage);
+};
 
 export default elizaLogger;

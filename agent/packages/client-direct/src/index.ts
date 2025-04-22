@@ -266,6 +266,8 @@ export class DirectClient {
                     agentId: runtime.agentId,
                 };
 
+                elizaLogger.workflow("[DirectClient] USER MESSAGE: " + JSON.stringify(userMessage));
+
                 const memory: Memory = {
                     id: stringToUuid(messageId + "-" + userId),
                     ...userMessage,
@@ -287,12 +289,14 @@ export class DirectClient {
                     state,
                     template: messageHandlerTemplate,
                 });
+                elizaLogger.workflow("[DirectClient] CONTEXT: " + JSON.stringify({context: context}));
 
                 const response = await generateMessageResponse({
                     runtime: runtime,
                     context,
                     modelClass: ModelClass.LARGE,
                 });
+                elizaLogger.workflow("[DirectClient] RESPONSE: " + JSON.stringify(response));
 
                 if (!response) {
                     res.status(500).send(
