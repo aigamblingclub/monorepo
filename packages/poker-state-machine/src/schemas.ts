@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { CircularArraySchema } from "./circular_array";
 
 export const CardValueSchema = Schema.Union(
     ...([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] as const).map(n => Schema.Literal(n))
@@ -17,14 +18,10 @@ export const CardSchema = Schema.Struct({
 })
 export type Card = typeof CardSchema.Type
 
-// Indicates whether the player is playing the current round.
-// NOTE: FOLDED is just a temporary marker so the length of our
-// playersInRound doesn't change during the rotation, but as soon as
-// the index needs to loop back to 0 we mark FOLDED players as OUT.
 export const PlayerStatusSchema = Schema.Union(
     Schema.Literal('PLAYING'),
     Schema.Literal('FOLDED'),
-    Schema.Literal('OUT'),
+    Schema.Literal('ALL_IN'),
 )
 export type PlayerStatus = typeof PlayerStatusSchema.Type
 
@@ -33,7 +30,10 @@ export const PlayerStateSchema = Schema.Struct({
     status: PlayerStatusSchema,
     hand: Schema.Array(CardSchema),
     chips: Schema.Number,
-    bet: Schema.Number,
+    bet: Schema.Struct({
+        round: Schema.Number,
+        total: Schema.Number,
+    })
 })
 export type PlayerState = typeof PlayerStateSchema.Type
 
@@ -41,25 +41,25 @@ export type PlayerState = typeof PlayerStateSchema.Type
 export const TableStatusSchema = Schema.Union(
     Schema.Literal('WAITING'),
     Schema.Literal('PLAYING'),
+    Schema.Literal('ROUND_OVER'),
 )
 export type TableStatus = typeof TableStatusSchema.Type
 
 export const PokerStateSchema = Schema.Struct({
     status: TableStatusSchema,
-    players: Schema.Record({
-        key: Schema.String,
-        value: PlayerStateSchema
-    }),
-    deck: Schema.Array(CardSchema),
-    community: Schema.Array(CardSchema),
-    burnt: Schema.Array(CardSchema),
-    pot: Schema.Number,
-    bet: Schema.Number,
-    // README: dealerIndex is relative to the players(state) ordering (lexicographical id)
-    // and currentPlayerIndex to roundRotation(state) (first player in the round is index 0)
-    dealerIndex: Schema.Number,
+    players: Schema.Array(PlayerStateSchema),
     currentPlayerIndex: Schema.Number,
-    winningPlayerId: Schema.Option(Schema.String)
+    deck: Schema.Array(CardSchema),
+    // TODO: figure out how to do
+    // { stage: 'preflop', community: [] } | { stage: 'flop', community: [Card, Card, Card] }
+    // in effect/Schema. otherwise keep the community field as the source of truth for current stage
+    community: Schema.Array(CardSchema),
+    // this is the total pot
+    pot: Schema.Number,
+    // this is the bet for the current round
+    bet: Schema.Number,
+    // TODO: actually consider going back to dealerIndex instead xD
+    dealerId: Schema.String,
 })
 export type PokerState = typeof PokerStateSchema.Type
 
@@ -135,18 +135,15 @@ export const PlayerViewSchema = Schema.Struct({
     hand: Schema.Array(CardSchema),
     tableStatus: TableStatusSchema,
     currentPlayerId: Schema.Option(Schema.String),
-    dealerId: Schema.Option(Schema.String),
+    dealerId: Schema.String,
     bigBlindId: Schema.Option(Schema.String),
     smallBlindId: Schema.Option(Schema.String),
-    winningPlayerId: Schema.Option(Schema.String),
+    // winningPlayerId: Schema.Option(Schema.String),
     community: Schema.Array(CardSchema),
-    burnt: Schema.Array(CardSchema),
+    // burnt: Schema.Array(CardSchema),
     pot: Schema.Number,
     bet: Schema.Number,
     player: PlayerStateSchema,
-    opponents: Schema.Record({
-        key: Schema.String,
-        value: PlayerStateSchema.pick('status', 'chips', 'bet')
-    }),
+    opponents: Schema.Array(PlayerStateSchema.pick('status', 'chips', 'bet')),
 })
 export type PlayerView = typeof PlayerViewSchema.Type
