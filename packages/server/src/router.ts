@@ -7,7 +7,7 @@ import {
     PlayerViewSchema,
     PokerStateSchema,
     ProcessEventErrorSchema
-} from "poker-state-machine/schemas";
+} from "poker-state-machine";
 
 export class PokerRpc extends RpcGroup.make(
     Rpc.make('currentState', {
