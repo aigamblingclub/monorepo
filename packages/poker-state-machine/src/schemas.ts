@@ -25,10 +25,13 @@ export const PlayerStatusSchema = Schema.Union(
 )
 export type PlayerStatus = typeof PlayerStatusSchema.Type
 
+export const HoleCardsSchema = Schema.Tuple(CardSchema, CardSchema)
+export type HoleCards = typeof HoleCardsSchema.Type
+
 export const PlayerStateSchema = Schema.Struct({
     id: Schema.String,
     status: PlayerStatusSchema,
-    hand: Schema.Array(CardSchema),
+    hand: HoleCardsSchema,
     chips: Schema.Number,
     bet: Schema.Struct({
         round: Schema.Number,

@@ -2,9 +2,9 @@
     transitions: functions that operate on the current poker state to return the next one.
  */
 import { Effect, Iterable, pipe } from "effect"
-import { getShuffledDeck } from "./poker"
+import { determineWinningPlayers, getShuffledDeck, type RiverCommunity } from "./poker"
 import { bigBlind, findDealerIndex, firstPlayerIndex, rotated, roundRotation, smallBlind } from "./queries"
-import type { Move, PlayerState, PokerState } from "./schemas"
+import type { Card, Move, PlayerState, PokerState } from "./schemas"
 import { PLAYER_DEFAULT_STATE } from "./state_machine"
 
 
@@ -53,9 +53,9 @@ export function dealCards(state: PokerState): PokerState {
         community: [],
         players: state.players.map((p, i) => ({
             ...p,
-            hand: dealtCards.slice(2 * i, 2 * i + 2),
+            hand: dealtCards.slice(2 * i, 2 * i + 2) as [Card, Card],
             status: "PLAYING",
-        })
+        }))
     }
 }
 
@@ -172,7 +172,7 @@ export function transition(state: PokerState): Effect.Effect<PokerState, string>
 
 // precondition: betting round is over
 export function nextPhase(state: PokerState): Effect.Effect<PokerState, string> {
-    const cards = state.deck.length
+    const cards = state.community.length
     if (cards === 5) return showdown(state)
 
     const toBeDealt = ({ 0: 3, 3: 1, 4: 1 })[state.community.length]!
@@ -210,38 +210,75 @@ const getPotBets = (players: PlayerState[]) => pipe(
 
 // precondition: potBets is sorted
 // returns the amount each player has at stake on each pot
-const playerPotStakes = (player: PlayerState, potBets: number[]) => {
-    let remaining = player.bet.total;
-    const acc = []
-    for (const potBet of potBets) {
-        const amount = Math.min(remaining, potBet)
-        remaining -= amount
-        acc.push(amount)
+const calculatePots = (potBets: number[], players: PlayerState[]): Map<number, number> => {
+    const pots = new Map<number, number>()
+    for (const player of players) {
+        let remaining = player.bet.total;
+        for (const potBet of potBets) {
+            const amount = Math.min(remaining, potBet)
+            remaining -= amount
+            const pot = pots.get(potBet)!
+            pots.set(potBet, pot + amount)
+        }
     }
-    return acc
+    return pots
+}
+
+function determinePotWinner(
+    potBet: number,
+    players: PlayerState[],
+    community: RiverCommunity,
+): string[] {
+    const potPlayers = players.filter(p => p.bet.total >= potBet)
+    return determineWinningPlayers(players, community)
 }
 
 // TEST: test-case for when there's only 1 pot but 2 all-in players in it
 // precondition: all players which are not folded or all-in have the same bet total
+// precondition: either there's only one player left which hasn't folded or gone all-in
+// or we are already at river
 export function showdown(state: PokerState): Effect.Effect<PokerState, string> {
+    // fast-forward to river before checking hands and pots
+    if (state.community.length < 5) return pipe(
+        state,
+        nextPhase,
+        Effect.flatMap(showdown)
+    )
+
     const allPlayers = state.players.toSorted((a, b) => a.bet.total - b.bet.total)
     const inPlayers = allPlayers.filter(p => p.status !== 'FOLDED')
-    const allInPlayers = inPlayers.filter(p => p.status === 'ALL_IN')
     // TODO: better name for this status
     const playingPlayers = inPlayers.filter(p => p.status === 'PLAYING')
 
+    // TODO: abstract this into a more general showdown state assertion function
     const playingPotBets = getPotBets(playingPlayers)
     if (playingPotBets.length !== 1) {
         return Effect.fail('TODO: turn this error into an proper type (inconsistent state)')
     }
 
     const potBets = getPotBets(inPlayers)
-    const map = Object.fromEntries(potBets.map(b => [b, 0] as const))
+    const pots = calculatePots(potBets, inPlayers)
 
-    inPlayers.map(p => )
+    const rewards: Map<string, number> = new Map()
+    for (const [bet, pot] of pots) {
+        const winnerIds = determinePotWinner(bet, inPlayers, state.community as RiverCommunity)
+        // TODO: usually pots are even and ties are 2-ways, but it could be a 3-way tie
+        // so we also have to do a remainder distribution to the player closest to the
+        // dealer
+        for (const winnerId of winnerIds) {
+            const current = rewards.get(winnerId) ?? 0
+            const reward = Math.floor(pot / winnerIds.length)
+            rewards.set(winnerId, current + reward)
+        }
+    }
 
-
-    // tá daí pra cada pote eu vou pegar cada jogador que apostou pelo menos isso
-
-    // para cada side-pot distribuir o prêmio igualmente entre as mãos vencedoras
+    // TODO: consider what to do with other fields (i.e. pot)
+    return Effect.succeed({
+        ...state,
+        status: 'ROUND_OVER',
+        players: state.players.map(p => ({
+            ...p,
+            chips: p.chips + (rewards.get(p.id) ?? 0)
+        }))
+    })
 }

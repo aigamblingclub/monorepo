@@ -4,7 +4,7 @@ import {
   PLAYER_DEFAULT_STATE,
   POKER_ROOM_DEFAULT_STATE,
 } from "./state_machine";
-import { bigBlind, currentPlayer, dealer, firstPlayerIndex, smallBlind } from "./queries";
+import { bigBlind, currentPlayer, firstPlayerIndex, smallBlind } from "./queries";
 import { BIG_BLIND, SMALL_BLIND } from "./transitions";
 import { makePokerRoom } from "./room";
 import { Effect } from "effect";
