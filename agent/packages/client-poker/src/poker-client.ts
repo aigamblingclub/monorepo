@@ -75,7 +75,7 @@ export class PokerClient implements Client {
         // Log configuration for debugging
         elizaLogger.debug("PokerClient configuration:", {
             apiUrl: this.apiConnector.getBaseUrl(),
-            botName: this.playerName,
+            agentName: this.playerName,
         });
 
         // Connect to WebSocket
