@@ -4,20 +4,47 @@ import {
     PokerDecision,
     AvailableGamesResponse,
     AvailableGame,
+    PlayerState,
+    Card,
+    WinnerInfo,
+    PlayerAction,
 } from "./game-state";
+import {
+    GameEvent,
+    PlayerView,
+    PokerState,
+    ProcessEventError,
+    ProcessStateError,
+    PlayerEvent,
+    SystemEvent,
+    Move,
+    TableAction,
+} from "./schemas";
 
 export class ApiConnector {
     private baseUrl: string;
     private playerId: string | null = null;
     private playerName: string | null = null;
     private apiKey: string | null = null;
+    private ws: WebSocket | null = null;
+    private messageId = 0;
+    private messageCallbacks: Map<number, (data: any) => void> = new Map();
+    private stateUpdateCallbacks: ((state: PokerState) => void)[] = [];
+    private playerViewCallbacks: ((view: PlayerView) => void)[] = [];
+    private connected = false;
+    private reconnectAttempts = 0;
+    private maxReconnectAttempts = 5;
+    private reconnectTimeout: NodeJS.Timeout | null = null;
 
     constructor(baseUrl: string, apiKey?: string) {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey || null;
-        elizaLogger.log("ApiConnector initialized with base URL:", baseUrl);
+        elizaLogger.log(
+            "EffectApiConnector initialized with base URL:",
+            baseUrl
+        );
         if (apiKey) {
-            elizaLogger.log("ApiConnector initialized with API key");
+            elizaLogger.log("EffectApiConnector initialized with API key");
         }
     }
 
@@ -48,313 +75,301 @@ export class ApiConnector {
         return this.playerId;
     }
 
-    setApiKey(apiKey: string) {
-        this.apiKey = apiKey;
-        elizaLogger.info("API key updated");
+    setPlayerId(id: string): void {
+        this.playerId = id;
     }
 
-    async checkPlayerGame(): Promise<{
-        inGame: boolean;
-        gameId?: string;
-        game?: {
-            id: string;
-            state: string;
-            players: Array<{
-                id: string;
-                name: string;
-                isReady: boolean;
-            }>;
-            createdAt: string;
-        };
-    }> {
-        try {
-            const url = `${this.baseUrl}/api/game/player-game`;
-            elizaLogger.log(`Checking if player is in a game: ${url}`);
+    setPlayerName(name: string): void {
+        this.playerName = name;
+    }
 
-            const response = await fetch(url, {
-                headers: this.getHeaders(),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
-                );
-                throw new Error(`HTTP error! status: ${response.status}`);
+    // WebSocket connection methods
+    connect(): Promise<void> {
+        elizaLogger.debug("Connecting to WebSocket");
+        return new Promise((resolve, reject) => {
+            if (this.ws) {
+                if (this.ws.readyState === WebSocket.OPEN) {
+                    elizaLogger.debug("WebSocket already connected");
+                    resolve();
+                    return;
+                }
+                this.ws.close();
             }
 
-            const data = await response.json();
-            elizaLogger.log(`Player game check result:`, data);
+            const wsUrl = this.baseUrl.replace(/^http/, "ws") + "/rpc";
+            elizaLogger.log(`Connecting to WebSocket at ${wsUrl}`);
+            this.ws = new WebSocket(wsUrl);
 
-            // If player is in a game, update local state
-            if (data.inGame && data.gameId) {
-                // O jogador que fez a requisição é o dono do apiKey
-                // Não precisamos procurar, todos os dados são sobre ele
+            this.ws.onopen = () => {
+                elizaLogger.log("WebSocket connection established");
+                this.connected = true;
+                this.reconnectAttempts = 0;
+                resolve();
+            };
 
-                if (data.player) {
-                    // Buscamos o nome se disponível
-                    const playerInfo = data.player;
-                    this.playerName = playerInfo.name;
-
-                    elizaLogger.info(
-                        `Found player in game: ${data.gameId},player: ${
-                            playerInfo.name
-                        }, ready: ${!!playerInfo?.isReady}`
+            this.ws.onmessage = (event) => {
+                elizaLogger.debug("Received WebSocket message:", event.data);
+                try {
+                    const data = JSON.parse(event.data);
+                    this.handleWebSocketMessage(data);
+                } catch (error) {
+                    elizaLogger.error(
+                        "Error parsing WebSocket message:",
+                        error
                     );
                 }
+            };
+
+            this.ws.onclose = () => {
+                elizaLogger.log("WebSocket connection closed");
+                this.connected = false;
+                this.attemptReconnect();
+            };
+
+            this.ws.onerror = (error) => {
+                elizaLogger.error("WebSocket error:", error);
+                reject(error);
+            };
+        });
+    }
+
+    private attemptReconnect(): void {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            elizaLogger.error("Max reconnection attempts reached");
+            return;
+        }
+
+        const backoffTime = Math.min(
+            1000 * Math.pow(2, this.reconnectAttempts),
+            30000
+        );
+        elizaLogger.log(
+            `Attempting to reconnect in ${backoffTime}ms (attempt ${
+                this.reconnectAttempts + 1
+            }/${this.maxReconnectAttempts})`
+        );
+
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+        }
+
+        this.reconnectTimeout = setTimeout(() => {
+            this.reconnectAttempts++;
+            this.connect().catch((error) => {
+                elizaLogger.error("Reconnection attempt failed:", error);
+            });
+        }, backoffTime);
+    }
+
+    private handleWebSocketMessage(data: any): void {
+        // Handle Effect Exit responses (for specific message callbacks)
+        if (
+            (data._tag === "Exit" || data._tag === "Defect") &&
+            data.requestId
+        ) {
+            const id = parseInt(data.requestId);
+            if (this.messageCallbacks.has(id)) {
+                const callback = this.messageCallbacks.get(id);
+                if (callback) {
+                    callback(data);
+                    this.messageCallbacks.delete(id);
+                }
+                return;
+            }
+        }
+
+        // Handle state updates
+        if (data.type === "stateUpdate") {
+            this.stateUpdateCallbacks.forEach((callback) =>
+                callback(data.state)
+            );
+            return;
+        }
+
+        // Handle player view updates
+        if (data.type === "playerView") {
+            this.playerViewCallbacks.forEach((callback) => callback(data.view));
+            return;
+        }
+
+        elizaLogger.warn("Unhandled message type:", data);
+    }
+
+    private sendWebSocketMessage(method: string, payload: any): Promise<any> {
+        return new Promise((resolve, reject) => {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                reject(new Error("WebSocket is not connected"));
+                return;
             }
 
-            return data;
-        } catch (error) {
-            elizaLogger.error(`Error checking player game:`, error);
-            return { inGame: false };
-        }
+            const id = this.messageId++;
+            const message = {
+                _tag: "Request",
+                id: id.toString(),
+                tag: method,
+                payload: payload,
+                traceId: "traceId",
+                spanId: "spanId",
+                sampled: true,
+                headers: {},
+            };
+
+            // Set up callback for this specific message, receive on onmessage > handleWebSocketMessage
+            this.messageCallbacks.set(id, (response) => {
+                elizaLogger.debug("Response for message", id, ":", response);
+                if (response._tag === "Exit") {
+                    if (response.exit._tag === "Success") {
+                        resolve(response.exit.value);
+                    } else if (response.exit._tag === "Failure") {
+                        reject(response.exit.cause);
+                    } else {
+                        reject(new Error("Unknown exit format"));
+                    }
+                } else if (response._tag === "Defect") {
+                    reject(response.defect);
+                } else {
+                    reject(new Error("Unknown response format"));
+                }
+            });
+
+            elizaLogger.debug("Sending WebSocket message:", message);
+            this.ws.send(JSON.stringify(message));
+        });
     }
 
     async getAvailableGames(): Promise<AvailableGame[]> {
         try {
-            const url = `${this.baseUrl}/api/game/available-games`;
-            const headers = this.getHeaders();
-            elizaLogger.log(`Fetching available games from: ${url}`);
+            // In the Effect backend, we don't have multiple games
+            // We'll return a single game with the current state
+            const state = await this.getCurrentState();
 
-            const response = await fetch(url, {
-                headers,
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
+            // Check if the game is in a state where it can accept new players
+            const canJoinGame = state.status === "WAITING"; // || state.winningPlayerId !== undefined;
+
+            if (!canJoinGame) {
+                elizaLogger.info(
+                    `Game is in state ${state.status}, cannot join`
                 );
-                elizaLogger.error("Request details:", {
-                    url,
-                    headers: {
-                        ...headers,
-                        "x-api-key": headers["x-api-key"]
-                            ? "[REDACTED]"
-                            : "undefined",
-                    },
-                    status: response.status,
-                    statusText: response.statusText,
-                });
-                elizaLogger.debug("Request details:", {
-                    url,
-                    headers: {
-                        ...headers,
-                        "x-api-key": headers["x-api-key"],
-                    },
-                    status: response.status,
-                    statusText: response.statusText,
-                });
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return [];
             }
 
-            const data = (await response.json()) as AvailableGamesResponse;
-            elizaLogger.log(`Available games:`, data);
-            return data.games;
+            // Check if the game is full (more than 9 players)
+            // const playerCount = Object.keys(state.players).length;
+            // const isGameFull = playerCount >= 9;
+
+            // if (isGameFull) {
+            //     elizaLogger.info(`Game is full with ${playerCount} players`);
+            //     return [];
+            // }
+
+            // elizaLogger.info(`Game is available with ${playerCount} players`);
+            return [
+                {
+                    id: "default",
+                    players: Object.values(state.players).map((player) => ({
+                        id: player.id,
+                        name: player.id, // We don't have names in the new model
+                        isReady: state.status !== "PLAYING",
+                    })),
+                    createdAt: new Date().toISOString(),
+                    state: state.status,
+                },
+            ];
         } catch (error) {
-            elizaLogger.error("Error fetching available games:", error);
+            elizaLogger.error("Error getting available games:", error);
             return [];
         }
     }
 
-    async getGameState(gameId: string): Promise<GameState> {
-        try {
-            if (!gameId) {
-                throw new Error("Cannot get game state: Game ID is not set");
-            }
-
-            const url = `${this.baseUrl}/api/game/state`;
-            elizaLogger.log(`Fetching game state from: ${url}`);
-
-            const response = await fetch(url, {
-                headers: this.getHeaders(),
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
-                );
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return (await response.json()) as GameState;
-        } catch (error) {
-            elizaLogger.error(`Error fetching game state:`, error);
-            throw error;
-        }
+    // TODO: Implement logic of multiple tables
+    async getGameState(gameId?: string): Promise<GameState> {
+        const state = await this.getCurrentState();
+        return this.convertPokerStateToGameState(state);
     }
 
-    async joinGame(gameId: string, playerName: string): Promise<string> {
-        try {
-            const url = `${this.baseUrl}/api/game/join`;
-            elizaLogger.info(
-                `Joining game at: ${url} with player name: ${playerName} and gameId: ${gameId}`
-            );
+    async joinGame({
+        gameId,
+        playerName,
+    }: {
+        gameId?: string;
+        playerName: string;
+    }): Promise<string> {
+        await this.connect();
 
-            const response = await fetch(url, {
-                method: "POST",
-                headers: this.getHeaders(),
-                body: JSON.stringify({
-                    gameId,
-                    playerName,
-                }),
-            });
+        const playerId = this.playerId || `player-${Date.now()}`;
+        this.setPlayerId(playerId);
+        this.setPlayerName(playerName);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
-                );
+        // Send join event
+        const event: PlayerEvent = {
+            type: "table",
+            playerId,
+            action: "join",
+        };
 
-                // Parse error response to check for "already in game" message
-                try {
-                    const errorJson = JSON.parse(errorText);
-                    if (
-                        errorJson.message &&
-                        errorJson.message.includes(
-                            "already in an active game"
-                        ) &&
-                        errorJson.gameId
-                    ) {
-                        // Create a custom error with the gameId
-                        const customError = new Error(errorJson.message);
-                        (customError as any).gameId = errorJson.gameId;
-                        throw customError;
-                    }
-                } catch (parseError) {
-                    // If can't parse JSON, just continue with generic error
-                    elizaLogger.debug(
-                        "Could not parse error response as JSON:",
-                        parseError
-                    );
-                }
-
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            elizaLogger.log(`Successfully joined game, response:`, data);
-            this.playerId = data.playerId;
-            this.playerName = playerName; // Store the player name when joining
-
-            // Once joined, mark as ready
-            await this.setPlayerReady();
-
-            return data.playerId;
-        } catch (error) {
-            elizaLogger.error(`Error joining game:`, error);
-            throw error;
-        }
+        await this.processEvent(event);
+        return playerId;
     }
 
     async setPlayerReady(): Promise<void> {
-        try {
-            const url = `${this.baseUrl}/api/game/ready`;
-            elizaLogger.log(`Setting player ready at: ${url}`);
-
-            const response = await fetch(url, {
-                method: "POST",
-                headers: this.getHeaders(),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
-                );
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            elizaLogger.log(`Player ready status set, response:`, data);
-        } catch (error) {
-            elizaLogger.error(`Error setting player ready:`, error);
-            throw error;
-        }
+        // In the Effect model, players are ready as soon as they join
+        // No need for an explicit ready action
     }
 
     async leaveGame(gameId: string, playerId: string): Promise<void> {
-        try {
-            const url = `${this.baseUrl}/api/game/leave/${playerId}`;
-            elizaLogger.log(`Leaving game at: ${url}`);
-
-            const response = await fetch(url, {
-                method: "POST",
-                headers: this.getHeaders(),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
-                );
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            elizaLogger.log(`Successfully left game ${gameId}`);
-
-            // Clear player data after leaving game
-            if (this.playerId === playerId) {
-                this.playerId = null;
-                // We keep playerName as it's connected to the agent identity
-            }
-        } catch (error) {
-            elizaLogger.error(`Error leaving game:`, error);
-            throw error;
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            throw new Error("WebSocket is not connected");
         }
+
+        const event: PlayerEvent = {
+            type: "table",
+            playerId,
+            action: "leave",
+        };
+
+        await this.processEvent(event);
     }
 
-    async createGame(gameName: string, options: any = {}): Promise<string> {
-        try {
-            const url = `${this.baseUrl}/api/game/new-game`;
-            elizaLogger.log(`Creating new game at: ${url}`);
+    // async createGame(gameName: string, options: any = {}): Promise<string> {
+    //     try {
+    //         await this.connect();
 
-            const response = await fetch(url, {
-                method: "POST",
-                headers: this.getHeaders(),
-            });
+    //         // In the Effect model, we don't create games directly
+    //         // Instead, we check if the current game is in a state where it can accept new players
+    //         const state = await this.getCurrentState();
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
-                );
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+    //         // Check if the game is in a state where it can accept new players
+    //         const canJoinGame = state.status === "WAITING";
 
-            const data = await response.json();
-            elizaLogger.log(`Game creation response:`, data);
+    //         if (!canJoinGame) {
+    //             elizaLogger.info(
+    //                 `Game is in state ${state.status}, cannot join`
+    //             );
+    //             throw new Error(
+    //                 `Game is in state ${state.status}, cannot join`
+    //             );
+    //         }
 
-            // Return a dummy game ID since the server doesn't return one
-            return "current";
-        } catch (error) {
-            elizaLogger.error("Error creating game:", error);
-            throw error;
-        }
-    }
+    //         // Check if the game is full (more than 9 players)
+    //         const playerCount = Object.keys(state.players).length;
+    //         const isGameFull = playerCount >= 9;
+
+    //         if (isGameFull) {
+    //             elizaLogger.info(`Game is full with ${playerCount} players`);
+    //             throw new Error(`Game is full with ${playerCount} players`);
+    //         }
+
+    //         elizaLogger.info(`Game is available with ${playerCount} players`);
+    //         return "default";
+    //     } catch (error) {
+    //         elizaLogger.error("Error creating game:", error);
+    //         throw error;
+    //     }
+    // }
 
     async getAllGames(): Promise<GameState[]> {
-        try {
-            const url = `${this.baseUrl}/api/game/games`;
-            elizaLogger.log(`Fetching all games from: ${url}`);
-
-            const response = await fetch(url, {
-                headers: this.getHeaders(),
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
-                );
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            elizaLogger.log(`All games response:`, data);
-            return data.games;
-        } catch (error) {
-            elizaLogger.error("Error fetching all games:", error);
-            return [];
-        }
+        const state = await this.getCurrentState();
+        return [this.convertPokerStateToGameState(state)];
     }
 
     async submitAction(
@@ -362,39 +377,171 @@ export class ApiConnector {
         playerId: string,
         decision: PokerDecision
     ): Promise<void> {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            throw new Error("WebSocket is not connected");
+        }
+
+        const move: Move = this.convertDecisionToMove(decision);
+
+        const event: PlayerEvent = {
+            type: "move",
+            playerId,
+            move,
+        };
+
+        await this.processEvent(event);
+    }
+
+    // Effect-specific methods
+    async getCurrentState(): Promise<PokerState> {
+        await this.connect();
+        return this.sendWebSocketMessage("currentState", {});
+    }
+
+    async processEvent(event: GameEvent): Promise<PokerState> {
+        await this.connect();
+        return this.sendWebSocketMessage("processEvent", { event });
+    }
+
+    onStateUpdate(callback: (state: PokerState) => void): void {
+        this.stateUpdateCallbacks.push(callback);
+
+        // If this is the first callback, start listening for state updates
+        if (this.stateUpdateCallbacks.length === 1) {
+            this.startListeningToStateUpdates();
+        }
+    }
+
+    onPlayerView(callback: (view: PlayerView) => void): void {
+        this.playerViewCallbacks.push(callback);
+
+        // If this is the first callback, start listening for player view updates
+        if (this.playerViewCallbacks.length === 1) {
+            this.startListeningToPlayerView();
+        }
+    }
+
+    private async startListeningToStateUpdates(): Promise<void> {
         try {
-            const playerIdForAction = playerId;
-            const url = `${this.baseUrl}/api/game/action`;
-            elizaLogger.log(
-                `Submitting action to game ${gameId} for player ${this.playerName} (ID: ${playerIdForAction})`,
-                decision
-            );
+            await this.connect();
 
-            const response = await fetch(url, {
-                method: "POST",
-                headers: this.getHeaders(),
-                body: JSON.stringify({
-                    gameId,
-                    playerId: playerIdForAction,
-                    action: decision.action,
-                    amount: decision.amount,
-                }),
-            });
+            // Send a message to subscribe to state updates
+            this.sendWebSocketMessage("stateUpdates", {})
+                .then((response) => {
+                    // This is a stream, so we'll receive updates over time
+                    elizaLogger.log("Subscribed to state updates");
+                })
+                .catch((error) => {
+                    elizaLogger.error(
+                        "Error subscribing to state updates:",
+                        error
+                    );
+                });
+        } catch (error) {
+            elizaLogger.error("Error starting state updates listener:", error);
+        }
+    }
 
-            if (!response.ok) {
-                const errorText = await response.text();
+    private async startListeningToPlayerView(): Promise<void> {
+        try {
+            await this.connect();
+
+            if (!this.playerId) {
                 elizaLogger.error(
-                    `HTTP error (${response.status}): ${errorText}`
+                    "Cannot subscribe to player view without a player ID"
                 );
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return;
             }
 
-            elizaLogger.log(
-                `Successfully submitted action for player ${this.playerName}`
-            );
+            // Send a message to subscribe to player view updates
+            this.sendWebSocketMessage("playerView", { playerId: this.playerId })
+                .then((response) => {
+                    // This is a stream, so we'll receive updates over time
+                    elizaLogger.log("Subscribed to player view updates");
+                })
+                .catch((error) => {
+                    elizaLogger.error(
+                        "Error subscribing to player view updates:",
+                        error
+                    );
+                });
         } catch (error) {
-            elizaLogger.error(`Error submitting action:`, error);
-            throw error;
+            elizaLogger.error("Error starting player view listener:", error);
+        }
+    }
+
+    // Conversion methods
+    convertPokerStateToGameState(state: PokerState): GameState {
+        const players: PlayerState[] = Object.values(state.players).map((player) => ({
+            id: player.id,
+            name: player.id, // We don't have names in the new model
+            chips: player.chips,
+            isReady: state.status !== "PLAYING",
+            currentBet: player.bet.round,
+            isFolded: player.status === "FOLDED",
+            hand: player.hand.map((card) => ({
+                rank: card.rank.toString(),
+                suit: card.suit,
+            })),
+            status: player.status,
+        }));
+
+        // const currentPlayer = players[state.currentPlayerIndex];
+
+        // Handle the Option type for winningPlayerId
+        let winner: WinnerInfo | undefined = undefined;
+        // if (state.winningPlayerId) {
+        //     // If it's an Option type, extract the value
+        //     const winningId =
+        //         typeof state.winningPlayerId === "object" &&
+        //         "value" in state.winningPlayerId
+        //             ? state.winningPlayerId.value
+        //             : state.winningPlayerId;
+
+        //     if (winningId && typeof winningId === "string") {
+        //         winner = {
+        //             id: winningId,
+        //             name: winningId,
+        //             winningHand: [], // We don't have this information in the new model
+        //             handDescription: "", // We don't have this information in the new model
+        //         };
+        //     }
+        // }
+
+        return {
+            players,
+            tableStatus: state.status,
+            // : state.winningPlayerId
+            //     ? "showdown"
+            //     : "preflop", // When playing, start with preflop
+            pot: state.pot,
+            isGameOver: winner !== undefined,
+            lastUpdateTime: new Date().toISOString(),
+            currentBet: state.bet,
+            currentPlayerIndex: state.currentPlayerIndex,
+            communityCards: state.community.map((card) => ({
+                rank: card.rank.toString(),
+                suit: card.suit,
+            })),
+            winner,
+        };
+    }
+
+    private convertDecisionToMove(decision: PokerDecision): Move {
+        switch (decision.action) {
+            case PlayerAction.FOLD:
+                return { type: "fold" };
+            case PlayerAction.CHECK:
+                return { type: "check" };
+            case PlayerAction.CALL:
+                return { type: "call" };
+            case PlayerAction.RAISE:
+                return {
+                    type: "raise",
+                    amount: decision.amount || 0,
+                };
+            default:
+                throw new Error(`Unknown decision action: ${decision.action}`);
         }
     }
 }

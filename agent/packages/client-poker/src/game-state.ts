@@ -1,8 +1,11 @@
+import { TableStatus } from "./schemas";
+
 export enum PlayerAction {
-    FOLD = "fold",
-    CHECK = "check",
-    CALL = "call",
-    RAISE = "raise",
+    FOLD = "FOLD",
+    CHECK = "CHECK",
+    CALL = "CALL",
+    RAISE = "RAISE",
+    ALL_IN = "ALL_IN",
 }
 
 export interface PokerDecision {
@@ -33,9 +36,10 @@ export interface WinnerInfo {
 }
 
 export interface GameState {
-    id: string;
+    // id: string;
     players: PlayerState[];
-    gameState: "waiting" | "preflop" | "flop" | "turn" | "river" | "showdown";
+    tableStatus: TableStatus;
+    // gameState: "waiting" | "preflop" | "flop" | "turn" | "river" | "showdown";
     pot: number;
     isGameOver: boolean;
     lastUpdateTime: string;

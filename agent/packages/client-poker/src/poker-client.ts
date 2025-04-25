@@ -8,10 +8,11 @@ import {
 } from "@elizaos/core";
 import { GameState, PlayerAction, PokerDecision, Card } from "./game-state";
 import { ApiConnector } from "./api-connector";
+import { PokerState, PlayerView, GameEvent } from "./schemas";
 
 export interface PokerClientConfig {
     apiBaseUrl?: string;
-    apiKey: string; // Make API key required in config
+    apiKey?: string; // Make API key required in config
 }
 
 // Extended character interface to include settings
@@ -26,7 +27,7 @@ interface ExtendedCharacter {
 }
 
 export class PokerClient implements Client {
-    name = "poker"; // Identificador para o sistema Eliza
+    name = "poker"; // Identifier for the Eliza system
     private runtime: IAgentRuntime | null = null;
     private apiConnector: ApiConnector;
     private gameState: GameState | null = null;
@@ -38,14 +39,15 @@ export class PokerClient implements Client {
     private lastJoinAttempt = 0;
     private joinBackoffMs = 5000; // Start with 5 second backoff
     private playerReadySet = false; // Flag to track if we've already set the player ready
+    private isConnected = false;
 
     constructor(config: PokerClientConfig) {
-        if (!config.apiKey) {
-            elizaLogger.error("API key is required to create PokerClient");
-            throw new Error(
-                "POKER_API_KEY is required in PokerClient configuration"
-            );
-        }
+        // if (!config.apiKey) {
+        //     elizaLogger.error("API key is required to create PokerClient");
+        //     throw new Error(
+        //         "POKER_API_KEY is required in PokerClient configuration"
+        //     );
+        // }
 
         // Check for environment variable first, then config, then default
         const apiBaseUrl =
@@ -56,9 +58,9 @@ export class PokerClient implements Client {
         // Initialize API connector with both URL and API key
         this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey);
         elizaLogger.info("Poker client created with API endpoint:", apiBaseUrl);
-        elizaLogger.debug("API key configured:", {
-            apiKeyLength: config.apiKey.length,
-        });
+        // elizaLogger.debug("API key configured:", {
+        //     apiKeyLength: config.apiKey.length,
+        // });
     }
 
     async start(runtime?: IAgentRuntime): Promise<any> {
@@ -76,26 +78,45 @@ export class PokerClient implements Client {
             botName: this.playerName,
         });
 
-        // Iniciar polling para verificar o estado do jogo ou encontrar jogos disponíveis
+        // Connect to WebSocket
+        try {
+            await this.apiConnector.connect();
+            this.isConnected = true;
+            elizaLogger.info("Connected to poker server WebSocket");
+
+            // Set up state update listeners
+            this.apiConnector.onStateUpdate((state: PokerState) => {
+                this.handlePokerStateUpdate(state);
+            });
+
+            // Removed player view listener setup from here
+            // It will be set up after a successful game join
+        } catch (error) {
+            elizaLogger.error("Failed to connect to poker server:", error);
+        }
+
+        // I think that we will not need because of the websocket listener
+        // Start polling to check game state or find available games
         this.intervalId = setInterval(async () => {
             try {
-                // Se não estiver em um jogo, tentar encontrar e juntar-se a um
-                if (!this.gameId) {
-                    const now = Date.now();
-                    // Only attempt to join if enough time has passed since last attempt
-                    if (now - this.lastJoinAttempt >= this.joinBackoffMs) {
-                        this.lastJoinAttempt = now;
+                // If not in a game, try to find and join one
+                // if (!this.gameId) {
+                //     const now = Date.now();
+                //     // Only attempt to join if enough time has passed since last attempt
+                //     if (now - this.lastJoinAttempt >= this.joinBackoffMs) {
+                //         this.lastJoinAttempt = now;
 
-                        // Verificar se já está em um jogo ou tentar entrar em um novo
-                        await this.checkAndConnectToExistingGame();
-                    }
-                }
-                // Se estiver em um jogo, verificar atualizações do estado do jogo
-                else if (this.gameId) {
+                //         // Check if already in a game or try to enter a new one
+                //         await this.checkAndConnectToExistingGame();
+                //     }
+                // }
+
+                // I think that we will not need because of the websocket listener
+                // If in a game, check for game state updates
+                if (this.isConnected) {
                     try {
-                        const gameState = await this.apiConnector.getGameState(
-                            this.gameId
-                        );
+                        const gameState =
+                            await this.apiConnector.getGameState();
                         await this.handleGameUpdate(gameState);
                     } catch (error) {
                         elizaLogger.error("Error getting game state:", error);
@@ -116,6 +137,89 @@ export class PokerClient implements Client {
         }, 5000);
 
         return this;
+    }
+
+    private handlePokerStateUpdate(state: PokerState): void {
+        try {
+            elizaLogger.info("Received poker state update");
+            const gameState = this.apiConnector.convertPokerStateToGameState(state);
+            this.handleGameUpdate(gameState);
+        } catch (error) {
+            elizaLogger.error("Error handling poker state update:", error);
+        }
+    }
+
+    private handlePlayerViewUpdate(view: PlayerView): void {
+        try {
+            elizaLogger.info("Received player view update");
+            // Update our player ID if needed
+            if (view.player && view.player.id && this.playerId !== view.player.id) {
+                this.playerId = view.player.id;
+                elizaLogger.info(`Updated player ID to ${this.playerId}`);
+            }
+
+            // If we have a game state, update it with the player view information
+            if (this.gameState) {
+                // Update our player's hand
+                const ourPlayer = this.gameState.players.find(p => p.id === this.playerId);
+                if (ourPlayer) {
+                    ourPlayer.hand = view.hand.map(card => ({
+                        rank: card.rank.toString(),
+                        suit: card.suit
+                    }));
+                }
+
+                // Update community cards
+                this.gameState.communityCards = view.community.map(card => ({
+                    rank: card.rank.toString(),
+                    suit: card.suit
+                }));
+
+                // Update pot and bet
+                this.gameState.pot = view.pot;
+                this.gameState.currentBet = view.bet;
+
+                // Update opponents
+                if (view.opponents) {
+                    Object.entries(view.opponents).forEach(([id, opponent]) => {
+                        const player = this.gameState!.players.find(p => p.id === id);
+                        if (player) {
+                            player.chips = opponent.chips;
+                            player.currentBet = opponent.bet.round;
+                            player.isFolded = opponent.status === "FOLDED";
+                        }
+                    });
+                }
+
+                // Check if it's our turn
+                const isOurTurn = view.currentPlayerId &&
+                    (typeof view.currentPlayerId === 'object' && 'value' in view.currentPlayerId
+                        ? view.currentPlayerId.value === this.playerId
+                        : typeof view.currentPlayerId === 'string' && view.currentPlayerId === this.playerId);
+
+                if (isOurTurn) {
+                    elizaLogger.info("It's our turn, making a decision");
+                    this.makeDecision(this.gameState).then(decision => {
+                        elizaLogger.info(`Decision made: ${decision.action}`, decision);
+
+                        // Submit the action to the server
+                        if (this.gameId && this.playerId) {
+                            this.apiConnector.submitAction(
+                                this.gameId,
+                                this.playerId,
+                                decision
+                            ).catch(error => {
+                                elizaLogger.error("Error submitting action:", error);
+                            });
+                        }
+                    }).catch(error => {
+                        elizaLogger.error("Error making decision:", error);
+                    });
+                }
+            }
+        } catch (error) {
+            elizaLogger.error("Error handling player view update:", error);
+        }
     }
 
     private resetGame(): void {
@@ -146,7 +250,7 @@ export class PokerClient implements Client {
         elizaLogger.info("PokerClient stopped");
     }
 
-    async joinGame(gameId: string): Promise<void> {
+    async joinGame(gameId?: string): Promise<void> {
         try {
             this.playerName = this.runtime?.character.name || "ElizaPokerBot";
             elizaLogger.info(
@@ -155,93 +259,28 @@ export class PokerClient implements Client {
                 "as",
                 this.playerName
             );
-            this.playerId = await this.apiConnector.joinGame(
+            this.playerId = await this.apiConnector.joinGame({
                 gameId,
-                this.playerName
-            );
-            this.gameId = gameId;
+                playerName: this.playerName,
+            });
+            this.gameId = gameId || null; // TODO implement logic of more tables
             elizaLogger.info(
                 `Agent joined game ${gameId} as player ${this.playerName} (ID: ${this.playerId})`
             );
+
+            // Set up player view listener after successful join
+            this.apiConnector.onPlayerView((view: PlayerView) => {
+                this.handlePlayerViewUpdate(view);
+            });
+
             // The apiConnector.joinGame method calls setPlayerReady internally
             this.playerReadySet = true;
             // Reset backoff on successful join
             this.joinBackoffMs = 5000;
         } catch (error: any) {
-            elizaLogger.error("Failed to join game:", error);
-
-            // Check if error is because player is already in this game
-            if (
-                error.message?.includes(
-                    "Player is already in an active game"
-                ) &&
-                error.gameId
-            ) {
-                // Use the gameId from the error response
-                elizaLogger.info(
-                    `Player already in game ${error.gameId}, connecting to existing game`
-                );
-
-                // Verificar o estado atual do jogador usando o novo endpoint
-                try {
-                    const playerGameStatus =
-                        await this.apiConnector.checkPlayerGame();
-
-                    if (playerGameStatus.inGame && playerGameStatus.gameId) {
-                        this.gameId = playerGameStatus.gameId;
-
-                        // Atualizar o ID do jogador se estiver disponível
-                        const ourPlayer = playerGameStatus.game?.players.find(
-                            (player) => player.name === this.playerName
-                        );
-
-                        if (ourPlayer) {
-                            this.playerId = ourPlayer.id;
-                            elizaLogger.info(
-                                `Found player ID: ${this.playerId} in existing game`
-                            );
-
-                            // Verificar se o jogador precisa ser marcado como ready
-                            if (!ourPlayer.isReady) {
-                                elizaLogger.info(
-                                    "Player is not ready yet, setting ready status"
-                                );
-                                try {
-                                    await this.apiConnector.setPlayerReady();
-                                    elizaLogger.info(
-                                        "Successfully set player ready status"
-                                    );
-                                    // Mark that we've set the player ready
-                                    this.playerReadySet = true;
-                                } catch (readyError) {
-                                    elizaLogger.error(
-                                        "Error setting player ready status:",
-                                        readyError
-                                    );
-                                }
-                            } else {
-                                elizaLogger.info(
-                                    "Player is already ready according to server"
-                                );
-                                this.playerReadySet = true; // Update flag to match server state
-                            }
-
-                            return; // Successfully connected to existing game
-                        }
-                    }
-                } catch (e) {
-                    elizaLogger.error(
-                        "Error retrieving player data from existing game:",
-                        e
-                    );
-                }
-            } else if (error.message?.includes("Game is full")) {
-                // If game is full, increase backoff time
-                this.joinBackoffMs = Math.min(this.joinBackoffMs * 2, 30000);
-            }
-
+            elizaLogger.error("Failed to join game:", error)
             // Reset state since join failed and we couldn't recover
-            this.resetGame();
+            // this.resetGame();
         }
     }
 
@@ -265,7 +304,7 @@ export class PokerClient implements Client {
 
             // Find player by name in the game state (instead of by ID)
             const ourPlayer = gameState.players.find(
-                (player) => player.name === this.playerName
+                (player) => player.id === this.playerId
             );
 
             if (!ourPlayer) {
@@ -273,19 +312,12 @@ export class PokerClient implements Client {
                     `Player ${this.playerName} not found in game, cannot make decisions`
                 );
                 this.resetGame();
+                this.joinGame();
                 return;
             }
 
-            // Update our playerID if it's changed (helps with reconnection)
-            if (this.playerId !== ourPlayer.id) {
-                elizaLogger.info(
-                    `Updating player ID from ${this.playerId} to ${ourPlayer.id}`
-                );
-                this.playerId = ourPlayer.id;
-            }
-
             // Don't make decisions if game is in waiting state, but check if we need to set ready
-            if (gameState.gameState === "waiting") {
+            if (gameState.tableStatus === "WAITING") {
                 elizaLogger.info("Game is in waiting state");
 
                 // Check if we need to set ready status - only if we haven't already set it or if server says we're not ready
@@ -366,243 +398,55 @@ export class PokerClient implements Client {
         }
     }
 
-    // Método auxiliar para verificar se o jogador já está em um jogo e conectar a ele
-    private async checkAndConnectToExistingGame(): Promise<boolean> {
-        try {
-            elizaLogger.info("Checking for existing game");
-            // Verificar se já está em um jogo usando o endpoint específico
-            const playerGameStatus = await this.apiConnector.checkPlayerGame();
-            elizaLogger.info(
-                `Player game status: ${JSON.stringify(playerGameStatus)}`
-            );
-            if (playerGameStatus.inGame && playerGameStatus.gameId) {
-                // Jogador já está em um jogo, conectar a ele
-                elizaLogger.info(
-                    `Player already in game: ${playerGameStatus.gameId}`
-                );
-                this.gameId = playerGameStatus.gameId;
 
-                // Store the current game state
-                if (playerGameStatus.game) {
-                    this.gameState = {
-                        id: playerGameStatus.game.id,
-                        players: playerGameStatus.game.players.map((p) => ({
-                            id: p.id,
-                            name: p.name,
-                            isReady: p.isReady,
-                            chips: 0,
-                            currentBet: 0,
-                            isFolded: false,
-                        })),
-                        gameState: playerGameStatus.game.state as
-                            | "waiting"
-                            | "preflop"
-                            | "flop"
-                            | "turn"
-                            | "river"
-                            | "showdown",
-                        pot: 0,
-                        isGameOver: false,
-                        lastUpdateTime: playerGameStatus.game.createdAt,
-                        currentBet: 0,
-                        communityCards: [],
-                    };
-                }
-
-                // Verificar se o player precisa ser marcado como ready
-                const ourPlayer = playerGameStatus.game?.players.find(
-                    (player) => player.name === this.playerName
-                );
-
-                if (ourPlayer) {
-                    // Save the player ID
-                    // this.playerId = ourPlayer.id;
-
-                    // Only set ready if player is not already ready and we haven't set it yet
-                    if (!ourPlayer.isReady && !this.playerReadySet) {
-                        elizaLogger.info(
-                            "Player is not ready yet, setting ready status"
-                        );
-                        try {
-                            await this.apiConnector.setPlayerReady();
-                            elizaLogger.info(
-                                "Successfully set player ready status"
-                            );
-
-                            // Mark that we've set the player ready
-                            this.playerReadySet = true;
-
-                            // Update local state to avoid repeated calls
-                            if (this.gameState && this.gameState.players) {
-                                const playerIndex =
-                                    this.gameState.players.findIndex(
-                                        (p) => p.name === this.playerName
-                                    );
-                                if (playerIndex >= 0) {
-                                    this.gameState.players[
-                                        playerIndex
-                                    ].isReady = true;
-                                }
-                            }
-                        } catch (error) {
-                            elizaLogger.error(
-                                "Error setting player ready status:",
-                                error
-                            );
-                        }
-                    } else {
-                        // If already ready or we've already set it
-                        if (ourPlayer.isReady) {
-                            elizaLogger.info(
-                                "Player is already ready according to server"
-                            );
-                            this.playerReadySet = true; // Update our flag to match server state
-                        } else if (this.playerReadySet) {
-                            elizaLogger.info(
-                                "Player ready status already set in this session"
-                            );
-                        }
-                    }
-                }
-
-                return true; // Conectado a um jogo existente
-            } else {
-                elizaLogger.info(
-                    "Player is not in a game, checking for available games"
-                );
-                const availableGames =
-                    await this.apiConnector.getAvailableGames();
-                elizaLogger.info(
-                    `Available games: ${JSON.stringify(availableGames)}`
-                );
-
-                if (availableGames.length > 0) {
-                    // Entrar no primeiro jogo disponível
-                    await this.joinGame(availableGames[0].id);
-                    return true; // Tentativa de entrada em um jogo
-                } else {
-                    elizaLogger.info("No available games found to join");
-                    return false; // Nenhum jogo disponível para entrar
-                }
-            }
-        } catch (error) {
-            elizaLogger.error("Error checking player game status:", error);
-            return false;
-        }
-    }
 
     private async makeDecision(gameState: GameState): Promise<PokerDecision> {
         try {
             if (!this.runtime) return { action: PlayerAction.FOLD };
             elizaLogger.info("gameState:", gameState);
-            // Preparar contexto para o modelo
+            // Prepare context for the model
             const context = this.prepareGameContext(gameState);
 
-            // Consultar o agente para tomar uma decisão
+            // Consult the agent to make a decision
             elizaLogger.info("Asking agent for poker decision");
 
             const response = await generateText({
                 runtime: this.runtime,
                 context: context,
                 modelClass: ModelClass.MEDIUM,
-                customSystemPrompt: `Você é um jogador de poker experiente chamado ${
+                customSystemPrompt: `You are an experienced poker player named ${
                     this.runtime.character.name || "PokerBot"
                 }.
 
-                Na mesa temos ${gameState.players.length} jogadores. Na mesa ${
+                At the table we have ${gameState.players.length} players. At table ${
                     this.gameId
                 }
-                Seu objetivo é maximizar seus ganhos usando estratégia avançada de poker.
-                Analise cuidadosamente a situação atual do jogo e tome uma decisão estratégica.
+                Your goal is to maximize your winnings using advanced poker strategy.
+                Carefully analyze the current game situation and make a strategic decision.
 
-                Considere os seguintes elementos para sua decisão:
-                1. A força da sua mão atual
-                2. Suas chances de melhorar com as cartas comunitárias
-                3. O tamanho do pote e da aposta atual
-                4. Sua posição na mesa e quantidade de fichas
-                5. O comportamento dos outros jogadores
+                Consider the following elements for your decision:
+                1. The strength of your current hand
+                2. Your chances of improving with community cards
+                3. The size of the pot and current bet
+                4. Your position at the table and chip count
+                5. The behavior of other players
 
-                Evite dar fold constantemente - use check, call ou raise quando apropriado.
-                Uma estratégia de poker bem sucedida envolve uma mistura de jogadas conservadoras e agressivas.
+                Avoid folding constantly - use check, call or raise when appropriate.
+                A successful poker strategy involves a mix of conservative and aggressive plays.
 
-                IMPORTANTE: Responda APENAS com um dos seguintes formatos:
-                - "FOLD" (quando quiser desistir)
-                - "CHECK" (quando quiser passar sem apostar)
-                - "CALL" (quando quiser igualar a aposta atual)
-                - "RAISE X" (onde X é o valor total da aposta, incluindo a aposta atual)
+                IMPORTANT: Respond ONLY with one of the following formats:
+                - "FOLD" (when you want to give up)
+                - "CHECK" (when you want to pass without betting)
+                - "CALL" (when you want to match the current bet)
+                - "RAISE X" (where X is the total bet amount, including the current bet)
 
-                NÃO inclua explicações ou comentários adicionais - apenas a ação.`,
+                DO NOT include explanations or additional comments - just the action.`, // TODO: add explanation and parse it
             });
             elizaLogger.info(`Agent response: ${response}`);
             elizaLogger.info(`Agent context: ${context}`);
-            // Analisar a resposta para extrair a ação
+            // Analyze the response to extract the action
             const decision = this.parseAgentResponse(response);
             elizaLogger.info(`Agent decision: ${JSON.stringify(decision)}`);
-
-            // Substituir a lógica aleatória por uma análise estratégica determinística
-            if (decision.action === PlayerAction.FOLD) {
-                // Obter informações do jogador e do estado do jogo
-                const playerInfo = gameState.players.find(
-                    (p) => p.id === this.playerId
-                );
-
-                if (playerInfo) {
-                    // Se não há aposta atual, sempre é melhor CHECK do que FOLD
-                    if (gameState.currentBet === 0) {
-                        elizaLogger.info(
-                            "Overriding FOLD to CHECK when no current bet"
-                        );
-                        return { action: PlayerAction.CHECK };
-                    }
-
-                    // Se o jogador tem uma mão forte, considerar CALL ou CHECK em vez de FOLD
-                    if (
-                        playerInfo.hand &&
-                        this.hasStrongHand(
-                            playerInfo.hand,
-                            gameState.communityCards
-                        )
-                    ) {
-                        // Se a aposta é pequena em relação às fichas do jogador, fazer CALL
-                        if (gameState.currentBet <= playerInfo.chips / 10) {
-                            elizaLogger.info(
-                                "Overriding FOLD to CALL with strong hand and small bet"
-                            );
-                            return { action: PlayerAction.CALL };
-                        }
-                    }
-
-                    // Se a fase do jogo é preflop e o jogador tem boas cartas iniciais
-                    if (gameState.gameState === "preflop" && playerInfo.hand) {
-                        const hasHighCard = this.hasHighCard(playerInfo.hand);
-                        const hasPair = this.hasPair(playerInfo.hand);
-
-                        // Com par inicial ou cartas altas, vale a pena continuar na mão
-                        if (hasPair || hasHighCard) {
-                            // Se a aposta é razoável
-                            if (gameState.currentBet <= playerInfo.chips / 5) {
-                                elizaLogger.info(
-                                    "Overriding FOLD to CALL with strong starting hand"
-                                );
-                                return { action: PlayerAction.CALL };
-                            }
-                        }
-                    }
-
-                    // Em estágios finais (turn/river) com pot substancial, considere CALL em apostas pequenas
-                    if (
-                        (gameState.gameState === "turn" ||
-                            gameState.gameState === "river") &&
-                        gameState.pot > playerInfo.chips / 2 &&
-                        gameState.currentBet <= playerInfo.chips / 20
-                    ) {
-                        elizaLogger.info(
-                            "Overriding FOLD to CALL with large pot and small bet in late stage"
-                        );
-                        return { action: PlayerAction.CALL };
-                    }
-                }
-            }
 
             return decision;
         } catch (error) {
@@ -611,206 +455,54 @@ export class PokerClient implements Client {
         }
     }
 
-    // Verifica se a mão tem pelo menos uma carta alta (A, K, Q, J)
-    private hasHighCard(hand: Card[]): boolean {
-        const highCards = ["A", "K", "Q", "J"];
-        return hand.some((card) => highCards.includes(card.rank));
-    }
-
-    // Verifica se a mão tem um par
-    private hasPair(hand: Card[]): boolean {
-        return hand.length === 2 && hand[0].rank === hand[1].rank;
-    }
-
-    // Função auxiliar para avaliar a força da mão
-    private hasStrongHand(hand: Card[], communityCards: Card[]): boolean {
-        // Implementação simples para verificar se tem um par ou melhor
-        if (!hand || hand.length < 2) return false;
-
-        // Verificar se tem par na mão
-        if (hand[0].rank === hand[1].rank) return true;
-
-        // Verificar se forma par com alguma carta comunitária
-        for (const handCard of hand) {
-            for (const communityCard of communityCards) {
-                if (handCard.rank === communityCard.rank) return true;
-            }
-        }
-
-        // Verificar se tem cartas altas (A, K, Q)
-        const highCards = ["A", "K", "Q"];
-        if (
-            highCards.includes(hand[0].rank) ||
-            highCards.includes(hand[1].rank)
-        ) {
-            // Com carta alta e estágio avançado do jogo, considerar como potencialmente forte
-            if (communityCards.length >= 3) {
-                return this.hasDrawPotential(hand, communityCards);
-            }
-        }
-
-        return false;
-    }
-
-    // Verifica se há potencial para straight ou flush
-    private hasDrawPotential(hand: Card[], communityCards: Card[]): boolean {
-        // Combinar mão e cartas comunitárias
-        const allCards = [...hand, ...communityCards];
-
-        // Verificar potencial de flush (4+ cartas do mesmo naipe)
-        const suitCounts: Record<string, number> = {};
-        for (const card of allCards) {
-            suitCounts[card.suit] = (suitCounts[card.suit] || 0) + 1;
-        }
-
-        if (Object.values(suitCounts).some((count) => count >= 4)) {
-            return true;
-        }
-
-        // Verificar potencial de straight (sequência com no máximo 1 gap)
-        const ranks = [
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "10",
-            "J",
-            "Q",
-            "K",
-            "A",
-        ];
-        const rankIndices = allCards
-            .map((card) => ranks.indexOf(card.rank))
-            .sort((a, b) => a - b);
-
-        let consecutiveCount = 1;
-        let maxConsecutive = 1;
-
-        for (let i = 1; i < rankIndices.length; i++) {
-            if (rankIndices[i] === rankIndices[i - 1]) continue; // Ignorar duplicatas
-
-            if (rankIndices[i] === rankIndices[i - 1] + 1) {
-                consecutiveCount++;
-                maxConsecutive = Math.max(maxConsecutive, consecutiveCount);
-            } else {
-                consecutiveCount = 1;
-            }
-        }
-
-        return maxConsecutive >= 4; // 4 cartas consecutivas indicam potencial de straight
-    }
-
     private prepareGameContext(gameState: GameState): string {
         const playerInfo = gameState.players.find(
             (p) => p.id === this.playerId
         );
 
         if (!playerInfo) {
-            return "Não foi possível encontrar suas informações no jogo. Decisão: FOLD";
+            return "Could not find your information in the game. Decision: FOLD";
         }
-
-        const currentPlayer =
-            gameState.players[gameState.currentPlayerIndex ?? -1];
-        const isMyTurn = currentPlayer?.id === this.playerId;
 
         // Format cards for display
         const formatCard = (card: Card) => `${card.rank}${card.suit}`;
         const formatCards = (cards: Card[]) => cards.map(formatCard).join(" ");
 
-        // Análise básica da mão
-        let handStrength = "desconhecida";
-        if (playerInfo.hand && playerInfo.hand.length === 2) {
-            // Verificar se tem par na mão
-            if (playerInfo.hand[0].rank === playerInfo.hand[1].rank) {
-                handStrength = "forte - par na mão";
-            }
-            // Verificar se tem cartas altas
-            else if (
-                ["A", "K", "Q", "J"].includes(playerInfo.hand[0].rank) ||
-                ["A", "K", "Q", "J"].includes(playerInfo.hand[1].rank)
-            ) {
-                handStrength = "média - carta alta";
-            }
-            // Verificar se tem cartas do mesmo naipe
-            else if (playerInfo.hand[0].suit === playerInfo.hand[1].suit) {
-                handStrength = "potencial de flush";
-            }
-            // Cartas sequenciais
-            else {
-                const ranks = [
-                    "2",
-                    "3",
-                    "4",
-                    "5",
-                    "6",
-                    "7",
-                    "8",
-                    "9",
-                    "10",
-                    "J",
-                    "Q",
-                    "K",
-                    "A",
-                ];
-                const rank1Index = ranks.indexOf(playerInfo.hand[0].rank);
-                const rank2Index = ranks.indexOf(playerInfo.hand[1].rank);
-                if (Math.abs(rank1Index - rank2Index) === 1) {
-                    handStrength = "potencial de straight";
-                } else {
-                    handStrength = "fraca";
-                }
-            }
-        }
+        const phase = gameState.communityCards.length === 0 ? "preflop"
+                    : gameState.communityCards.length === 3 ? "flop"
+                    : gameState.communityCards.length === 4 ? "turn"
+                    : "river";
 
-        // Calcular quantos jogadores ainda estão ativos
-        const activePlayers = gameState.players.filter(
-            (p) => !p.isFolded
-        ).length;
-
-        // Calcular minha posição relativa em fichas comparado aos outros jogadores
-        const allChips = gameState.players.map((p) => p.chips);
-        const myChipRank =
-            allChips.filter((chips) => chips > (playerInfo.chips || 0)).length +
-            1;
-        const totalPlayers = gameState.players.length;
-
-        // Calcular o pot odds (relação entre o tamanho do pote e o custo para continuar)
-        const potOdds =
-            gameState.currentBet > 0
-                ? `${
-                      Math.round((gameState.pot / gameState.currentBet) * 100) /
-                      100
-                  }:1`
-                : "N/A";
+        const gamePhase =
+            gameState.tableStatus === "WAITING" ||
+            gameState.tableStatus === "ROUND_OVER"
+                ? gameState.tableStatus
+                : phase;
 
         const context = [
-            `Fase do jogo: ${gameState.gameState}`,
-            `Pot atual: ${gameState.pot}`,
-            `Aposta atual: ${gameState.currentBet}`,
-            `Suas cartas: ${
-                playerInfo.hand ? formatCards(playerInfo.hand) : "Desconhecidas"
+            `Game phase: ${gamePhase}`,
+            `Current pot: ${gameState.pot}`,
+            `Current bet: ${gameState.currentBet}`,
+            `Your cards: ${
+                playerInfo.hand ? formatCards(playerInfo.hand) : "Unknown"
             }`,
-            `Força estimada da sua mão: ${handStrength}`,
-            `Cartas comunitárias: ${formatCards(gameState.communityCards)}`,
-            `Suas fichas: ${playerInfo.chips}`,
-            `Sua posição em fichas: ${myChipRank}º de ${totalPlayers}`,
-            `Sua aposta atual: ${playerInfo.currentBet}`,
-            `Pot odds: ${potOdds}`,
-            `Última ação: ${gameState.lastAction || "Nenhuma"}`,
-            `Último aumento: ${gameState.lastRaiseAmount || 0}`,
-            `Jogadores ativos: ${activePlayers} de ${totalPlayers}`,
-            `\nJogadores:`,
+            // `Estimated hand strength: ${handStrength}`,
+            `Community cards: ${formatCards(gameState.communityCards)}`,
+            `Your chips: ${playerInfo.chips}`,
+            // `Your chip position: ${myChipRank}th of ${totalPlayers}`,
+            `Your current bet: ${playerInfo.currentBet}`,
+            // `Pot odds: ${potOdds}`,
+            `Last action: ${gameState.lastAction || "None"}`,
+            `Last raise: ${gameState.lastRaiseAmount || 0}`,
+            // `Active players: ${activePlayers} of ${totalPlayers}`,
+            `\nPlayers:`,
             ...gameState.players.map(
                 (p) =>
-                    `${p.name}: ${p.chips} fichas, aposta ${p.currentBet}, ${
-                        p.isFolded ? "foldou" : "ativo"
+                    `${p.name}: ${p.chips} chips, bet ${p.currentBet}, ${
+                        p.isFolded ? "folded" : "active"
                     }`
             ),
-            `\nHistórico da rodada:`,
+            `\nRound history:`,
             ...(gameState.roundHistory || []),
         ].join("\n");
 
@@ -822,18 +514,18 @@ export class PokerClient implements Client {
             const normalized = response.trim().toUpperCase();
             elizaLogger.info(`Parsing agent response: "${normalized}"`);
 
-            // Padrões regex para detectar diferentes formatos de resposta
-            const foldPattern = /\b(FOLD|DESISTIR|PASSAR|PASSO|F)\b/;
-            const checkPattern = /\b(CHECK|CHECAR|PASS|PASSAR|C)\b/;
-            const callPattern = /\b(CALL|CHAMAR|PAGAR|COBRIR)\b/;
+            // Regex patterns to detect different response formats
+            const foldPattern = /\b(FOLD|GIVE UP|FOLDED)\b/;
+            const checkPattern = /\b(CHECK|CHECKED)\b/;
+            const callPattern = /\b(CALL|MATCH|PAY|COVER|EQUAL|EQUALS)\b/;
             const raisePattern =
-                /\b(RAISE|RAISE TO|AUMENTAR|BET|APOSTAR|R)[ :]+(\d+)\b/;
-            const allInPattern = /\b(ALL[ -]IN|ALL|TUDO|ALL-IN)\b/;
+                /\b(RAISE|RAISE TO|INCREASE|BET|R)[ :]+(\d+)\b/;
+            const allInPattern = /\b(ALL[ -]IN|ALL|ALL-IN)\b/;
 
-            // Verificar cada padrão em ordem de prioridade
+            // Check each pattern in order of priority
             if (allInPattern.test(normalized)) {
-                // All-in é uma forma de RAISE com todas as fichas
-                return { action: PlayerAction.RAISE, amount: 999999 }; // Usamos um valor muito alto para representar all-in
+                // All-in is a form of RAISE with all chips
+                return { action: PlayerAction.ALL_IN };
             }
 
             const raiseMatch = normalized.match(raisePattern);
@@ -856,78 +548,11 @@ export class PokerClient implements Client {
                 return { action: PlayerAction.FOLD };
             }
 
-            // Se a resposta contém algum texto que pode ser interpretado como uma jogada mais agressiva
-            if (
-                normalized.includes("APOSTA") ||
-                normalized.includes("RAISE") ||
-                normalized.includes("AUMENTA") ||
-                normalized.includes("BET")
-            ) {
-                // Sem valor específico, optamos por um raise padrão
-                return { action: PlayerAction.RAISE, amount: 20 };
-            }
-
-            // Se contém texto que pode ser interpretado como CALL
-            if (
-                normalized.includes("CALL") ||
-                normalized.includes("CHAMA") ||
-                normalized.includes("PAGA") ||
-                normalized.includes("IGUAL")
-            ) {
-                return { action: PlayerAction.CALL };
-            }
-
-            // Se contém texto que pode ser interpretado como CHECK
-            if (
-                normalized.includes("CHECK") ||
-                normalized.includes("PASSA") ||
-                normalized.includes("CHEC")
-            ) {
-                return { action: PlayerAction.CHECK };
-            }
-
-            // Se não conseguimos interpretar claramente, usamos uma heurística baseada
-            // no conteúdo da resposta para tentar inferir a intenção
-
-            // Analisar o contexto da resposta para determinar a intenção
-            const isAggressive =
-                normalized.includes("FORTE") ||
-                normalized.includes("BOM") ||
-                normalized.includes("AGRESSIV") ||
-                normalized.includes("AUMENTA");
-
-            const isConservative =
-                normalized.includes("FRACA") ||
-                normalized.includes("RUIM") ||
-                normalized.includes("PIOR") ||
-                normalized.includes("SAIR");
-
-            // Decisão baseada na intenção percebida na resposta
-            if (isAggressive) {
-                // Se parece agressivo, fazer CALL ou RAISE
-                elizaLogger.warn(
-                    "Using context-based interpretation: aggressive response detected, choosing CALL",
-                    response
-                );
-                return { action: PlayerAction.CALL };
-            } else if (isConservative) {
-                // Se parece conservador, fazer FOLD
-                elizaLogger.warn(
-                    "Using context-based interpretation: conservative response detected, choosing FOLD",
-                    response
-                );
-                return { action: PlayerAction.FOLD };
-            } else {
-                // Caso não tenha contexto claro, CHECK é a opção mais neutra
-                elizaLogger.warn(
-                    "Could not clearly parse agent response, choosing CHECK as default action",
-                    response
-                );
-                return { action: PlayerAction.CHECK };
-            }
+            // If no pattern matches, return FOLD as default
+            return { action: PlayerAction.FOLD };
         } catch (error) {
             elizaLogger.error("Error parsing agent response:", error);
-            // Em caso de erro, escolhemos a opção mais segura (CHECK se possível, FOLD como fallback)
+            // In case of error, we choose the safest option (CHECK if possible, FOLD as fallback)
             return { action: PlayerAction.FOLD };
         }
     }

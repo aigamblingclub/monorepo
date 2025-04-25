@@ -1,5 +1,5 @@
 import { DirectClient } from "@elizaos/client-direct";
-import { PokerClient, createPokerClient } from "@elizaos/client-poker";
+import { createPokerClient } from "@elizaos/client-poker";
 import {
     type Adapter,
     AgentRuntime,
