@@ -3,7 +3,7 @@ import  * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import { POKER_ROOM_DEFAULT_STATE } from "./state_machine";
 import { currentPlayer, playerView } from "./queries";
-import { addPlayer, processPlayerMove, removePlayer, startRound, transitionPhase } from "./transitions";
+import { addPlayer, processPlayerMove, removePlayer, startRound, transition  } from "./transitions";
 import type { GameEvent, PlayerView, PokerState, ProcessEventError, ProcessStateError, SystemEvent } from "./schemas";
 
 export interface PokerGameService {
@@ -42,15 +42,18 @@ function computeNextState(
             if (event.playerId !== currentPlayer(state).id) {
                 return Effect.fail<ProcessEventError>({ type: 'not_your_turn' })
             }
-            // TODO: turn state transitions into effects (validate moves)
-            return Effect.succeed(processPlayerMove(state, event.move))
+            // FIXME: unify ProcessEventError with the new transition errors
+            // @ts-expect-error
+            return processPlayerMove(state, event.move)
         }
         case 'start': {
             // TODO: sanity check for status?
             return Effect.succeed(startRound(state))
         }
         case 'transition_phase': {
-            return Effect.succeed(transitionPhase(state))
+            // FIXME: unify ProcessEventError with the new transition errors
+            // @ts-expect-error
+            return transition(state)
         }
     }
 }
@@ -96,6 +99,7 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
     const currentState = () => Ref.get(stateRef)
 
     function processEvent(event: GameEvent): Effect.Effect<PokerState, ProcessEventError, never> {
+        console.log('processano')
         return pipe(
             currentState(),
             Effect.flatMap(state => computeNextState(state, event)),
@@ -125,12 +129,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
         stateProcessingStream,
         Stream.run(Sink.drain),
         Effect.runFork,
-    )
-
-    const _debugFiber = pipe(
-        currentState(),
-        Effect.tap(Console.log),
-        Effect.runFork
     )
 
     return {
