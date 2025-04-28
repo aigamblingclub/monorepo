@@ -31,7 +31,7 @@ export type HoleCards = typeof HoleCardsSchema.Type
 export const PlayerStateSchema = Schema.Struct({
     id: Schema.String,
     status: PlayerStatusSchema,
-    hand: HoleCardsSchema,
+    hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
     chips: Schema.Number,
     bet: Schema.Struct({
         round: Schema.Number,
