@@ -1,7 +1,9 @@
-import { bigBlind, currentPlayer, dealer, roundRotation, smallBlind, type PokerState } from "poker-state-machine";
+import { bigBlind, currentPlayer, dealer, smallBlind, type PlayerState, type PokerState } from "poker-state-machine";
+import * as Option from 'effect/Option'
 import { Card } from "./Card";
 import PlayerInfo from "./PlayerInfo";
 import { PlayerChips } from "./PlayerChips";
+import { pipe } from "effect";
 
 const PLAYER_POSITIONS = [
   { top: "5%", left: "50%" },   // North
@@ -21,10 +23,13 @@ export function PokerTable({ state }: PokerTableProps) {
   const dealerId = dealer(state)?.id;
   const bigBlindId = bigBlind(state)?.id;
   const smallBlindId = smallBlind(state)?.id;
-  const winningPlayerId = state.winningPlayerId
+
+  const isWinningPlayer = (p: PlayerState) => pipe(
+      state.winningPlayerId,
+      Option.contains(p.id)
+  )
 
   const allPlayers = Object.values(state.players)
-  console.log('asdasdasd',allPlayers.length)
 
   return (
     <div className="w-full aspect-[2/1] relative mb-4">
@@ -36,7 +41,7 @@ export function PokerTable({ state }: PokerTableProps) {
             isDealer={p.id === dealerId}
             isBigBlind={p.id === bigBlindId}
             isSmallBlind={p.id === smallBlindId}
-            isWinner={p.id === winningPlayerId}
+            isWinner={isWinningPlayer(p)}
             position={index}
           />
         ))}
@@ -67,7 +72,7 @@ export function PokerTable({ state }: PokerTableProps) {
           <PlayerInfo
             player={p}
             isCurrentPlayer={p.id === currentPlayerId}
-            isWinner={p.id === winningPlayerId}
+            isWinner={isWinningPlayer(p)}
             position={"top"}
           />
         </div>
