@@ -1,6 +1,6 @@
 import { makePokerRoom } from "poker-state-machine";
 import { ProcessingStateStreamErrorsSchema, GameEventSchema, PlayerViewSchema, PokerStateSchema, ProcessEventErrorSchema } from "poker-state-machine/schemas";
-import { Rpc, RpcGroup, } from "@effect/rpc";
+import { Rpc, RpcGroup, RpcClient } from "@effect/rpc";
 import { Effect, pipe, Schema } from "effect";
 
 
@@ -32,16 +32,36 @@ export const PokerRpcLive = PokerRpc.toLayer(Effect.gen(function* () {
 
     return {
         currentState: (_, headers) => {
+            console.log('ta chamano aq?')
             return ROOM.currentState()
         },
         processEvent: (payload, headers) => {
+            console.log('ta chamano aq?')
             return ROOM.processEvent(payload.event)
         },
         playerView: (payload, headers) => {
+            console.log('ta chamano aq?')
             return ROOM.playerView(payload.playerId)
         },
         stateUpdates: (_, headers) => {
+            console.log('ta chamano aq?')
             return ROOM.stateUpdates
         },
     }
 }))
+
+Effect.gen(function* () {
+    const client = yield*  RpcClient.make(PokerRpc)
+
+    const state = yield* client.currentState()
+
+
+    const _ = yield* client.processEvent({
+        event: {
+            type: 'table',
+            action: 'join',
+            playerId: 'asdasda'
+        }
+    })
+
+})
