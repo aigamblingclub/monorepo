@@ -2,7 +2,7 @@ import { Console, Effect, pipe, Queue, Ref, Sink } from "effect";
 import  * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import { POKER_ROOM_DEFAULT_STATE } from "./state_machine";
-import { currentPlayer, playersInRound, playerView, seatedPlayers } from "./queries";
+import { currentPlayer, playerView } from "./queries";
 import { addPlayer, processPlayerMove, removePlayer, startRound, transitionPhase } from "./transitions";
 import type { GameEvent, PlayerView, PokerState, ProcessEventError, ProcessStateError, SystemEvent } from "./schemas";
 
@@ -59,23 +59,24 @@ function computeNextState(
 // before emitting them, but maybe all of that should just be emulated on the frontend.
 // TODO: make minPlayers part of the Effect's context? (i.e. dependency)
 function processState(state: PokerState, minPlayers: number): Effect.Effect<Option.Option<SystemEvent>, ProcessStateError> {
-    if (state.status === "WAITING" && seatedPlayers(state) >= minPlayers) {
+    if (state.status === "WAITING" && state.players.length >= minPlayers) {
+        // YO
         return Effect.succeed(Option.some({ type: 'start' }))
     }
-    if (state.status === "PLAYING" && state.winningPlayerId) {
-        // TODO: make effectful?
-        console.log("winningPlayerId: ", state.winningPlayerId);
-        // TODO: when we have player bets we need to emit an event here
-        return Effect.succeed(Option.none());
-    }
+    // if (state.status === "PLAYING" && state.winningPlayerId) {
+    //     // TODO: make effectful?
+    //     console.log("winningPlayerId: ", state.winningPlayerId);
+    //     // TODO: when we have player bets we need to emit an event here
+    //     return Effect.succeed(Option.none());
+    // }
     // FIXME(?): make this state unrepresentable (refactor transitions)
-    if (state.status === 'PLAYING' && playersInRound(state).length === 1) {
-        return Effect.fail<ProcessStateError>({
-            type: 'inconsistent_state',
-            state,
-            message: 'inconsistent state round is over but there are no remaining players'
-        })
-    }
+    // if (state.status === 'PLAYING' && playersInRound(state).length === 1) {
+    //     return Effect.fail<ProcessStateError>({
+    //         type: 'inconsistent_state',
+    //         state,
+    //         message: 'inconsistent state round is over but there are no remaining players'
+    //     })
+    // }
     // FIXME: this logic should (probably) be inside the transitions
     if (
         state.status === "PLAYING" &&
