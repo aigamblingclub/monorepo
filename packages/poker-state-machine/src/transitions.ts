@@ -1,83 +1,76 @@
 /*
     transitions: functions that operate on the current poker state to return the next one.
  */
-import { Option, pipe } from "effect";
-import { determineHandType, determineWinningHand, getShuffledDeck } from "./poker";
-import { bigBlind, players, playersInRound, playingPlayers, roundRotation, seatedPlayers, smallBlind } from "./queries";
-import type { Move, PokerState } from "./schemas";
-import { PLAYER_DEFAULT_STATE } from "./state_machine";
+import { Effect, Iterable, pipe } from "effect"
+import { getShuffledDeck } from "./poker"
+import { bigBlind, findDealerIndex, firstPlayerIndex, rotated, roundRotation, smallBlind } from "./queries"
+import type { Move, PlayerState, PokerState } from "./schemas"
+import { PLAYER_DEFAULT_STATE } from "./state_machine"
 
 
-export const SMALL_BLIND = 10;
-export const BIG_BLIND = 20;
+export const SMALL_BLIND = 10
+export const BIG_BLIND = 20
 
 // precondition: waiting for players | finished previous round
 export function addPlayer(state: PokerState, playerId: string): PokerState {
   return {
     ...state,
-    players: {
-      ...state.players,
-      [playerId]: {
-        ...PLAYER_DEFAULT_STATE,
-        id: playerId,
-      },
-    },
+    players: [
+        ...state.players,
+        {
+            ...PLAYER_DEFAULT_STATE,
+            id: playerId
+        }
+    ]
   }
 }
 
+// TEST: consider what happens when you remove the player supposed to be the dealer
 // precondition: waiting for players | finished previous round
 export function removePlayer(state: PokerState, playerId: string): PokerState {
+    const removeIndex = state.players.findIndex(p => p.id === playerId)
+    const newIndex = state.currentPlayerIndex <= removeIndex
+        ? state.currentPlayerIndex
+        : state.currentPlayerIndex - 1
+
+    const players = state.players.filter((_, index) => index !== removeIndex)
+
     return {
         ...state,
-        players: Object.fromEntries(
-            Object
-                .entries(state.players)
-                .filter(([pId]) => pId !== playerId)
-        )
+        players,
+        currentPlayerIndex: newIndex
     }
 }
 
 // precondition: waiting for players | finished previous round
 export function dealCards(state: PokerState): PokerState {
-    const deck = getShuffledDeck();
-    const dealtCards = deck.splice(0, 2 * seatedPlayers(state));
+    const deck = getShuffledDeck()
+    const dealtCards = deck.splice(0, 2 * state.players.length)
 
     return {
         ...state,
-        status: "PLAYING",
         deck,
         community: [],
-        burnt: [],
-        currentPlayerIndex: 0,
-        // TODO: use conjugateEntries
-        players: Object.fromEntries(
-            players(state).map((p, i) => [
-                p.id,
-                {
-                    ...p,
-                    hand: dealtCards.slice(2 * i, 2 * i + 2),
-                    status: "PLAYING",
-                    bet: 0,
-                },
-            ]),
-        ),
-    };
+        players: state.players.map((p, i) => ({
+            ...p,
+            hand: dealtCards.slice(2 * i, 2 * i + 2),
+            status: "PLAYING",
+        })
+    }
 }
 
 // precondition: waiting for players | finished previous round
 export function rotateBlinds(state: PokerState): PokerState {
-    const players = playersInRound(state).length;
+    const dealerIndex = findDealerIndex(state)
+    const nextDealerIndex = (dealerIndex + 1) % state.players.length
+    const nextDealerId = state.players[nextDealerIndex].id
     return {
         ...state,
-        dealerIndex: (state.dealerIndex + 1) % players,
+        dealerId: nextDealerId,
     };
 }
 
 export type StateTransition = (state: PokerState) => PokerState
-
-// export function composeTransitions(transitions: StateTransition[]): StateTransition {
-//     return initial => transitions.reduce((state, f) => f(state), initial)
-// }
 
 // precondition: cards are dealt
 export const collectBlinds: StateTransition = state => {
@@ -97,70 +90,34 @@ export const startRound: StateTransition = (state: PokerState) => pipe(
     collectBlinds,
 )
 
-function shiftBetRotation(state: PokerState): PokerState {
-    const players = roundRotation(state);
-    // needs to be >= because current player might have folded and be the last
-    const isLastPlayer = state.currentPlayerIndex >= players.findLastIndex((p) => p.status === "PLAYING");
-
-    const allCalled = players.every(
-        (p) => p.status === "FOLDED" || p.bet === state.bet,
-    );
-
-    const playersLeft = players.filter(p => p.status === "PLAYING");
-    if (playersLeft.length === 1) {
-        return {
-            ...state,
-            winningPlayerId: Option.some(playersLeft[0].id),
-            currentPlayerIndex: -1
-        }
+function playerBet(state: PokerState, playerId: string, amount: number): PokerState {
+    const player = state.players.find(p => p.id === playerId)!
+    const diff = Math.min(amount - player.bet.round, player.chips)
+    const bet = {
+        round: player.bet.round + diff,
+        total: player.bet.total + diff,
     }
-
-    if (isLastPlayer && allCalled) {
-        return {
-            ...state,
-            currentPlayerIndex: -1
-        }
-    }
-
-    const nextPlayerIndex = isLastPlayer && !allCalled
-        ? players.findIndex((p) => p.status === "PLAYING") // rotates back to the beggining
-        : players.findIndex(
-            // find next player still in round
-            (p, i) => p.status === "PLAYING" && state.currentPlayerIndex < i,
-        );
-
-    return {
-        ...state,
-        currentPlayerIndex: nextPlayerIndex
-    };
-}
-
-function playerBet(state: PokerState, playerId: string, bet: number): PokerState {
-    const player = state.players[playerId]
-    const diff = Math.min(bet - player.bet, player.chips)
-    const amount = player.bet + diff
     const remaining = player.chips - diff
-    const raised = bet > state.bet
+    const raised = amount > state.bet
 
     return {
         ...state,
         pot: state.pot + diff,
-        bet: Math.max(state.bet, amount),
-        players: {
-            ...state.players,
-            [playerId]: {
-                ...player,
-                bet: amount,
-                chips: remaining,
-                status: 'PLAYING'
-            }
-        },
+        bet: Math.max(state.bet, bet.round),
+        players: state.players.map(p => p.id !== playerId ? p : {
+            ...p,
+            bet,
+            chips: remaining,
+            status: remaining === 0 ? 'ALL_IN' : 'PLAYING'
+        })
     }
 }
 
-export function processPlayerMove(state: PokerState, move: Move): PokerState {
-    const players = roundRotation(state);
-    const playerId = players[state.currentPlayerIndex].id;
+// README: note that the Move type doesn't include playerId, that's validated on the
+// event-processing layer, where a MoveEvent can only be processed if it's from the
+// currentPlayer
+export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<PokerState, string> {
+    const playerId = state.players[state.currentPlayerIndex].id;
 
     let nextState = structuredClone(state);
     switch (move.type) {
@@ -168,13 +125,7 @@ export function processPlayerMove(state: PokerState, move: Move): PokerState {
             // TODO: check if the player already has enough bet
             nextState = {
                 ...state,
-                players: {
-                    ...state.players,
-                    [playerId]: {
-                        ...state.players[playerId],
-                        status: 'FOLDED'
-                    }
-                }
+                players: state.players.map(p => p.id !== playerId ? p : { ...p, status: 'FOLDED' })
             }
             break;
         }
@@ -184,81 +135,113 @@ export function processPlayerMove(state: PokerState, move: Move): PokerState {
             break;
         }
 
+        // TODO: on raise we should validate amount of chips and return an error if the player
+        // has insufficient chips
         case "raise": {
             nextState = playerBet(nextState, playerId, move.amount)
             break;
         }
     }
 
-    return shiftBetRotation(nextState);
+    return transition(nextState)
 }
 
-// precondition: all players settled on a bet size
-export function transitionPhase(state: PokerState): PokerState {
-    if (state.winningPlayerId) {
-        return dealCards(state)
-    }
+// TEST: test-case for allowing blinds to raise (especially big blind, which's already called)
+export function transition(state: PokerState): Effect.Effect<PokerState, string> {
+    const players = roundRotation(state)
+    const isLastPlayer = state.currentPlayerIndex >= players.findLastIndex(p => p.status === "PLAYING")
+    const allCalled = state.bet !== 0 && state.players.every(p => (
+           p.status    === "FOLDED"
+        || p.status    === "ALL_IN"
+        || p.bet.round === state.bet
+    ))
+    const allChecked = state.bet === 0 && isLastPlayer
+    const playersLeft = state.players.filter(p => p.status === "PLAYING")
 
-    let nextState = {
+    if (playersLeft.length <= 1) return showdown(state)
+    if (allCalled || allChecked) return nextPhase(state)
+
+    // shift bet rotation
+    return Effect.succeed({
         ...state,
-        currentPlayerIndex: 0,
-        players: Object.fromEntries(
-            Object
-                .entries(state.players)
-                .map(([id, player]) => [id, { ...player, bet: 0 }])
-        )
-    }
-    const cards = nextState.deck.length
+        currentPlayerIndex: isLastPlayer
+            ? players.findIndex(p => p.status === 'PLAYING')
+            : players.findIndex((p, i) => p.status === 'PLAYING' && state.currentPlayerIndex < i)
+    })
+}
 
-    switch (state.community.length) {
-        // deal flop
-        case 0: {
-            nextState = {
-                ...nextState,
-                burnt: [nextState.deck[cards - 1]],
-                community: [2, 3, 4].map(offset => nextState.deck[cards - offset]),
-                deck: nextState.deck.slice(0, cards - 4),
-            }
-            break;
-        }
-        // deal turn
-        case 3: {
-            nextState = {
-                ...nextState,
-                burnt: [nextState.deck[cards - 1]],
-                community: [nextState.deck[cards - 2]],
-                deck: nextState.deck.slice(0, cards - 2),
-            }
-            break;
-        }
-        // deal river
-        case 4: {
-            nextState = {
-                ...nextState,
-                burnt: [nextState.deck[cards - 1]],
-                community: [nextState.deck[cards - 2]],
-                deck: nextState.deck.slice(0, cards - 2),
-            }
-            break;
-        }
-        // showdown
-        case 5: {
-            const players = playingPlayers(state);
-            const playerHands = players.map((p) => [...p.hand, ...state.community]);
-            const playerHandTypes = playerHands.map(h => determineHandType(h));
-            const winningHand = determineWinningHand(playerHandTypes);
+// precondition: betting round is over
+export function nextPhase(state: PokerState): Effect.Effect<PokerState, string> {
+    const cards = state.deck.length
+    if (cards === 5) return showdown(state)
 
-            const winningPlayerIndex = playerHandTypes.findIndex(
-                (t) => t === winningHand,
-            );
-            const winningPlayer = players[winningPlayerIndex]
+    const toBeDealt = ({ 0: 3, 3: 1, 4: 1 })[state.community.length]!
+    const community = state.deck.slice(cards - toBeDealt, cards)
+    const deck = state.deck.slice(0, cards - toBeDealt)
 
-            nextState.winningPlayerId = Option.some(winningPlayer.id);
-            // TODO: track pot for all-in situations
-            nextState.players[winningPlayer.id].chips += state.pot;
-            break;
-        }
+    const nextState: PokerState = {
+        ...state,
+        deck,
+        community,
+        bet: 0,
+        players: state.players.map(p => ({
+            ...p,
+            bet: {
+                total: p.bet.total,
+                round: 0,
+            },
+        }))
     }
 
-    return nextState;
+    return Effect.succeed({
+        ...nextState,
+        currentPlayerIndex: firstPlayerIndex(nextState)
+    })
+}
+
+// precondition: players are sorted by bet total
+// returns the bet size for each pot
+const getPotBets = (players: PlayerState[]) => pipe(
+    players,
+    Iterable.map(p => p.bet.total),
+    Iterable.dedupeAdjacent,
+    Iterable.reduce<number[], number>([], (ps, p) => [...ps, p])
+)
+
+// precondition: potBets is sorted
+// returns the amount each player has at stake on each pot
+const playerPotStakes = (player: PlayerState, potBets: number[]) => {
+    let remaining = player.bet.total;
+    const acc = []
+    for (const potBet of potBets) {
+        const amount = Math.min(remaining, potBet)
+        remaining -= amount
+        acc.push(amount)
+    }
+    return acc
+}
+
+// TEST: test-case for when there's only 1 pot but 2 all-in players in it
+// precondition: all players which are not folded or all-in have the same bet total
+export function showdown(state: PokerState): Effect.Effect<PokerState, string> {
+    const allPlayers = state.players.toSorted((a, b) => a.bet.total - b.bet.total)
+    const inPlayers = allPlayers.filter(p => p.status !== 'FOLDED')
+    const allInPlayers = inPlayers.filter(p => p.status === 'ALL_IN')
+    // TODO: better name for this status
+    const playingPlayers = inPlayers.filter(p => p.status === 'PLAYING')
+
+    const playingPotBets = getPotBets(playingPlayers)
+    if (playingPotBets.length !== 1) {
+        return Effect.fail('TODO: turn this error into an proper type (inconsistent state)')
+    }
+
+    const potBets = getPotBets(inPlayers)
+    const map = Object.fromEntries(potBets.map(b => [b, 0] as const))
+
+    inPlayers.map(p => )
+
+
+    // tá daí pra cada pote eu vou pegar cada jogador que apostou pelo menos isso
+
+    // para cada side-pot distribuir o prêmio igualmente entre as mãos vencedoras
 }

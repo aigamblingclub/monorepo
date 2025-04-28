@@ -1,22 +1,23 @@
-import { Option } from "effect";
-import type { PlayerState, PokerState } from "./schemas";
+import { Effect, Option, Queue } from "effect";
+import { TableEvent, type MoveEvent, type PlayerState, type PokerState } from "./schemas";
+import { addPlayer, removePlayer, startRound } from "./transitions";
 
 export const POKER_ROOM_DEFAULT_STATE: PokerState = {
   status: "WAITING",
-  players: {},
+  players: [],
   deck: [],
   community: [],
-  burnt: [],
   pot: 0,
   bet: 0,
-  dealerIndex: -1,
+  // TODO: both of these are bad default values, refactor later
+  dealerId: '',
   currentPlayerIndex: -1,
-  winningPlayerId: Option.none<string>(),
+  // winningPlayerId: Option.none<string>(),
 };
 
 export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {
   status: "OUT",
   hand: [],
   chips: 100,
-  bet: 0,
+  bet: { round: 0, total: 0 },
 };
