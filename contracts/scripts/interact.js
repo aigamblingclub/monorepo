@@ -2,8 +2,6 @@
 
 import { connect, keyStores, utils } from 'near-api-js';
 import readline from 'readline';
-import path from 'path';
-import { homedir } from 'os';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
