@@ -4,6 +4,10 @@ import { connect, keyStores, utils } from 'near-api-js';
 import readline from 'readline';
 import path from 'path';
 import { homedir } from 'os';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Configuration
 const CONFIG = {
@@ -49,10 +53,19 @@ if (!contractId || !method) {
 // Connect to NEAR and call the contract
 async function callContract() {
   try {
-    // Configure the connection
-    const keyStore = new keyStores.UnencryptedFileSystemKeyStore(
-      path.join(homedir, `.near-credentials/${network}`)
-    );
+    // Load environment variables
+    const { NEAR_ACCOUNT_ID, NEAR_PRIVATE_KEY } = process.env;
+    
+    if (!NEAR_ACCOUNT_ID || !NEAR_PRIVATE_KEY) {
+      console.error('Missing NEAR_ACCOUNT_ID or NEAR_PRIVATE_KEY in .env file');
+      console.error('Please add these variables to your .env file or use the credential store');
+      process.exit(1);
+    }
+
+    // Use in-memory keystore with private key from .env
+    const keyStore = new keyStores.InMemoryKeyStore();
+    const keyPair = utils.KeyPair.fromString(NEAR_PRIVATE_KEY);
+    await keyStore.setKey(network, NEAR_ACCOUNT_ID, keyPair);
     
     const nearConfig = {
       ...CONFIG[network],
@@ -62,38 +75,9 @@ async function callContract() {
     // Connect to NEAR
     const near = await connect(nearConfig);
     
-    // Get list of accounts from keystore
-    const accountIds = await keyStore.getAccounts(network);
-    
-    if (accountIds.length === 0) {
-      console.error(`No accounts found for ${network}. Please login first with 'near login'.`);
-      process.exit(1);
-    }
-    
-    // If multiple accounts, ask which one to use
-    let accountId;
-    if (accountIds.length === 1) {
-      accountId = accountIds[0];
-    } else {
-      console.log('Available accounts:');
-      accountIds.forEach((id, index) => {
-        console.log(`${index + 1}. ${id}`);
-      });
-      
-      const answer = await new Promise(resolve => {
-        rl.question('Select account number to use: ', resolve);
-      });
-      
-      const index = parseInt(answer) - 1;
-      if (isNaN(index) || index < 0 || index >= accountIds.length) {
-        console.error('Invalid selection');
-        process.exit(1);
-      }
-      
-      accountId = accountIds[index];
-    }
-    
-    console.log(`Using account: ${accountId}`);
+    // Use the account from env
+    const accountId = NEAR_ACCOUNT_ID;
+    console.log(`Using account from .env: ${accountId}`);
     
     // Load the account
     const account = await near.account(accountId);
@@ -127,11 +111,12 @@ async function callContract() {
         contractId,
         methodName: method,
         args: methodArgs,
-        attachedDeposit: utils.format.parseNearAmount(attachDeposit)
+        gas: "300000000000000", // 300 TGas
+        attachedDeposit: attachDeposit === '0' ? '0' : utils.format.parseNearAmount(attachDeposit)
       });
     }
     
-    console.log('Result:', result);
+    return result;
     
   } catch (error) {
     console.error('Error calling contract:', error.message);
