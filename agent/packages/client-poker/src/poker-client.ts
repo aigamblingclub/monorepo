@@ -40,6 +40,7 @@ export class PokerClient implements Client {
     private joinBackoffMs = 5000; // Start with 5 second backoff
     private playerReadySet = false; // Flag to track if we've already set the player ready
     private isConnected = false;
+    private playerViewPollingInterval: NodeJS.Timeout | null = null;
 
     constructor(config: PokerClientConfig) {
         // if (!config.apiKey) {
@@ -95,46 +96,64 @@ export class PokerClient implements Client {
             elizaLogger.error("Failed to connect to poker server:", error);
         }
 
+        try {
+            elizaLogger.info("Getting game state");
+            const gameState =
+                await this.apiConnector.getGameState();
+            await this.handleGameUpdate(gameState);
+        } catch (error) {
+            elizaLogger.error("Error getting game state:", error);
+            // On error, reset the game connection after a few tries
+            // this.resetFailedCount =
+            //     (this.resetFailedCount || 0) + 1;
+            // if (this.resetFailedCount > 5) {
+            //     elizaLogger.info(
+            //         "Too many failures, resetting connection"
+            //     );
+            //     this.resetGame();
+            // }
+        }
+
         // I think that we will not need because of the websocket listener
         // Start polling to check game state or find available games
-        this.intervalId = setInterval(async () => {
-            try {
-                // If not in a game, try to find and join one
-                // if (!this.gameId) {
-                //     const now = Date.now();
-                //     // Only attempt to join if enough time has passed since last attempt
-                //     if (now - this.lastJoinAttempt >= this.joinBackoffMs) {
-                //         this.lastJoinAttempt = now;
+        // this.intervalId = setInterval(async () => {
+        //     try {
+        //         // If not in a game, try to find and join one
+        //         // if (!this.gameId) {
+        //         //     const now = Date.now();
+        //         //     // Only attempt to join if enough time has passed since last attempt
+        //         //     if (now - this.lastJoinAttempt >= this.joinBackoffMs) {
+        //         //         this.lastJoinAttempt = now;
 
-                //         // Check if already in a game or try to enter a new one
-                //         await this.checkAndConnectToExistingGame();
-                //     }
-                // }
+        //         //         // Check if already in a game or try to enter a new one
+        //         //         await this.checkAndConnectToExistingGame();
+        //         //     }
+        //         // }
 
-                // I think that we will not need because of the websocket listener
-                // If in a game, check for game state updates
-                if (this.isConnected) {
-                    try {
-                        const gameState =
-                            await this.apiConnector.getGameState();
-                        await this.handleGameUpdate(gameState);
-                    } catch (error) {
-                        elizaLogger.error("Error getting game state:", error);
-                        // On error, reset the game connection after a few tries
-                        this.resetFailedCount =
-                            (this.resetFailedCount || 0) + 1;
-                        if (this.resetFailedCount > 5) {
-                            elizaLogger.info(
-                                "Too many failures, resetting connection"
-                            );
-                            this.resetGame();
-                        }
-                    }
-                }
-            } catch (error) {
-                elizaLogger.error("Error in poker client polling:", error);
-            }
-        }, 5000);
+        //         // I think that we will not need because of the websocket listener
+        //         // If in a game, check for game state updates
+        //         if (this.isConnected) {
+        //             try {
+        //                 const gameState =
+        //                     await this.apiConnector.getGameState();
+        //                 await this.handleGameUpdate(gameState);
+        //             } catch (error) {
+        //                 elizaLogger.error("Error getting game state:", error);
+        //                 // On error, reset the game connection after a few tries
+        //                 this.resetFailedCount =
+        //                     (this.resetFailedCount || 0) + 1;
+        //                 if (this.resetFailedCount > 5) {
+        //                     elizaLogger.info(
+        //                         "Too many failures, resetting connection"
+        //                     );
+        //                     this.resetGame();
+        //                 }
+        //             }
+        //         }
+        //     } catch (error) {
+        //         elizaLogger.error("Error in poker client polling:", error);
+        //     }
+        // }, 5000);
 
         return this;
     }
@@ -143,6 +162,7 @@ export class PokerClient implements Client {
         try {
             elizaLogger.info("Received poker state update");
             const gameState = this.apiConnector.convertPokerStateToGameState(state);
+            elizaLogger.debug("Converted poker state to game state:", gameState);
             this.handleGameUpdate(gameState);
         } catch (error) {
             elizaLogger.error("Error handling poker state update:", error);
@@ -152,6 +172,15 @@ export class PokerClient implements Client {
     private handlePlayerViewUpdate(view: PlayerView): void {
         try {
             elizaLogger.info("Received player view update");
+            elizaLogger.debug("Player view update details:", {
+                currentPlayerId: view.currentPlayerId,
+                ourPlayerId: this.playerId,
+                isOurTurn: view.currentPlayerId &&
+                    (typeof view.currentPlayerId === 'object' && 'value' in view.currentPlayerId
+                        ? view.currentPlayerId.value === this.playerId
+                        : typeof view.currentPlayerId === 'string' && view.currentPlayerId === this.playerId)
+            });
+
             // Update our player ID if needed
             if (view.player && view.player.id && this.playerId !== view.player.id) {
                 this.playerId = view.player.id;
@@ -161,7 +190,7 @@ export class PokerClient implements Client {
             // If we have a game state, update it with the player view information
             if (this.gameState) {
                 // Update our player's hand
-                const ourPlayer = this.gameState.players.find(p => p.id === this.playerId);
+                const ourPlayer = this.gameState.players.find((p: any) => p.id === this.playerId);
                 if (ourPlayer) {
                     ourPlayer.hand = view.hand.map(card => ({
                         rank: card.rank.toString(),
@@ -182,7 +211,7 @@ export class PokerClient implements Client {
                 // Update opponents
                 if (view.opponents) {
                     Object.entries(view.opponents).forEach(([id, opponent]) => {
-                        const player = this.gameState!.players.find(p => p.id === id);
+                        const player = this.gameState!.players.find((p: any) => p.id === id);
                         if (player) {
                             player.chips = opponent.chips;
                             player.currentBet = opponent.bet.round;
@@ -199,23 +228,31 @@ export class PokerClient implements Client {
 
                 if (isOurTurn) {
                     elizaLogger.info("It's our turn, making a decision");
-                    this.makeDecision(this.gameState).then(decision => {
+                    this.makeDecision(this.gameState).then((decision: PokerDecision) => {
                         elizaLogger.info(`Decision made: ${decision.action}`, decision);
 
                         // Submit the action to the server
-                        if (this.gameId && this.playerId) {
-                            this.apiConnector.submitAction(
-                                this.gameId,
-                                this.playerId,
+                        // if (this.gameId && this.playerId) {
+                        if (this.playerId) { // gameid is not set in the game state yet
+                            elizaLogger.debug("Submitting action:", {
+                                playerId: this.playerId,
                                 decision
-                            ).catch(error => {
+                            });
+                            this.apiConnector.submitAction({
+                                playerId: this.playerId,
+                                decision
+                            }).catch((error: Error) => {
                                 elizaLogger.error("Error submitting action:", error);
                             });
                         }
-                    }).catch(error => {
+                    }).catch((error: Error) => {
                         elizaLogger.error("Error making decision:", error);
                     });
+                } else {
+                    elizaLogger.info("Not our turn, waiting for next update");
                 }
+            } else {
+                elizaLogger.warn("Received player view update but no game state exists");
             }
         } catch (error) {
             elizaLogger.error("Error handling player view update:", error);
@@ -231,6 +268,9 @@ export class PokerClient implements Client {
         this.resetFailedCount = 0;
         // Increase backoff time when resetting due to failures
         this.joinBackoffMs = Math.min(this.joinBackoffMs * 2, 30000); // Max 30 second backoff
+
+        // Parar o polling do player view
+        this.stopPlayerViewPolling();
     }
 
     async stop(): Promise<void> {
@@ -238,6 +278,9 @@ export class PokerClient implements Client {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
+
+        // Parar o polling do player view
+        this.stopPlayerViewPolling();
 
         if (this.gameId && this.playerId) {
             try {
@@ -273,6 +316,9 @@ export class PokerClient implements Client {
                 this.handlePlayerViewUpdate(view);
             });
 
+            // Iniciar o polling do player view
+            // this.startPlayerViewPolling();
+
             // The apiConnector.joinGame method calls setPlayerReady internally
             this.playerReadySet = true;
             // Reset backoff on successful join
@@ -284,8 +330,44 @@ export class PokerClient implements Client {
         }
     }
 
+    // Método para iniciar o polling do player view
+    private startPlayerViewPolling(): void {
+        // Limpar qualquer intervalo existente
+        if (this.playerViewPollingInterval) {
+            clearInterval(this.playerViewPollingInterval);
+        }
+
+        // Definir um novo intervalo para buscar o player view a cada 2 segundos
+        this.playerViewPollingInterval = setInterval(async () => {
+            if (!this.playerId) {
+                elizaLogger.warn("Cannot poll player view: player ID is not set");
+                return;
+            }
+
+            try {
+                elizaLogger.debug("Polling for player view");
+                const playerView = await this.apiConnector.getPlayerView(this.playerId);
+                this.handlePlayerViewUpdate(playerView);
+            } catch (error) {
+                elizaLogger.error("Error polling player view:", error);
+            }
+        }, 2000); // Poll a cada 2 segundos
+
+        elizaLogger.info("Started player view polling");
+    }
+
+    // Método para parar o polling do player view
+    private stopPlayerViewPolling(): void {
+        if (this.playerViewPollingInterval) {
+            clearInterval(this.playerViewPollingInterval);
+            this.playerViewPollingInterval = null;
+            elizaLogger.info("Stopped player view polling");
+        }
+    }
+
     private async handleGameUpdate(gameState: GameState): Promise<void> {
         try {
+            elizaLogger.debug("Handling game update:", gameState);
             // Handle game over state
             if (gameState.isGameOver) {
                 elizaLogger.info("Game is over:", {
@@ -372,8 +454,8 @@ export class PokerClient implements Client {
             // Check if it's our turn
             const isOurTurn =
                 gameState.currentPlayerIndex !== undefined &&
-                gameState.players[gameState.currentPlayerIndex]?.name ===
-                    this.playerName;
+                gameState.players[gameState.currentPlayerIndex]?.id ===
+                    this.playerId;
 
             if (isOurTurn) {
                 elizaLogger.info("It's our turn, making a decision");
@@ -381,12 +463,12 @@ export class PokerClient implements Client {
                 elizaLogger.info(`Decision made: ${decision.action}`, decision);
 
                 // Submit the action to the server
-                if (this.gameId && this.playerId) {
-                    await this.apiConnector.submitAction(
-                        this.gameId,
-                        this.playerId,
-                        decision
-                    );
+                // if (this.gameId && this.playerId) { // gameid is not set in the game state yet
+                if (this.playerId) {
+                    await this.apiConnector.submitAction({
+                        playerId: this.playerId,
+                        decision,
+                    });
                 } else {
                     elizaLogger.error(
                         "Cannot submit action: gameId or playerId is missing"
@@ -397,8 +479,6 @@ export class PokerClient implements Client {
             elizaLogger.error("Error handling game update:", error);
         }
     }
-
-
 
     private async makeDecision(gameState: GameState): Promise<PokerDecision> {
         try {

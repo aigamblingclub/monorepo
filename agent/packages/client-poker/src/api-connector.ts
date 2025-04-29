@@ -20,6 +20,7 @@ import {
     Move,
     TableAction,
 } from "./schemas";
+import { stringToUuid } from "@elizaos/core";
 
 export class ApiConnector {
     private baseUrl: string;
@@ -27,8 +28,7 @@ export class ApiConnector {
     private playerName: string | null = null;
     private apiKey: string | null = null;
     private ws: WebSocket | null = null;
-    private messageId = 0;
-    private messageCallbacks: Map<number, (data: any) => void> = new Map();
+    private messageCallbacks: Map<string, (data: any) => void> = new Map();
     private stateUpdateCallbacks: ((state: PokerState) => void)[] = [];
     private playerViewCallbacks: ((view: PlayerView) => void)[] = [];
     private connected = false;
@@ -40,11 +40,11 @@ export class ApiConnector {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey || null;
         elizaLogger.log(
-            "EffectApiConnector initialized with base URL:",
+            "ApiConnector initialized with base URL:",
             baseUrl
         );
         if (apiKey) {
-            elizaLogger.log("EffectApiConnector initialized with API key");
+            elizaLogger.log("ApiConnector initialized with API key");
         }
     }
 
@@ -123,6 +123,12 @@ export class ApiConnector {
             this.ws.onclose = () => {
                 elizaLogger.log("WebSocket connection closed");
                 this.connected = false;
+                // Clean up all pending callbacks
+                this.messageCallbacks.forEach((callback, id) => {
+                    elizaLogger.debug(`Cleaning up callback for message ${id}`);
+                    callback({ _tag: "Exit", exit: { _tag: "Failure", cause: "WebSocket connection closed" } });
+                });
+                this.messageCallbacks.clear();
                 this.attemptReconnect();
             };
 
@@ -163,32 +169,48 @@ export class ApiConnector {
 
     private handleWebSocketMessage(data: any): void {
         // Handle Effect Exit responses (for specific message callbacks)
-        if (
-            (data._tag === "Exit" || data._tag === "Defect") &&
-            data.requestId
-        ) {
-            const id = parseInt(data.requestId);
-            if (this.messageCallbacks.has(id)) {
-                const callback = this.messageCallbacks.get(id);
-                if (callback) {
-                    callback(data);
-                    this.messageCallbacks.delete(id);
+        if (data._tag === "Exit" || data._tag === "Defect") {
+            if (data.requestId) {
+                const id = data.requestId;
+                if (this.messageCallbacks.has(id)) {
+                    const callback = this.messageCallbacks.get(id);
+                    if (callback) {
+                        callback(data);
+                        this.messageCallbacks.delete(id);
+                    }
                 }
-                return;
             }
-        }
-
-        // Handle state updates
-        if (data.type === "stateUpdate") {
-            this.stateUpdateCallbacks.forEach((callback) =>
-                callback(data.state)
-            );
             return;
         }
 
-        // Handle player view updates
-        if (data.type === "playerView") {
-            this.playerViewCallbacks.forEach((callback) => callback(data.view));
+        // Handle stream chunks (for both state updates and player view)
+        if (data._tag === "Chunk") {
+            // Se for uma resposta para uma requisição específica
+            if (data.requestId) {
+                const id = data.requestId;
+                if (this.messageCallbacks.has(id)) {
+                    const callback = this.messageCallbacks.get(id);
+                    if (callback) {
+                        callback(data);
+                        this.messageCallbacks.delete(id);
+                    }
+                }
+            }
+
+            // Se for uma mensagem do stream
+            if (data.values && data.values.length > 0) {
+                const value = data.values[0];
+
+                // Se for uma atualização de estado
+                if (value && typeof value === 'object' && 'status' in value) {
+                    this.stateUpdateCallbacks.forEach(callback => callback(value));
+                }
+
+                // Se for uma atualização de player view
+                if (value && typeof value === 'object' && 'hand' in value) {
+                    this.playerViewCallbacks.forEach(callback => callback(value));
+                }
+            }
             return;
         }
 
@@ -198,14 +220,17 @@ export class ApiConnector {
     private sendWebSocketMessage(method: string, payload: any): Promise<any> {
         return new Promise((resolve, reject) => {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                elizaLogger.error("Cannot send message: WebSocket is not connected");
                 reject(new Error("WebSocket is not connected"));
                 return;
             }
 
-            const id = this.messageId++;
+            const timestamp = Date.now();
+            const random = Math.floor(Math.random() * 1000);
+            const id = `${timestamp}${random}`;
             const message = {
                 _tag: "Request",
-                id: id.toString(),
+                id: id,
                 tag: method,
                 payload: payload,
                 traceId: "traceId",
@@ -214,25 +239,31 @@ export class ApiConnector {
                 headers: {},
             };
 
-            // Set up callback for this specific message, receive on onmessage > handleWebSocketMessage
+            // Set up callback for this specific message
             this.messageCallbacks.set(id, (response) => {
-                elizaLogger.debug("Response for message", id, ":", response);
+                elizaLogger.debug(`Received response for message ${id}:`, response);
                 if (response._tag === "Exit") {
                     if (response.exit._tag === "Success") {
                         resolve(response.exit.value);
                     } else if (response.exit._tag === "Failure") {
+                        elizaLogger.error(`Message ${id} failed:`, response.exit.cause);
                         reject(response.exit.cause);
                     } else {
+                        elizaLogger.error(`Unknown exit format for message ${id}:`, response);
                         reject(new Error("Unknown exit format"));
                     }
+                } else if (response._tag === "Chunk") {
+                    resolve(response.values[0]);
                 } else if (response._tag === "Defect") {
+                    elizaLogger.error(`Message ${id} defect:`, response.defect);
                     reject(response.defect);
                 } else {
+                    elizaLogger.error(`Unknown response format for message ${id}:`, response);
                     reject(new Error("Unknown response format"));
                 }
             });
 
-            elizaLogger.debug("Sending WebSocket message:", message);
+            elizaLogger.debug(`Sending WebSocket message ${id}:`, message);
             this.ws.send(JSON.stringify(message));
         });
     }
@@ -284,6 +315,7 @@ export class ApiConnector {
     // TODO: Implement logic of multiple tables
     async getGameState(gameId?: string): Promise<GameState> {
         const state = await this.getCurrentState();
+        elizaLogger.debug("Game state:", state);
         return this.convertPokerStateToGameState(state);
     }
 
@@ -296,7 +328,7 @@ export class ApiConnector {
     }): Promise<string> {
         await this.connect();
 
-        const playerId = this.playerId || `player-${Date.now()}`;
+        const playerId = this.playerId || stringToUuid(`${playerName}-${Date.now()}`);
         this.setPlayerId(playerId);
         this.setPlayerName(playerName);
 
@@ -307,7 +339,8 @@ export class ApiConnector {
             action: "join",
         };
 
-        await this.processEvent(event);
+        const state = await this.processEvent(event);
+        // TODO error handling
         return playerId;
     }
 
@@ -372,15 +405,19 @@ export class ApiConnector {
         return [this.convertPokerStateToGameState(state)];
     }
 
-    async submitAction(
-        gameId: string,
-        playerId: string,
-        decision: PokerDecision
-    ): Promise<void> {
+    async submitAction({
+        gameId,
+        playerId,
+        decision,
+    }: {
+        gameId?: string;
+        playerId: string;
+        decision: PokerDecision;
+    }): Promise<void> {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             throw new Error("WebSocket is not connected");
         }
-
+        elizaLogger.debug("Submitting action:", { gameId, playerId, decision });
         const move: Move = this.convertDecisionToMove(decision);
 
         const event: PlayerEvent = {
@@ -430,6 +467,7 @@ export class ApiConnector {
                 .then((response) => {
                     // This is a stream, so we'll receive updates over time
                     elizaLogger.log("Subscribed to state updates");
+                    // O stream já está configurado, as atualizações virão através do handleWebSocketMessage
                 })
                 .catch((error) => {
                     elizaLogger.error(
@@ -456,8 +494,8 @@ export class ApiConnector {
             // Send a message to subscribe to player view updates
             this.sendWebSocketMessage("playerView", { playerId: this.playerId })
                 .then((response) => {
-                    // This is a stream, so we'll receive updates over time
                     elizaLogger.log("Subscribed to player view updates");
+                    // O stream já está configurado, as atualizações virão através do handleWebSocketMessage
                 })
                 .catch((error) => {
                     elizaLogger.error(
@@ -472,6 +510,7 @@ export class ApiConnector {
 
     // Conversion methods
     convertPokerStateToGameState(state: PokerState): GameState {
+        elizaLogger.debug("Converting poker state to game state:", state);
         const players: PlayerState[] = Object.values(state.players).map((player) => ({
             id: player.id,
             name: player.id, // We don't have names in the new model
@@ -527,6 +566,36 @@ export class ApiConnector {
         };
     }
 
+    // Método para obter o player view diretamente via HTTP
+    async getPlayerView(playerId: string): Promise<PlayerView> {
+        try {
+            elizaLogger.debug(`Fetching player view for player ${playerId}`);
+
+            // Construir a URL para a API
+            const url = `${this.baseUrl}/player-view/${playerId}`;
+
+            // Fazer a requisição HTTP
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getHeaders(),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                elizaLogger.error(`Error fetching player view: ${response.status} ${errorText}`);
+                throw new Error(`Failed to fetch player view: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            elizaLogger.debug("Received player view data:", data);
+
+            return data;
+        } catch (error) {
+            elizaLogger.error("Error fetching player view:", error);
+            throw error;
+        }
+    }
+
     private convertDecisionToMove(decision: PokerDecision): Move {
         switch (decision.action) {
             case PlayerAction.FOLD:
@@ -535,6 +604,8 @@ export class ApiConnector {
                 return { type: "check" };
             case PlayerAction.CALL:
                 return { type: "call" };
+            case PlayerAction.ALL_IN:
+                return { type: "fold" }; // TODO: all in is not a move (get from schemas) ??
             case PlayerAction.RAISE:
                 return {
                     type: "raise",

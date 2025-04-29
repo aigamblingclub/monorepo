@@ -65,7 +65,7 @@ export const PokerStateSchema = Schema.Struct({
 });
 export type PokerState = typeof PokerStateSchema.Type;
 
-export const MoveSchema = Schema.Union(
+export const MoveSchema = Schema.Union( // TODO: all in is not a move ??
     Schema.Struct({ type: Schema.Literal("fold") }),
     Schema.Struct({ type: Schema.Literal("check") }), // TODO: check if this is correct, add to backend
     Schema.Struct({ type: Schema.Literal("call") }),
