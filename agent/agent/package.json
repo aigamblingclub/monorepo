@@ -19,6 +19,7 @@
     },
     "dependencies": {
         "@elizaos/client-direct": "workspace:*",
+        "@elizaos/client-poker": "workspace:*",
         "@elizaos/core": "workspace:*",
         "@elizaos/plugin-bootstrap": "workspace:*",
         "@elizaos/plugin-node": "workspace:*",

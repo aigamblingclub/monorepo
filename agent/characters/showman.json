@@ -1,7 +1,7 @@
 {
     "name": "The Showman",
     "username": "poker_showman",
-    "clients": [],
+    "clients": ["poker"],
     "modelProvider": "openai",
     "plugins": [],
     "settings": {
