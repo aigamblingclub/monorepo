@@ -48,16 +48,24 @@ if (!contractId || !method) {
   process.exit(1);
 }
 
-// Connect to NEAR and call the contract
-async function callContract() {
+/**
+ * Call a contract method
+ * @param {Object} options - Options for the call
+ * @param {boolean} options.verbose - Whether to print verbose output
+ */
+async function callContract(options = {}) {
+  const { verbose = true } = options;
+  const result = {
+    success: false,
+    result: null,
+    error: null,
+  }
   try {
     // Load environment variables
     const { NEAR_ACCOUNT_ID, NEAR_PRIVATE_KEY } = process.env;
     
     if (!NEAR_ACCOUNT_ID || !NEAR_PRIVATE_KEY) {
-      console.error('Missing NEAR_ACCOUNT_ID or NEAR_PRIVATE_KEY in .env file');
-      console.error('Please add these variables to your .env file or use the credential store');
-      process.exit(1);
+      throw new Error('Missing NEAR_ACCOUNT_ID or NEAR_PRIVATE_KEY in .env file');
     }
 
     // Use in-memory keystore with private key from .env
@@ -75,7 +83,9 @@ async function callContract() {
     
     // Use the account from env
     const accountId = NEAR_ACCOUNT_ID;
-    console.log(`Using account from .env: ${accountId}`);
+    if (verbose) {
+      console.info(`[INFO][INTERACT] Using account from .env: ${accountId}`);
+    }
     
     // Load the account
     const account = await near.account(accountId);
@@ -86,12 +96,14 @@ async function callContract() {
     // Parse arguments
     const methodArgs = JSON.parse(argsJson);
     
-    console.log(`Calling ${isView ? 'view' : 'call'} method '${method}' on contract '${contractId}' with args:`, methodArgs);
+    if (verbose) {
+      console.info(`[INFO][INTERACT] Calling ${isView ? 'view' : 'call'} method '${method}' on contract '${contractId}' with args:`, methodArgs);
+    }
     
-    let result;
+    let response;
     if (isView) {
       // Call view method
-      result = await account.viewFunction({
+      response = await account.viewFunction({
         contractId,
         methodName: method,
         args: methodArgs
@@ -105,7 +117,7 @@ async function callContract() {
       });
       
       // Call change method
-      result = await account.functionCall({
+      response = await account.functionCall({
         contractId,
         methodName: method,
         args: methodArgs,
@@ -114,13 +126,24 @@ async function callContract() {
       });
     }
     
-    return result;
+    if (verbose) {
+      console.info('[INFO][INTERACT] Result:', response);
+    }
+    
+    result.success = true;
+    result.result = response;
     
   } catch (error) {
-    console.error('Error calling contract:', error.message);
+    if (verbose) {
+      console.error('[ERROR][INTERACT] Error calling contract:', error.message);
+    }
+    result.success = false;
+    result.error = error.message;
   } finally {
     rl.close();
   }
+  
+  return result;
 }
 
 callContract();
