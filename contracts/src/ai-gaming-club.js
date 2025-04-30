@@ -343,6 +343,33 @@ export class AIGamingClub {
   }
 
   /**
+   * Emergency method to reset admin - only callable by the contract account itself
+   * @param new_admin - The new admin account ID
+   */
+  @call({})
+  emergency_reset_admin({ new_admin }) {
+    const caller = near.predecessorAccountId();
+    const contractAccount = near.currentAccountId();
+    
+    // Only the contract account itself can call this method
+    if (caller !== contractAccount) {
+      throw new Error("Only the contract account can reset the admin");
+    }
+    
+    const oldAdmin = this.adminAccount;
+    this.adminAccount = new_admin;
+    
+    // Emit admin reset event
+    this._emitEvent("ADMIN_CHANGED", {
+      old_admin: oldAdmin,
+      new_admin,
+      timestamp: this._getCurrentTimestamp()
+    });
+    
+    return true;
+  }
+
+  /**
    * Get the NEAR balance of an account
    * @param account_id - The account ID to check
    * @returns The NEAR balance of the account
@@ -456,8 +483,11 @@ export class AIGamingClub {
    */
   _assertAdmin() {
     const caller = near.predecessorAccountId();
-    if (caller !== this.adminAccount) {
-      throw new Error("Only the admin can call this method");
+    const contractAccount = near.currentAccountId();
+    
+    // Allow both the set admin and the contract account itself to have admin privileges
+    if (caller !== this.adminAccount && caller !== contractAccount) {
+      throw new Error("Only the admin or contract owner can call this method");
     }
   }
 }
