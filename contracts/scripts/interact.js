@@ -12,15 +12,11 @@ const CONFIG = {
   testnet: {
     networkId: 'testnet',
     nodeUrl: 'https://rpc.testnet.near.org',
-    walletUrl: 'https://wallet.testnet.near.org',
-    helperUrl: 'https://helper.testnet.near.org',
     explorerUrl: 'https://explorer.testnet.near.org',
   },
   mainnet: {
     networkId: 'mainnet',
     nodeUrl: 'https://rpc.mainnet.near.org',
-    walletUrl: 'https://wallet.near.org',
-    helperUrl: 'https://helper.mainnet.near.org',
     explorerUrl: 'https://explorer.near.org',
   }
 };
@@ -54,7 +50,7 @@ if (!contractId || !method) {
  * @param {boolean} options.verbose - Whether to print verbose output
  */
 async function callContract(options = {}) {
-  const { verbose = true } = options;
+  const { verbose = false } = options;
   const result = {
     success: false,
     result: null,
@@ -127,7 +123,7 @@ async function callContract(options = {}) {
     }
     
     if (verbose) {
-      console.info('[INFO][INTERACT] Result:', response);
+      console.info('[INFO][INTERACT] Result:\n', JSON.stringify(response, null, 2));
     }
     
     result.success = true;
@@ -146,4 +142,4 @@ async function callContract(options = {}) {
   return result;
 }
 
-callContract();
+callContract({verbose: true});
