@@ -1,5 +1,5 @@
 {
-  "name": "virtuals-game-room",
+  "name": "poker-game-server",
   "private": true,
   "workspaces": [
     "packages/*"
