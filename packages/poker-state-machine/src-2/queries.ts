@@ -38,7 +38,7 @@ export const playerView = (state: PokerState, playerId: string): PlayerView => {
         dealerId: state.dealerId,
         bigBlindId: Option.fromNullable(bigBlind(state)?.id),
         smallBlindId: Option.fromNullable(smallBlind(state)?.id),
-        currentPlayerId: Option.fromNullable(currentPlayer(state)?.id),
+        currentPlayerId: Option.fromNullable(currentPlayer(state).id),
         // winningPlayerId: state.winningPlayerId,
         pot: state.pot,
         bet: state.bet,

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { CircularArraySchema } from "./circular_array";
 
 export const CardValueSchema = Schema.Union(
     ...([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] as const).map(n => Schema.Literal(n))
@@ -30,7 +31,7 @@ export type HoleCards = typeof HoleCardsSchema.Type
 export const PlayerStateSchema = Schema.Struct({
     id: Schema.String,
     status: PlayerStatusSchema,
-    hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
+    hand: HoleCardsSchema,
     chips: Schema.Number,
     bet: Schema.Struct({
         round: Schema.Number,
@@ -68,7 +69,6 @@ export type PokerState = typeof PokerStateSchema.Type
 export const MoveSchema = Schema.Union(
     Schema.Struct({ type: Schema.Literal('fold') }),
     Schema.Struct({ type: Schema.Literal('call') }),
-    Schema.Struct({ type: Schema.Literal('all_in') }),
     Schema.Struct({
         type: Schema.Literal('raise'),
         amount: Schema.Number,
@@ -114,16 +114,7 @@ export const GameEventSchema = Schema.Union(
 )
 export type GameEvent = typeof GameEventSchema.Type
 
-export const StateMachineErrorSchema = Schema.Union(
-    Schema.Struct({
-        type: Schema.Literal('inconsistent_state'),
-        message: Schema.String,
-    })
-)
-export type StateMachineError = typeof StateMachineErrorSchema.Type
-
 export const ProcessEventErrorSchema = Schema.Union(
-    StateMachineErrorSchema,
     Schema.Struct({ type: Schema.Literal('not_your_turn') }),
     Schema.Struct({ type: Schema.Literal('table_locked') }),
 )

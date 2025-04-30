@@ -1,12 +1,11 @@
 /*
     transitions: functions that operate on the current poker state to return the next one.
  */
-import { Effect, Iterable, pipe, Schema } from "effect"
+import { Effect, Iterable, pipe } from "effect"
 import { determineWinningPlayers, getShuffledDeck, type RiverCommunity } from "./poker"
 import { bigBlind, findDealerIndex, firstPlayerIndex, rotated, roundRotation, smallBlind } from "./queries"
-import type { Card, Move, PlayerState, PokerState, StateMachineError } from "./schemas"
+import type { Card, Move, PlayerState, PokerState } from "./schemas"
 import { PLAYER_DEFAULT_STATE } from "./state_machine"
-import { commit } from "effect/STM"
 
 
 export const SMALL_BLIND = 10
@@ -50,7 +49,6 @@ export function dealCards(state: PokerState): PokerState {
 
     return {
         ...state,
-        status: 'PLAYING',
         deck,
         community: [],
         players: state.players.map((p, i) => ({
@@ -66,14 +64,10 @@ export function rotateBlinds(state: PokerState): PokerState {
     const dealerIndex = findDealerIndex(state)
     const nextDealerIndex = (dealerIndex + 1) % state.players.length
     const nextDealerId = state.players[nextDealerIndex].id
-    const next = {
+    return {
         ...state,
         dealerId: nextDealerId,
-    }
-    return {
-        ...next,
-        currentPlayerIndex: firstPlayerIndex(next)
-    }
+    };
 }
 
 export type StateTransition = (state: PokerState) => PokerState
@@ -122,9 +116,8 @@ function playerBet(state: PokerState, playerId: string, amount: number): PokerSt
 // README: note that the Move type doesn't include playerId, that's validated on the
 // event-processing layer, where a MoveEvent can only be processed if it's from the
 // currentPlayer
-export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<PokerState, StateMachineError> {
-    const player = state.players[state.currentPlayerIndex]
-    const playerId = player.id;
+export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<PokerState, string> {
+    const playerId = state.players[state.currentPlayerIndex].id;
 
     let nextState = structuredClone(state);
     switch (move.type) {
@@ -148,17 +141,13 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
             nextState = playerBet(nextState, playerId, move.amount)
             break;
         }
-
-        case 'all_in': {
-            nextState = playerBet(nextState, playerId, player.chips)
-        }
     }
 
     return transition(nextState)
 }
 
 // TEST: test-case for allowing blinds to raise (especially big blind, which's already called)
-export function transition(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
+export function transition(state: PokerState): Effect.Effect<PokerState, string> {
     const players = roundRotation(state)
     const isLastPlayer = state.currentPlayerIndex >= players.findLastIndex(p => p.status === "PLAYING")
     const allCalled = state.bet !== 0 && state.players.every(p => (
@@ -182,14 +171,13 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
 }
 
 // precondition: betting round is over
-export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
-    const communityCards = state.community.length
-    if (communityCards === 5) return showdown(state)
+export function nextPhase(state: PokerState): Effect.Effect<PokerState, string> {
+    const cards = state.community.length
+    if (cards === 5) return showdown(state)
 
     const toBeDealt = ({ 0: 3, 3: 1, 4: 1 })[state.community.length]!
-    const deckCards = state.deck.length
-    const community = state.deck.slice(deckCards - toBeDealt, deckCards)
-    const deck = state.deck.slice(0, deckCards - toBeDealt)
+    const community = state.deck.slice(cards - toBeDealt, cards)
+    const deck = state.deck.slice(0, cards - toBeDealt)
 
     const nextState: PokerState = {
         ...state,
@@ -249,7 +237,7 @@ function determinePotWinner(
 // precondition: all players which are not folded or all-in have the same bet total
 // precondition: either there's only one player left which hasn't folded or gone all-in
 // or we are already at river
-export function showdown(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
+export function showdown(state: PokerState): Effect.Effect<PokerState, string> {
     // fast-forward to river before checking hands and pots
     if (state.community.length < 5) return pipe(
         state,
@@ -265,10 +253,7 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
     // TODO: abstract this into a more general showdown state assertion function
     const playingPotBets = getPotBets(playingPlayers)
     if (playingPotBets.length !== 1) {
-        return Effect.fail({
-            type: 'inconsistent_state',
-            message: "Inconsistent State Error: there's more than one pot for non all-in players."
-        })
+        return Effect.fail('TODO: turn this error into an proper type (inconsistent state)')
     }
 
     const potBets = getPotBets(inPlayers)

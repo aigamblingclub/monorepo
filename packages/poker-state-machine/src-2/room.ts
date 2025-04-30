@@ -3,7 +3,7 @@ import  * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import { POKER_ROOM_DEFAULT_STATE } from "./state_machine";
 import { currentPlayer, playerView } from "./queries";
-import { addPlayer, processPlayerMove, removePlayer, startRound, transition  } from "./transitions";
+import { addPlayer, processPlayerMove, removePlayer, startRound, transitionPhase } from "./transitions";
 import type { GameEvent, PlayerView, PokerState, ProcessEventError, ProcessStateError, SystemEvent } from "./schemas";
 
 export interface PokerGameService {
@@ -11,7 +11,7 @@ export interface PokerGameService {
 
   readonly processEvent: (event: GameEvent) => Effect.Effect<PokerState, ProcessEventError, never>
 
-  readonly playerView: (playerId: string) => Effect.Effect<
+  readonly playerView: (playerId: string) => Stream.Stream<
       PlayerView,
       ProcessEventError | ProcessStateError,
       never
@@ -42,17 +42,15 @@ function computeNextState(
             if (event.playerId !== currentPlayer(state).id) {
                 return Effect.fail<ProcessEventError>({ type: 'not_your_turn' })
             }
-            return processPlayerMove(state, event.move)
+            // TODO: turn state transitions into effects (validate moves)
+            return Effect.succeed(processPlayerMove(state, event.move))
         }
         case 'start': {
-            // console.log('computeNextState', { event })
-            const next = startRound(state)
-            return Effect.succeed(next)
             // TODO: sanity check for status?
-            // return Effect.succeed(startRound(state))
+            return Effect.succeed(startRound(state))
         }
         case 'transition_phase': {
-            return transition(state)
+            return Effect.succeed(transitionPhase(state))
         }
     }
 }
@@ -62,12 +60,30 @@ function computeNextState(
 // TODO: make minPlayers part of the Effect's context? (i.e. dependency)
 function processState(state: PokerState, minPlayers: number): Effect.Effect<Option.Option<SystemEvent>, ProcessStateError> {
     if (state.status === "WAITING" && state.players.length >= minPlayers) {
-        // TODO: add debounce here somehow
-        // actually we can't add the debounce here because that would just stall
-        // everything and not actually allow anyone else to join the table
-        // the correct way is to make this system event trigger a fork which will
-        // wait for a certain amount of time and then emit the new state, tricky though
+        // YO
         return Effect.succeed(Option.some({ type: 'start' }))
+    }
+    // if (state.status === "PLAYING" && state.winningPlayerId) {
+    //     // TODO: make effectful?
+    //     console.log("winningPlayerId: ", state.winningPlayerId);
+    //     // TODO: when we have player bets we need to emit an event here
+    //     return Effect.succeed(Option.none());
+    // }
+    // FIXME(?): make this state unrepresentable (refactor transitions)
+    // if (state.status === 'PLAYING' && playersInRound(state).length === 1) {
+    //     return Effect.fail<ProcessStateError>({
+    //         type: 'inconsistent_state',
+    //         state,
+    //         message: 'inconsistent state round is over but there are no remaining players'
+    //     })
+    // }
+    // FIXME: this logic should (probably) be inside the transitions
+    if (
+        state.status === "PLAYING" &&
+        // this indicates that this phase is finished
+        state.currentPlayerIndex === -1
+    ) {
+        return Effect.succeed(Option.some({ type: 'transition_phase' }))
     }
     return Effect.succeed(Option.none())
 }
@@ -75,22 +91,16 @@ function processState(state: PokerState, minPlayers: number): Effect.Effect<Opti
 export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameService, never, never> => Effect.gen(function* (_adapter) {
     const stateRef = yield* Ref.make(POKER_ROOM_DEFAULT_STATE)
     const stateUpdateQueue = yield* Queue.unbounded<PokerState>()
-    const stateStream = Stream.fromQueue(stateUpdateQueue).pipe(
-        Stream.tap(s => Console.log('state stream received update'))
-    )
+    const stateStream = Stream.fromQueue(stateUpdateQueue)
 
     const currentState = () => Ref.get(stateRef)
 
-    const processEvent = (event: GameEvent): Effect.Effect<PokerState, ProcessEventError, never> => {
+    function processEvent(event: GameEvent): Effect.Effect<PokerState, ProcessEventError, never> {
         return pipe(
             currentState(),
-            Effect.tap(({ deck, ...state }) => Console.debug('processano', { event, state })),
             Effect.flatMap(state => computeNextState(state, event)),
-            // Effect.tap(({ deck, ...state }) => Console.log('post-processing', { event, state })),
             Effect.tap(state => Ref.set(stateRef, state)),
-            // FIXME: I have no clue why the point-free version
-            // doesn't work here; create an issue on effect-ts
-            Effect.tap(state => stateUpdateQueue.offer(state)),
+            Effect.tap(stateUpdateQueue.offer),
         )
     }
 
@@ -101,40 +111,35 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
         stateStream,
         Stream.mapEffect(state => pipe(
             processState(state, minPlayers),
+            // Effect.flatMap(writeToDb)
             Effect.flatMap(Option.match({
                 onNone: () => Effect.succeed(state),
-                onSome: event => {
-                    const next = processEvent(event)
-                    // console.log('onSome process state', { state, event })
-                    return next
-                },
-            }),
-            ))),
-        Stream.tap(({ deck, ...s }) => Console.log('after processing', { s })),
+                onSome: processEvent,
+            })),
+        )),
         Stream.tapError(Console.error),
     );
 
     // return this or put in a context somehow
     const _systemFiber = pipe(
         stateProcessingStream,
-        // Stream.tap(qlqrcoisa => Console.log({ qlqrcoisa })),
         Stream.run(Sink.drain),
         Effect.runFork,
+    )
+
+    const _debugFiber = pipe(
+        currentState(),
+        Effect.tap(Console.log),
+        Effect.runFork
     )
 
     return {
         currentState,
         processEvent,
         playerView: playerId => pipe(
-            currentState(),
-            Effect.map(state => playerView(state, playerId))
+            stateProcessingStream,
+            Stream.map(state => playerView(state, playerId))
         ),
-        // playerView: playerId => pipe(
-        //     stateProcessingStream,
-        //     Stream.tap(({ deck, ...state }) => Console.log('[playerView]', { state })),
-        //     Stream.map(state => playerView(state, playerId)),
-        //     Stream.tap(pv => Console.log('[playerView]', { pv }))
-        // ),
-        stateUpdates: stateProcessingStream,
+        stateUpdates: stateStream,
     }
 })
