@@ -372,11 +372,15 @@ export class ApiConnector {
         return [this.convertPokerStateToGameState(state)];
     }
 
-    async submitAction(
-        gameId: string,
-        playerId: string,
-        decision: PokerDecision
-    ): Promise<void> {
+    async submitAction({
+        gameId,
+        playerId,
+        decision,
+    }: {
+        gameId?: string;
+        playerId: string;
+        decision: PokerDecision;
+    }): Promise<void> {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             throw new Error("WebSocket is not connected");
         }
@@ -532,9 +536,11 @@ export class ApiConnector {
             case PlayerAction.FOLD:
                 return { type: "fold" };
             case PlayerAction.CHECK:
-                return { type: "check" };
+                return { type: "call" }; // same as call in the backend
             case PlayerAction.CALL:
                 return { type: "call" };
+            case PlayerAction.ALL_IN:
+                return { type: "all_in" };
             case PlayerAction.RAISE:
                 return {
                     type: "raise",
@@ -542,6 +548,21 @@ export class ApiConnector {
                 };
             default:
                 throw new Error(`Unknown decision action: ${decision.action}`);
+        }
+    }
+  
+    async getPlayerView(playerId: string): Promise<PlayerView | null> {
+        try {
+            await this.connect();
+
+            // Send a message to request player view
+            elizaLogger.debug(`Requesting player view for player ${playerId}`);
+            const response = await this.sendWebSocketMessage("playerView", { playerId });
+            elizaLogger.debug(`Response player view ${JSON.stringify(response)}`);
+            return response;
+        } catch (error) {
+            elizaLogger.error("Error requesting player view:", error);
+            throw error;
         }
     }
 }

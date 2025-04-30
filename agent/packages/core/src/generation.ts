@@ -48,6 +48,9 @@ import {
     //VerifiableInferenceProvider,
     type TelemetrySettings,
     TokenizerType,
+    type Memory,
+    type State,
+    type CustomFetch,
 } from "./types.ts";
 import { fal } from "@fal-ai/client";
 
@@ -565,7 +568,7 @@ export async function generateText({
                 const openai = createOpenAI({
                     apiKey,
                     baseURL,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: openaiResponse } = await aiGenerateText({
@@ -595,49 +598,7 @@ export async function generateText({
                 const openai = createOpenAI({
                     apiKey,
                     baseURL: endpoint,
-                    fetch: async (
-                        input: RequestInfo | URL,
-                        init?: RequestInit
-                    ): Promise<Response> => {
-                        const url =
-                            typeof input === "string"
-                                ? input
-                                : input.toString();
-                        const chain_id =
-                            runtime.getSetting("ETERNALAI_CHAIN_ID") || "45762";
-
-                        const options: RequestInit = { ...init };
-                        if (options?.body) {
-                            const body = JSON.parse(options.body as string);
-                            body.chain_id = chain_id;
-                            options.body = JSON.stringify(body);
-                        }
-
-                        const fetching = await runtime.fetch(url, options);
-
-                        if (
-                            parseBooleanFromText(
-                                runtime.getSetting("ETERNALAI_LOG")
-                            )
-                        ) {
-                            elizaLogger.info(
-                                "Request data: ",
-                                JSON.stringify(options, null, 2)
-                            );
-                            const clonedResponse = fetching.clone();
-                            try {
-                                clonedResponse.json().then((data) => {
-                                    elizaLogger.info(
-                                        "Response data: ",
-                                        JSON.stringify(data, null, 2)
-                                    );
-                                });
-                            } catch (e) {
-                                elizaLogger.debug(e);
-                            }
-                        }
-                        return fetching;
-                    },
+                    fetch: runtime.fetch || undefined
                 });
 
                 let system_prompt =
@@ -680,7 +641,7 @@ export async function generateText({
             case ModelProviderName.GOOGLE: {
                 const google = createGoogleGenerativeAI({
                     apiKey,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: googleResponse } = await aiGenerateText({
@@ -706,7 +667,7 @@ export async function generateText({
             }
 
             case ModelProviderName.MISTRAL: {
-                const mistral = createMistral();
+                const mistral = createMistral({ fetch: runtime.fetch || undefined });
 
                 const { text: mistralResponse } = await aiGenerateText({
                     model: mistral(model),
@@ -738,7 +699,7 @@ export async function generateText({
                 const anthropic = createAnthropic({
                     apiKey,
                     baseURL,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
                 const { text: anthropicResponse } = await aiGenerateText({
                     model: anthropic.languageModel(model),
@@ -767,7 +728,7 @@ export async function generateText({
 
                 const anthropic = createAnthropic({
                     apiKey,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: anthropicResponse } = await aiGenerateText({
@@ -798,14 +759,12 @@ export async function generateText({
                 elizaLogger.debug("Initializing Grok model.");
                 const grok = createOpenAI({
                     apiKey,
-                    baseURL: endpoint,
-                    fetch: runtime.fetch,
+                    baseURL: models.grok.endpoint,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: grokResponse } = await aiGenerateText({
-                    model: grok.languageModel(model, {
-                        parallelToolCalls: false,
-                    }),
+                    model: grok.languageModel(model, { parallelToolCalls: false }),
                     prompt: context,
                     system:
                         runtime.character.system ??
@@ -831,11 +790,11 @@ export async function generateText({
                     "Initializing Groq model with Cloudflare check"
                 );
                 const baseURL = getCloudflareGatewayBaseURL(runtime, "groq");
-                elizaLogger.debug("Groq baseURL result:", { baseURL });
+                elizaLogger.debug("Groq handleGroq baseURL:", { baseURL });
                 const groq = createGroq({
                     apiKey,
-                    fetch: runtime.fetch,
                     baseURL,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: groqResponse } = await aiGenerateText({
@@ -891,7 +850,7 @@ export async function generateText({
                 const openai = createOpenAI({
                     apiKey,
                     baseURL: serverUrl,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: redpillResponse } = await aiGenerateText({
@@ -922,7 +881,7 @@ export async function generateText({
                 const openrouter = createOpenAI({
                     apiKey,
                     baseURL: serverUrl,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: openrouterResponse } = await aiGenerateText({
@@ -953,7 +912,7 @@ export async function generateText({
 
                     const ollamaProvider = createOllama({
                         baseURL: getEndpoint(provider) + "/api",
-                        fetch: runtime.fetch,
+                        fetch: runtime.fetch || undefined
                     });
                     const ollama = ollamaProvider(model);
 
@@ -985,7 +944,7 @@ export async function generateText({
                 const heurist = createOpenAI({
                     apiKey: apiKey,
                     baseURL: endpoint,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: heuristResponse } = await aiGenerateText({
@@ -1039,7 +998,7 @@ export async function generateText({
                 const openai = createOpenAI({
                     apiKey,
                     baseURL: endpoint,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: openaiResponse } = await aiGenerateText({
@@ -1069,7 +1028,7 @@ export async function generateText({
                 const atoma = createOpenAI({
                     apiKey,
                     baseURL: endpoint,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: atomaResponse } = await aiGenerateText({
@@ -1107,7 +1066,7 @@ export async function generateText({
                     headers,
                     apiKey: apiKey,
                     baseURL: endpoint,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: galadrielResponse } = await aiGenerateText({
@@ -1230,7 +1189,7 @@ export async function generateText({
                 const deepseek = createOpenAI({
                     apiKey,
                     baseURL: serverUrl,
-                    fetch: runtime.fetch,
+                    fetch: runtime.fetch || undefined
                 });
 
                 const { text: deepseekResponse } = await aiGenerateText({
@@ -1320,7 +1279,7 @@ export async function generateText({
 
                     const secretAiProvider = createOllama({
                         baseURL: getEndpoint(provider) + "/api",
-                        fetch: runtime.fetch,
+                        fetch: runtime.fetch || undefined,
                         headers: {
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${apiKey}`,
@@ -2362,10 +2321,10 @@ async function handleOpenAI({
 }: ProviderOptions): Promise<GenerateObjectResult<unknown>> {
     const endpoint = runtime.character.modelEndpointOverride || getEndpoint(provider);
     const baseURL = getCloudflareGatewayBaseURL(runtime, "openai") || endpoint;
-    const openai = createOpenAI({ 
-        apiKey, 
+    const openai = createOpenAI({
+        apiKey,
         baseURL,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     return aiGenerateObject({
         model: openai.languageModel(model),
@@ -2401,10 +2360,10 @@ async function handleAnthropic({
     const baseURL = getCloudflareGatewayBaseURL(runtime, "anthropic");
     elizaLogger.debug("Anthropic handleAnthropic baseURL:", { baseURL });
 
-    const anthropic = createAnthropic({ 
-        apiKey, 
+    const anthropic = createAnthropic({
+        apiKey,
         baseURL,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     return await aiGenerateObject({
         model: anthropic.languageModel(model),
@@ -2432,10 +2391,10 @@ async function handleGrok({
     modelOptions,
     runtime,
 }: ProviderOptions): Promise<GenerationResult> {
-    const grok = createOpenAI({ 
-        apiKey, 
+    const grok = createOpenAI({
+        apiKey,
         baseURL: models.grok.endpoint,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     return aiGenerateObject({
         model: grok.languageModel(model, { parallelToolCalls: false }),
@@ -2467,10 +2426,10 @@ async function handleGroq({
     const baseURL = getCloudflareGatewayBaseURL(runtime, "groq");
     elizaLogger.debug("Groq handleGroq baseURL:", { baseURL });
 
-    const groq = createGroq({ 
-        apiKey, 
+    const groq = createGroq({
+        apiKey,
         baseURL,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     return await aiGenerateObject({
         model: groq.languageModel(model),
@@ -2500,7 +2459,7 @@ async function handleGoogle({
 }: ProviderOptions): Promise<GenerateObjectResult<unknown>> {
     const google = createGoogleGenerativeAI({
         apiKey,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     return aiGenerateObject({
         model: google(model),
@@ -2527,7 +2486,7 @@ async function handleMistral({
     modelOptions,
     runtime,
 }: ProviderOptions): Promise<GenerationResult> {
-    const mistral = createMistral({ fetch: runtime.fetch });
+    const mistral = createMistral({ fetch: runtime.fetch || undefined });
     return aiGenerateObject({
         model: mistral(model),
         schema,
@@ -2554,10 +2513,10 @@ async function handleRedPill({
     modelOptions,
     runtime,
 }: ProviderOptions): Promise<GenerationResult> {
-    const redPill = createOpenAI({ 
-        apiKey, 
+    const redPill = createOpenAI({
+        apiKey,
         baseURL: models.redpill.endpoint,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     return aiGenerateObject({
         model: redPill.languageModel(model),
@@ -2588,7 +2547,7 @@ async function handleOpenRouter({
     const openRouter = createOpenAI({
         apiKey,
         baseURL: models.openrouter.endpoint,
-        fetch: runtime.fetch
+        fetch: runtime.fetch || undefined
     });
     return aiGenerateObject({
         model: openRouter.languageModel(model),
@@ -2618,7 +2577,7 @@ async function handleOllama({
 }: ProviderOptions): Promise<GenerationResult> {
     const ollamaProvider = createOllama({
         baseURL: getEndpoint(provider) + "/api",
-        fetch: runtime.fetch
+        fetch: runtime.fetch || undefined
     });
     const ollama = ollamaProvider(model);
     return aiGenerateObject({
@@ -2647,10 +2606,10 @@ async function handleDeepSeek({
     modelOptions,
     runtime,
 }: ProviderOptions): Promise<GenerationResult> {
-    const openai = createOpenAI({ 
-        apiKey, 
+    const openai = createOpenAI({
+        apiKey,
         baseURL: models.deepseek.endpoint,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     return aiGenerateObject({
         model: openai.languageModel(model),
@@ -2709,7 +2668,7 @@ async function handleLivepeer({
     const livepeerClient = createOpenAI({
         apiKey,
         baseURL: apiKey,
-        fetch: runtime.fetch
+        fetch: runtime.fetch || undefined
     });
     return aiGenerateObject({
         model: livepeerClient.languageModel(model),
@@ -2744,7 +2703,7 @@ async function handleSecretAi({
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`,
         },
-        fetch: runtime.fetch
+        fetch: runtime.fetch || undefined
     });
     const secretAi = secretAiProvider(model);
     return aiGenerateObject({
@@ -2773,10 +2732,10 @@ async function handleNearAi({
     modelOptions,
     runtime,
 }: ProviderOptions): Promise<GenerationResult> {
-    const nearai = createOpenAI({ 
-        apiKey, 
+    const nearai = createOpenAI({
+        apiKey,
         baseURL: models.nearai.endpoint,
-        fetch: runtime.fetch 
+        fetch: runtime.fetch || undefined
     });
     const settings = schema ? { structuredOutputs: true } : undefined;
     return aiGenerateObject({
