@@ -18,7 +18,7 @@ export async function initNear() {
   } = process.env;
 
   if (!NEAR_ACCOUNT_ID || !NEAR_PRIVATE_KEY) {
-    throw new Error('Missing NEAR credentials in .env file');
+    throw new Error('[ERROR][CONFIG] Missing NEAR credentials in .env file');
   }
 
   const keyStore = new keyStores.InMemoryKeyStore();
