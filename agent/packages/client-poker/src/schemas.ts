@@ -30,7 +30,7 @@ export type HoleCards = typeof HoleCardsSchema.Type;
 export const PlayerStateSchema = Schema.Struct({
     id: Schema.String,
     status: PlayerStatusSchema,
-    hand: HoleCardsSchema,
+    hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
     chips: Schema.Number,
     bet: Schema.Struct({
         round: Schema.Number,
@@ -67,8 +67,8 @@ export type PokerState = typeof PokerStateSchema.Type;
 
 export const MoveSchema = Schema.Union(
     Schema.Struct({ type: Schema.Literal("fold") }),
-    Schema.Struct({ type: Schema.Literal("check") }), // TODO: check if this is correct, add to backend
     Schema.Struct({ type: Schema.Literal("call") }),
+    Schema.Struct({ type: Schema.Literal("all_in") }),
     Schema.Struct({
         type: Schema.Literal("raise"),
         amount: Schema.Number,
@@ -114,7 +114,16 @@ export const GameEventSchema = Schema.Union(
 );
 export type GameEvent = typeof GameEventSchema.Type;
 
+export const StateMachineErrorSchema = Schema.Union(
+    Schema.Struct({
+        type: Schema.Literal("inconsistent_state"),
+        message: Schema.String,
+    })
+);
+export type StateMachineError = typeof StateMachineErrorSchema.Type;
+
 export const ProcessEventErrorSchema = Schema.Union(
+    StateMachineErrorSchema,
     Schema.Struct({ type: Schema.Literal("not_your_turn") }),
     Schema.Struct({ type: Schema.Literal("table_locked") })
 );
@@ -150,11 +159,3 @@ export const PlayerViewSchema = Schema.Struct({
     opponents: Schema.Array(PlayerStateSchema.pick("status", "chips", "bet")),
 });
 export type PlayerView = typeof PlayerViewSchema.Type;
-
-export const CircularArraySchema = <Value extends Schema.Schema.Any>(
-    value: Value
-) =>
-    Schema.Struct({
-        index: Schema.Number,
-        value: Schema.Array(value),
-    });

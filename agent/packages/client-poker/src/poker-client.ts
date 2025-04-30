@@ -40,6 +40,11 @@ export class PokerClient implements Client {
     private joinBackoffMs = 5000; // Start with 5 second backoff
     private playerReadySet = false; // Flag to track if we've already set the player ready
     private isConnected = false;
+    private playerViewPollingInterval: NodeJS.Timeout | null = null;
+    private playerViewPollingIntervalMs = 10000; // Increase to 10 seconds
+    private isSendingMessage = false;
+    private lastPollTime = 0;
+    private minPollInterval = 5000; // Minimum time between polls in milliseconds
 
     constructor(config: PokerClientConfig) {
         // if (!config.apiKey) {
@@ -149,8 +154,16 @@ export class PokerClient implements Client {
         }
     }
 
-    private handlePlayerViewUpdate(view: PlayerView): void {
+    private async handlePlayerViewUpdate(view: PlayerView): Promise<void> {
         try {
+            // Skip processing if we're currently sending a message
+            if (this.isSendingMessage) {
+                elizaLogger.debug("Skipping player view update processing while sending message", {
+                    isSendingMessage: this.isSendingMessage
+                });
+                return;
+            }
+
             elizaLogger.info("Received player view update");
             // Update our player ID if needed
             if (view.player && view.player.id && this.playerId !== view.player.id) {
@@ -198,27 +211,57 @@ export class PokerClient implements Client {
                         : typeof view.currentPlayerId === 'string' && view.currentPlayerId === this.playerId);
 
                 if (isOurTurn) {
-                    elizaLogger.info("It's our turn, making a decision");
-                    this.makeDecision(this.gameState).then(decision => {
-                        elizaLogger.info(`Decision made: ${decision.action}`, decision);
+                    // Set flag before sending
+                    this.isSendingMessage = true;
 
-                        // Submit the action to the server
-                        if (this.gameId && this.playerId) {
-                            this.apiConnector.submitAction(
-                                this.gameId,
-                                this.playerId,
-                                decision
-                            ).catch(error => {
-                                elizaLogger.error("Error submitting action:", error);
+                    elizaLogger.info("It's our turn, making a decision");
+                    let decision = await this.makeDecision(this.gameState);
+                    elizaLogger.info(
+                        `Decision made: ${decision.action}`,
+                        decision
+                    );
+
+                    // Submit the action to the server
+                    if (this.playerId) {
+                        // gameid is not set in the game state yet
+                        elizaLogger.debug("Submitting action:", {
+                            playerId: this.playerId,
+                            decision,
+                        });
+
+                        elizaLogger.debug("Setting isSendingMessage to true");
+
+                        try {
+                            elizaLogger.debug("Sending action to server");
+                            await this.apiConnector.submitAction({
+                                playerId: this.playerId,
+                                decision,
                             });
+                            elizaLogger.debug("Action sent successfully");
+                        } catch (error) {
+                            elizaLogger.error(
+                                "Error submitting action:",
+                                error
+                            );
+                        } finally {
+                            this.isSendingMessage = false;
+                            elizaLogger.debug(
+                                "Setting isSendingMessage to false"
+                            );
                         }
-                    }).catch(error => {
-                        elizaLogger.error("Error making decision:", error);
-                    });
+                    } else {
+                        elizaLogger.error(
+                            "Cannot submit action: gameId or playerId is missing"
+                        );
+                    }
+                } else {
+                    elizaLogger.info("Not our turn, waiting for next update");
                 }
             }
         } catch (error) {
             elizaLogger.error("Error handling player view update:", error);
+        } finally {
+            this.isSendingMessage = false;
         }
     }
 
@@ -231,6 +274,9 @@ export class PokerClient implements Client {
         this.resetFailedCount = 0;
         // Increase backoff time when resetting due to failures
         this.joinBackoffMs = Math.min(this.joinBackoffMs * 2, 30000); // Max 30 second backoff
+
+        // Stop player view polling
+        this.stopPlayerViewPolling();
     }
 
     async stop(): Promise<void> {
@@ -238,6 +284,9 @@ export class PokerClient implements Client {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
+
+        // Stop player view polling
+        this.stopPlayerViewPolling();
 
         if (this.gameId && this.playerId) {
             try {
@@ -273,6 +322,9 @@ export class PokerClient implements Client {
                 this.handlePlayerViewUpdate(view);
             });
 
+            // Start polling for player view updates
+            this.startPlayerViewPolling();
+
             // The apiConnector.joinGame method calls setPlayerReady internally
             this.playerReadySet = true;
             // Reset backoff on successful join
@@ -281,6 +333,70 @@ export class PokerClient implements Client {
             elizaLogger.error("Failed to join game:", error)
             // Reset state since join failed and we couldn't recover
             // this.resetGame();
+        }
+    }
+
+    private startPlayerViewPolling(): void {
+        // Clear any existing polling interval
+        if (this.playerViewPollingInterval) {
+            clearInterval(this.playerViewPollingInterval);
+            this.playerViewPollingInterval = null;
+        }
+
+        // Start a new polling interval
+        elizaLogger.info(`Starting player view polling every ${this.playerViewPollingIntervalMs}ms`);
+        this.playerViewPollingInterval = setInterval(() => {
+            this.pollPlayerView();
+        }, this.playerViewPollingIntervalMs);
+    }
+
+    private async pollPlayerView(): Promise<void> {
+        try {
+            if (!this.playerId) {
+                elizaLogger.warn("Cannot poll player view: player ID is not set");
+                return;
+            }
+
+            // Skip polling if we're currently sending a message
+            if (this.isSendingMessage) {
+                elizaLogger.debug("Skipping player view polling while sending message", {
+                    isSendingMessage: this.isSendingMessage
+                });
+                return;
+            }
+
+            // Check if enough time has passed since last poll
+            const now = Date.now();
+            if (now - this.lastPollTime < this.minPollInterval) {
+                elizaLogger.debug("Skipping poll - too soon since last poll", {
+                    timeSinceLastPoll: now - this.lastPollTime,
+                    minInterval: this.minPollInterval
+                });
+                return;
+            }
+
+            // Update last poll time
+            this.lastPollTime = now;
+
+            // Request player view update
+            elizaLogger.debug("Polling for player view update", {
+                isSendingMessage: this.isSendingMessage,
+                timeSinceLastPoll: now - this.lastPollTime
+            });
+            const response = await this.apiConnector.getPlayerView(this.playerId);
+            if (response) {
+                this.handlePlayerViewUpdate(response);
+            }
+        } catch (error) {
+            elizaLogger.error("Error polling for player view:", error);
+        }
+    }
+
+    private stopPlayerViewPolling(): void {
+        if (this.playerViewPollingInterval) {
+            clearInterval(this.playerViewPollingInterval);
+            this.playerViewPollingInterval = null;
+            elizaLogger.info("Stopped player view polling");
         }
     }
 
@@ -381,12 +497,11 @@ export class PokerClient implements Client {
                 elizaLogger.info(`Decision made: ${decision.action}`, decision);
 
                 // Submit the action to the server
-                if (this.gameId && this.playerId) {
-                    await this.apiConnector.submitAction(
-                        this.gameId,
-                        this.playerId,
+                if (this.playerId) {
+                    await this.apiConnector.submitAction({
+                        playerId: this.playerId,
                         decision
-                    );
+                    });
                 } else {
                     elizaLogger.error(
                         "Cannot submit action: gameId or playerId is missing"
@@ -410,11 +525,7 @@ export class PokerClient implements Client {
             // Consult the agent to make a decision
             elizaLogger.info("Asking agent for poker decision");
 
-            const response = await generateText({
-                runtime: this.runtime,
-                context: context,
-                modelClass: ModelClass.MEDIUM,
-                customSystemPrompt: `You are an experienced poker player named ${
+            const systemPrompt = `You are an experienced poker player named ${
                     this.runtime.character.name || "PokerBot"
                 }.
 
@@ -440,7 +551,14 @@ export class PokerClient implements Client {
                 - "CALL" (when you want to match the current bet)
                 - "RAISE X" (where X is the total bet amount, including the current bet)
 
-                DO NOT include explanations or additional comments - just the action.`, // TODO: add explanation and parse it
+                DO NOT include explanations or additional comments - just the action.`
+
+
+            const response = await generateText({
+                runtime: this.runtime,
+                context: context,
+                modelClass: ModelClass.MEDIUM,
+                customSystemPrompt: systemPrompt,
             });
             elizaLogger.info(`Agent response: ${response}`);
             elizaLogger.info(`Agent context: ${context}`);
