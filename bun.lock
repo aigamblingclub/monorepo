@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "virtuals-game-room",
+      "name": "poker-game-server",
     },
     "packages/poker-state-machine": {
       "name": "poker-state-machine",
