@@ -6,6 +6,11 @@ import type { Readable } from "stream";
 export type UUID = `${string}-${string}-${string}-${string}-${string}`;
 
 /**
+ * Custom fetch type that matches the basic fetch function without preconnect
+ */
+export type CustomFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+/**
  * Represents the content of a message or communication
  */
 export interface Content {
@@ -1303,7 +1308,7 @@ export interface IAgentRuntime {
     evaluators: Evaluator[];
     plugins: Plugin[];
 
-    fetch?: typeof fetch | null;
+    fetch?: typeof globalThis.fetch | null;
 
     messageManager: IMemoryManager;
     descriptionManager: IMemoryManager;
