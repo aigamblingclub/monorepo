@@ -1,7 +1,5 @@
 import { connect, keyStores, utils, providers } from 'near-api-js';
 import { readFileSync } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -43,29 +41,37 @@ export async function initNear() {
 /**
  * Check if a contract is already initialized
  * @param {String} contractId Contract ID
- * @returns {Boolean} Whether the contract is initialized
+ * @param {Object} options Options object
+ * @param {String} options.nodeUrl NEAR node URL
+ * @returns {Object} {isInitialized: boolean, adminAccount: string}
  */
-export async function isContractInitialized(contractId) {
+export async function isContractInitialized(contractId, options = {}) {
+  const { nodeUrl = process.env.NEAR_NODE_URL } = options;
+  if (!nodeUrl) {
+    throw new Error('[ERROR][CONFIG] Missing NEAR_NODE_URL in .env file');
+  }
+
   try {
-    const { NEAR_NODE_URL, NEAR_NETWORK } = process.env;
-    const provider = new providers.JsonRpcProvider(NEAR_NODE_URL || `https://rpc.${NEAR_NETWORK || 'testnet'}.near.org`);
+    const connectionConfig = {
+      url: nodeUrl
+    };
+    const provider = new providers.JsonRpcProvider(connectionConfig);
     
     // Try to access admin account using the getAdmin method
-    const result = await provider.query({
+    const response = await provider.query({
       request_type: 'call_function',
       account_id: contractId,
       method_name: 'getAdmin',
       args_base64: Buffer.from(JSON.stringify({})).toString('base64'),
       finality: 'optimistic',
     });
-    console.log(`Result: ${result}`);
     
     // If we get a result, the contract has been initialized
-    const adminAccount = JSON.parse(Buffer.from(result.result).toString());
-    return !!adminAccount;
+    const adminAccount = JSON.parse(Buffer.from(response.result).toString());
+    return {isInitialized: !!adminAccount, admin: adminAccount};
   } catch (error) {
     // If we get an error, the contract is likely not initialized or the method doesn't exist
-    return false;
+    return {isInitialized: false, admin: null};
   }
 }
 
@@ -75,34 +81,48 @@ export async function isContractInitialized(contractId) {
  * @param {String} contractName Contract name
  * @param {String} wasmPath Path to WASM file
  * @param {Object} initArgs Initialization arguments
+ * @param {Object} options Options object
+ * @param {String} options.verbose Verbose output
  * @returns {Object} Deployment result
  */
-export async function deployContract(account, contractName, wasmPath, initArgs = {}) {
+export async function deployContract(account, contractName, wasmPath, initArgs = {}, options = {}) {
+  const { verbose = false } = options;
   try {
     const wasmBinary = readFileSync(wasmPath);
     
     // Deploy the contract
-    console.log(`Deploying contract to ${contractName}...`);
+    if (verbose) {
+      console.info(`[INFO][DEPLOY] Deploying contract to ${contractName}...`);
+    }
     
     // First, check if the contract is already initialized
     const isInitialized = await isContractInitialized(contractName);
-    console.log(`Contract is initialized: ${isInitialized}`);
+    if (verbose) {
+      console.info(`[INFO][DEPLOY] Contract is initialized: ${isInitialized}`);
+    }
     
     // First, create the account if it doesn't exist
     try {
       // Calculate gas and deposit for deployment
       const gas = utils.format.parseNearAmount('0.00000000003'); // 300 Tgas
-      const deposit = utils.format.parseNearAmount('5'); // 5 NEAR for storage
 
       const deployResult = await account.deployContract(wasmBinary);
+
+      if (verbose) {
+        console.info(`[INFO][DEPLOY] Contract deployed successfully`);
+      }
 
       // Initialize the contract if initialization arguments are provided and not already initialized
       if (Object.keys(initArgs).length > 0) {
         if (isInitialized) {
-          console.log(`Contract is already initialized, skipping initialization`);
+          if (verbose) {
+            console.info(`[INFO][INIT] Contract is already initialized, skipping initialization`);
+          }
           return { success: true, contractId: contractName, alreadyInitialized: true };
         } else {
-          console.log(`Initializing contract with args:`, initArgs);
+          if (verbose) {
+            console.info(`[INFO][INIT] Initializing contract with args:`, initArgs);
+          }
           try {
             const initResult = await account.functionCall({
               contractId: contractName,
@@ -111,14 +131,20 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
               gas: gas,
               attachedDeposit: utils.format.parseNearAmount('0.01')
             });
-            console.log(`Contract initialization successful`);
+            if (verbose) {
+              console.info(`[INFO][INIT] Contract initialization successful`);
+            }
             return { success: true, contractId: contractName };
           } catch (initError) {
             if (initError.toString().includes('Contract already initialized')) {
-              console.log(`Contract is already initialized, initialization attempt was rejected`);
+              if (verbose) {
+                console.info(`[INFO][INIT] Contract is already initialized, initialization attempt was rejected`);
+              }
               return { success: true, contractId: contractName, alreadyInitialized: true };
             } else {
-              console.error('Error initializing contract:', initError);
+              if (verbose) {
+                console.error(`[ERROR][DEPLOY] Error initializing contract:`, initError);
+              }
               return { success: false, error: initError, alreadyInitialized: false };
             }
           }
@@ -129,14 +155,20 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
     } catch (error) {
       // Check if the error is because the contract is already initialized
       if (error.toString().includes('Contract already initialized')) {
-        console.log('Contract is already initialized');
+        if (verbose) {
+          console.info(`[INFO][INIT] Contract is already initialized`);
+        }
         return { success: false, error, alreadyInitialized: true };
       }
-      console.error('Error deploying contract:', error);
+      if (verbose) {
+        console.error(`[ERROR][DEPLOY] Error deploying contract:`, error);
+      }
       return { success: false, error, alreadyInitialized: isInitialized };
     }
   } catch (error) {
-    console.error('Failed to deploy contract:', error);
+    if (verbose) {
+      console.error(`[ERROR][DEPLOY] Failed to deploy contract:`, error);
+    }
     return { success: false, error };
   }
 }
@@ -178,7 +210,7 @@ export async function callViewMethod(contractId, methodName, args = {}) {
  * @param {String} gas Gas to use
  * @returns {Object} Transaction result
  */
-export async function callChangeMethod(account, contractId, methodName, args = {}, attachedDeposit = '0', gas = '300000000000000') {
+export async function callWriteMethod(account, contractId, methodName, args = {}, attachedDeposit = '0', gas = '300000000000000') {
   try {
     const result = await account.functionCall({
       contractId,
