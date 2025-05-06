@@ -148,6 +148,7 @@ export class PokerClient implements Client {
         try {
             elizaLogger.info("Received poker state update");
             const gameState = this.apiConnector.convertPokerStateToGameState(state);
+            elizaLogger.debug("gameState:", gameState);
             this.handleGameUpdate(gameState);
         } catch (error) {
             elizaLogger.error("Error handling poker state update:", error);
@@ -410,20 +411,13 @@ export class PokerClient implements Client {
             // Handle game over state
             if (gameState.isGameOver) {
                 elizaLogger.info("Game is over:", {
-                    winner: gameState.winner?.name,
+                    winner: gameState.winner?.id,
                     finalPot: gameState.finalPot,
                     finalCommunityCards: gameState.finalCommunityCards,
                 });
+                elizaLogger.debug("gameState:", gameState);
 
                 // Reset game state to allow joining new games
-                this.resetGame();
-                return;
-            }
-
-            // Handle round over state
-            if (gameState.tableStatus === "ROUND_OVER") {
-                elizaLogger.info("Round is over, resetting game state");
-                gameState.isGameOver = true;
                 this.resetGame();
                 return;
             }
