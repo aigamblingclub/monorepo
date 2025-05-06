@@ -171,6 +171,13 @@ export class PokerClient implements Client {
                 elizaLogger.info(`Updated player ID to ${this.playerId}`);
             }
 
+            // If round is over, stop polling
+            if (view.tableStatus === "ROUND_OVER") {
+                elizaLogger.info("Round is over, stopping player view polling");
+                this.stopPlayerViewPolling();
+                return;
+            }
+
             // If we have a game state, update it with the player view information
             if (this.gameState) {
                 // Update our player's hand
@@ -286,7 +293,7 @@ export class PokerClient implements Client {
 
         // Stop player view polling
         this.stopPlayerViewPolling();
-      
+
         if (this.gameId && this.playerId) {
             try {
                 await this.apiConnector.leaveGame(this.gameId, this.playerId);
@@ -409,6 +416,14 @@ export class PokerClient implements Client {
                 });
 
                 // Reset game state to allow joining new games
+                this.resetGame();
+                return;
+            }
+
+            // Handle round over state
+            if (gameState.tableStatus === "ROUND_OVER") {
+                elizaLogger.info("Round is over, resetting game state");
+                gameState.isGameOver = true;
                 this.resetGame();
                 return;
             }
