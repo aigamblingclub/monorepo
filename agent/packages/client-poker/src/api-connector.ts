@@ -1,4 +1,5 @@
 import { elizaLogger } from "@elizaos/core";
+import { Option } from "effect";
 import {
     GameState,
     PokerDecision,
@@ -476,41 +477,25 @@ export class ApiConnector {
 
     // Conversion methods
     convertPokerStateToGameState(state: PokerState): GameState {
-        const players: PlayerState[] = Object.values(state.players).map((player) => ({
-            id: player.id,
-            name: player.id, // We don't have names in the new model
-            chips: player.chips,
-            isReady: state.status !== "PLAYING",
-            currentBet: player.bet.round,
-            isFolded: player.status === "FOLDED",
-            hand: player.hand.map((card) => ({
-                rank: card.rank.toString(),
-                suit: card.suit,
-            })),
-            status: player.status,
-        }));
+        const players: PlayerState[] = Object.values(state.players).map(
+            (player) => ({
+                id: player.id,
+                name: player.id, // We don't have names in the new model
+                chips: player.chips,
+                isReady: state.status !== "PLAYING",
+                currentBet: player.bet.round,
+                isFolded: player.status === "FOLDED",
+                hand: player.hand.map((card) => ({
+                    rank: card.rank.toString(),
+                    suit: card.suit,
+                })),
+                status: player.status,
+            })
+        );
 
         // const currentPlayer = players[state.currentPlayerIndex];
 
-        // Handle the Option type for winningPlayerId
-        let winner: WinnerInfo | undefined = undefined;
-        // if (state.winningPlayerId) {
-        //     // If it's an Option type, extract the value
-        //     const winningId =
-        //         typeof state.winningPlayerId === "object" &&
-        //         "value" in state.winningPlayerId
-        //             ? state.winningPlayerId.value
-        //             : state.winningPlayerId;
 
-        //     if (winningId && typeof winningId === "string") {
-        //         winner = {
-        //             id: winningId,
-        //             name: winningId,
-        //             winningHand: [], // We don't have this information in the new model
-        //             handDescription: "", // We don't have this information in the new model
-        //         };
-        //     }
-        // }
 
         return {
             players,
@@ -519,7 +504,7 @@ export class ApiConnector {
             //     ? "showdown"
             //     : "preflop", // When playing, start with preflop
             pot: state.pot,
-            isGameOver: winner !== undefined,
+            isGameOver: state.status === "ROUND_OVER",
             lastUpdateTime: new Date().toISOString(),
             currentBet: state.bet,
             currentPlayerIndex: state.currentPlayerIndex,
@@ -527,7 +512,12 @@ export class ApiConnector {
                 rank: card.rank.toString(),
                 suit: card.suit,
             })),
-            winner,
+            winner: Option.isSome(state.winner) ? {
+                id: state.winner.value,
+                // name: state.winner,
+                // winningHand: [],
+                // handDescription: "",
+            } : undefined,
         };
     }
 
@@ -550,7 +540,7 @@ export class ApiConnector {
                 throw new Error(`Unknown decision action: ${decision.action}`);
         }
     }
-  
+
     async getPlayerView(playerId: string): Promise<PlayerView | null> {
         try {
             await this.connect();

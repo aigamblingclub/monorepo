@@ -148,6 +148,7 @@ export class PokerClient implements Client {
         try {
             elizaLogger.info("Received poker state update");
             const gameState = this.apiConnector.convertPokerStateToGameState(state);
+            elizaLogger.debug("gameState:", gameState);
             this.handleGameUpdate(gameState);
         } catch (error) {
             elizaLogger.error("Error handling poker state update:", error);
@@ -169,6 +170,13 @@ export class PokerClient implements Client {
             if (view.player && view.player.id && this.playerId !== view.player.id) {
                 this.playerId = view.player.id;
                 elizaLogger.info(`Updated player ID to ${this.playerId}`);
+            }
+
+            // If round is over, stop polling
+            if (view.tableStatus === "ROUND_OVER") {
+                elizaLogger.info("Round is over, stopping player view polling");
+                this.stopPlayerViewPolling();
+                return;
             }
 
             // If we have a game state, update it with the player view information
@@ -286,7 +294,7 @@ export class PokerClient implements Client {
 
         // Stop player view polling
         this.stopPlayerViewPolling();
-      
+
         if (this.gameId && this.playerId) {
             try {
                 await this.apiConnector.leaveGame(this.gameId, this.playerId);
@@ -403,10 +411,11 @@ export class PokerClient implements Client {
             // Handle game over state
             if (gameState.isGameOver) {
                 elizaLogger.info("Game is over:", {
-                    winner: gameState.winner?.name,
+                    winner: gameState.winner?.id,
                     finalPot: gameState.finalPot,
                     finalCommunityCards: gameState.finalCommunityCards,
                 });
+                elizaLogger.debug("gameState:", gameState);
 
                 // Reset game state to allow joining new games
                 this.resetGame();

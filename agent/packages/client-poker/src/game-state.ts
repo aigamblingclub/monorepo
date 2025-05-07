@@ -30,9 +30,9 @@ export interface PlayerState {
 
 export interface WinnerInfo {
     id: string;
-    name: string;
-    winningHand: Card[];
-    handDescription: string;
+    name?: string;
+    winningHand?: Card[];
+    handDescription?: string;
 }
 
 export interface GameState {
