@@ -1,7 +1,7 @@
 /*
     transitions: functions that operate on the current poker state to return the next one.
  */
-import { Effect, Iterable, pipe, Schema } from "effect"
+import { Effect, Iterable, Option, pipe, Schema } from "effect"
 import { determineWinningPlayers, getShuffledDeck, type RiverCommunity } from "./poker"
 import { bigBlind, findDealerIndex, firstPlayerIndex, rotated, roundRotation, smallBlind } from "./queries"
 import type { Card, Move, PlayerState, PokerState, StateMachineError } from "./schemas"
@@ -229,7 +229,7 @@ const calculatePots = (potBets: number[], players: PlayerState[]): Map<number, n
         for (const potBet of potBets) {
             const amount = Math.min(remaining, potBet)
             remaining -= amount
-            const pot = pots.get(potBet)!
+            const pot = pots.get(potBet) ?? 0
             pots.set(potBet, pot + amount)
         }
     }
@@ -245,23 +245,25 @@ function determinePotWinner(
     return determineWinningPlayers(players, community)
 }
 
+// TODO: RENAME: showdown -> resolveRound, showdown is only after the river state
+// where the players have already shown their hands
 // TEST: test-case for when there's only 1 pot but 2 all-in players in it
 // precondition: all players which are not folded or all-in have the same bet total
 // precondition: either there's only one player left which hasn't folded or gone all-in
 // or we are already at river
 export function showdown(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
+    // ?? why do we need go to river before checking hands and pots?
     // fast-forward to river before checking hands and pots
-    if (state.community.length < 5) return pipe(
-        state,
-        nextPhase,
-        Effect.flatMap(showdown)
-    )
+    // if (state.community.length < 5) return pipe(
+    //     state,
+    //     nextPhase,
+    //     Effect.flatMap(showdown)
+    // )
 
     const allPlayers = state.players.toSorted((a, b) => a.bet.total - b.bet.total)
     const inPlayers = allPlayers.filter(p => p.status !== 'FOLDED')
     // TODO: better name for this status
     const playingPlayers = inPlayers.filter(p => p.status === 'PLAYING')
-
     // TODO: abstract this into a more general showdown state assertion function
     const playingPotBets = getPotBets(playingPlayers)
     if (playingPotBets.length !== 1) {
@@ -270,9 +272,8 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
             message: "Inconsistent State Error: there's more than one pot for non all-in players."
         })
     }
-
-    const potBets = getPotBets(inPlayers)
-    const pots = calculatePots(potBets, inPlayers)
+    const potBets = getPotBets(allPlayers);
+    const pots = calculatePots(potBets, allPlayers);
 
     const rewards: Map<string, number> = new Map()
     for (const [bet, pot] of pots) {
@@ -280,6 +281,7 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
         // TODO: usually pots are even and ties are 2-ways, but it could be a 3-way tie
         // so we also have to do a remainder distribution to the player closest to the
         // dealer
+
         for (const winnerId of winnerIds) {
             const current = rewards.get(winnerId) ?? 0
             const reward = Math.floor(pot / winnerIds.length)
@@ -288,12 +290,18 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
     }
 
     // TODO: consider what to do with other fields (i.e. pot)
+    // TODO: best way to send to client the winner per pot
     return Effect.succeed({
         ...state,
         status: 'ROUND_OVER',
+        winner: Option.fromNullable(state.players.find(p => (rewards.get(p.id) ?? 0) > 0)?.id ?? null), // only one player won
         players: state.players.map(p => ({
             ...p,
-            chips: p.chips + (rewards.get(p.id) ?? 0)
+            chips: p.chips + (rewards.get(p.id) ?? 0),
+            bet: {
+                total: 0,
+                round: 0,
+            }
         }))
     })
 }
