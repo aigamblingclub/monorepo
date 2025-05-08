@@ -369,6 +369,7 @@ export async function generateText({
     maxSteps = 1,
     stop,
     customSystemPrompt,
+    customTemperature,
 }: // verifiableInference = process.env.VERIFIABLE_INFERENCE_ENABLED === "true",
 // verifiableInferenceOptions,
 {
@@ -380,6 +381,7 @@ export async function generateText({
     maxSteps?: number;
     stop?: string[];
     customSystemPrompt?: string;
+    customTemperature?: number;
     // verifiableInference?: boolean;
     // verifiableInferenceAdapter?: IVerifiableInferenceAdapter;
     // verifiableInferenceOptions?: VerifiableInferenceOptions;
@@ -515,7 +517,7 @@ export async function generateText({
 
     const modelConfiguration = runtime.character?.settings?.modelConfig;
     const temperature =
-        modelConfiguration?.temperature || modelSettings.temperature;
+        customTemperature || modelConfiguration?.temperature || modelSettings.temperature;
     const frequency_penalty =
         modelConfiguration?.frequency_penalty ||
         modelSettings.frequency_penalty;
@@ -544,6 +546,21 @@ export async function generateText({
         elizaLogger.debug(
             `Using provider: ${provider}, model: ${model}, temperature: ${temperature}, max response length: ${max_response_length}`
         );
+
+        // TODO: add to debug log
+        elizaLogger.workflow("[Generation] sending request to model: ", JSON.stringify({
+            prompt: context,
+            system:
+                runtime.character.system ?? settings.SYSTEM_PROMPT ?? undefined,
+            tools: tools,
+            onStepFinish: onStepFinish,
+            maxSteps: maxSteps,
+            temperature: temperature,
+            maxTokens: max_response_length,
+            frequencyPenalty: frequency_penalty,
+            presencePenalty: presence_penalty,
+            experimental_telemetry: experimental_telemetry,
+        }));
 
         switch (provider) {
             // OPENAI & LLAMACLOUD shared same structure.
@@ -575,6 +592,7 @@ export async function generateText({
                     model: openai.languageModel(model),
                     prompt: context,
                     system:
+                        customSystemPrompt ??
                         runtime.character.system ??
                         settings.SYSTEM_PROMPT ??
                         undefined,
@@ -1326,7 +1344,9 @@ export async function generateText({
                 throw new Error(errorMessage);
             }
         }
-
+        elizaLogger.workflow("[Generation] response: ", JSON.stringify({
+            response: response,
+        }));
         return response;
     } catch (error) {
         elizaLogger.error("Error in generateText:", error);

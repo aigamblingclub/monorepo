@@ -13,6 +13,7 @@ import { PokerState, PlayerView, GameEvent } from "./schemas";
 export interface PokerClientConfig {
     apiBaseUrl?: string;
     apiKey?: string; // Make API key required in config
+    playerName?: string;
 }
 
 // Extended character interface to include settings
@@ -61,7 +62,7 @@ export class PokerClient implements Client {
             "http://localhost:3001";
 
         // Initialize API connector with both URL and API key
-        this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey);
+        this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey, config.playerName);
         elizaLogger.info("Poker client created with API endpoint:", apiBaseUrl);
         // elizaLogger.debug("API key configured:", {
         //     apiKeyLength: config.apiKey.length,
@@ -122,6 +123,7 @@ export class PokerClient implements Client {
                     try {
                         const gameState =
                             await this.apiConnector.getGameState();
+                        elizaLogger.debug("1111 gameState:", gameState);
                         await this.handleGameUpdate(gameState);
                     } catch (error) {
                         elizaLogger.error("Error getting game state:", error);
@@ -520,46 +522,37 @@ export class PokerClient implements Client {
         }
     }
 
-
-
     private async makeDecision(gameState: GameState): Promise<PokerDecision> {
         try {
             if (!this.runtime) return { action: PlayerAction.FOLD };
-            elizaLogger.info("gameState:", gameState);
-            // Prepare context for the model
+
             const context = this.prepareGameContext(gameState);
+            const systemPrompt = this.prepareSystemPrompt(gameState);
 
-            // Consult the agent to make a decision
-            elizaLogger.info("Asking agent for poker decision");
-
-            const systemPrompt = `You are an experienced poker player named ${
-                    this.runtime.character.name || "PokerBot"
-                }.
-
-                At the table we have ${gameState.players.length} players. At table ${
-                    this.gameId
+            // Log the complete interaction data in a structured format
+            elizaLogger.workflow(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                agent: {
+                    name: this.playerName,
+                    id: this.playerId
+                },
+                game: {
+                    id: this.gameId,
+                    phase: gameState.tableStatus,
+                    pot: gameState.pot,
+                    currentBet: gameState.currentBet,
+                    players: gameState.players.map(p => ({
+                        id: p.id,
+                        chips: p.chips,
+                        currentBet: p.currentBet,
+                        status: p.isFolded ? 'folded' : 'active'
+                    }))
+                },
+                prompt: {
+                    system: systemPrompt,
+                    context: context
                 }
-                Your goal is to maximize your winnings using advanced poker strategy.
-                Carefully analyze the current game situation and make a strategic decision.
-
-                Consider the following elements for your decision:
-                1. The strength of your current hand
-                2. Your chances of improving with community cards
-                3. The size of the pot and current bet
-                4. Your position at the table and chip count
-                5. The behavior of other players
-
-                Avoid folding constantly - use check, call or raise when appropriate.
-                A successful poker strategy involves a mix of conservative and aggressive plays.
-
-                IMPORTANT: Respond ONLY with one of the following formats:
-                - "FOLD" (when you want to give up)
-                - "CHECK" (when you want to pass without betting)
-                - "CALL" (when you want to match the current bet)
-                - "RAISE X" (where X is the total bet amount, including the current bet)
-
-                DO NOT include explanations or additional comments - just the action.`
-
+            }));
 
             const response = await generateText({
                 runtime: this.runtime,
@@ -567,14 +560,47 @@ export class PokerClient implements Client {
                 modelClass: ModelClass.MEDIUM,
                 customSystemPrompt: systemPrompt,
             });
-            elizaLogger.info(`Agent response: ${response}`);
-            elizaLogger.info(`Agent context: ${context}`);
-            // Analyze the response to extract the action
+
             const decision = this.parseAgentResponse(response);
-            elizaLogger.info(`Agent decision: ${JSON.stringify(decision)}`);
+
+            // Log the model's response and parsed decision
+            elizaLogger.workflow(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                agent: {
+                    name: this.playerName,
+                    id: this.playerId
+                },
+                game: {
+                    id: this.gameId,
+                    phase: gameState.tableStatus
+                },
+                model: {
+                    rawResponse: response,
+                    parsedDecision: {
+                        action: decision.action,
+                        amount: decision.amount || 'N/A'
+                    }
+                }
+            }));
 
             return decision;
         } catch (error) {
+            // Log errors in the same structured format
+            elizaLogger.workflow(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                agent: {
+                    name: this.playerName,
+                    id: this.playerId
+                },
+                game: {
+                    id: this.gameId,
+                    phase: gameState.tableStatus
+                },
+                error: {
+                    type: 'MakeDecision',
+                    message: error.message
+                }
+            }));
             elizaLogger.error("Error making decision:", error);
             return { action: PlayerAction.FOLD };
         }
@@ -632,6 +658,38 @@ export class PokerClient implements Client {
         ].join("\n");
 
         return context;
+    }
+
+    private prepareSystemPrompt(gameState: GameState): string {
+        const systemPrompt = `You are an experienced poker player named ${
+            this.runtime?.character.name || "PokerBot"
+        }.
+
+        At the table we have ${gameState.players.length} players. At table ${
+            this.gameId
+        }
+        Your goal is to maximize your winnings using advanced poker strategy.
+        Carefully analyze the current game situation and make a strategic decision.
+
+        Consider the following elements for your decision:
+        1. The strength of your current hand
+        2. Your chances of improving with community cards
+        3. The size of the pot and current bet
+        4. Your position at the table and chip count
+        5. The behavior of other players
+
+        Avoid folding constantly - use check, call or raise when appropriate.
+        A successful poker strategy involves a mix of conservative and aggressive plays.
+
+        IMPORTANT: Respond ONLY with one of the following formats:
+        - "FOLD" (when you want to give up)
+        - "CHECK" (when you want to pass without betting)
+        - "CALL" (when you want to match the current bet)
+        - "RAISE X" (where X is the total bet amount, including the current bet)
+
+        DO NOT include explanations or additional comments - just the action.`;
+
+        return systemPrompt;
     }
 
     private parseAgentResponse(response: string): PokerDecision {

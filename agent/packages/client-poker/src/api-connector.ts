@@ -1,5 +1,4 @@
 import { elizaLogger } from "@elizaos/core";
-import { Option } from "effect";
 import {
     GameState,
     PokerDecision,
@@ -37,9 +36,10 @@ export class ApiConnector {
     private maxReconnectAttempts = 5;
     private reconnectTimeout: NodeJS.Timeout | null = null;
 
-    constructor(baseUrl: string, apiKey?: string) {
+    constructor(baseUrl: string, apiKey?: string, playerName?: string) {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey || null;
+        this.playerName = playerName || null;
         elizaLogger.log(
             "EffectApiConnector initialized with base URL:",
             baseUrl
@@ -304,7 +304,7 @@ export class ApiConnector {
         // Send join event
         const event: PlayerEvent = {
             type: "table",
-            playerId,
+            playerId, // TODO: add player name??
             action: "join",
         };
 
@@ -512,8 +512,8 @@ export class ApiConnector {
                 rank: card.rank.toString(),
                 suit: card.suit,
             })),
-            winner: Option.isSome(state.winner) ? {
-                id: state.winner.value,
+            winner: state.winner ? {
+                id: state.winner,
                 // name: state.winner,
                 // winningHand: [],
                 // handDescription: "",

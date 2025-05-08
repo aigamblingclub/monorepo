@@ -2,6 +2,7 @@ import pino, { type LogFn } from "pino";
 import pretty from "pino-pretty";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 import { parseBooleanFromText } from "./parsing.ts";
 
@@ -71,44 +72,84 @@ const options = {
 
 export const elizaLogger = pino(options, createStream());
 
-// Adiciona função específica para workflow que escreve em arquivo
-const logDir = path.join(process.cwd(), "logs");
-if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
+// Create logs directory if it doesn't exist
+let logDir: string;
+try {
+    logDir = path.join(process.cwd(), "logs");
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+    }
+} catch (error) {
+    console.error("Failed to create logs directory:", error);
+    // Fallback to OS temp directory
+    logDir = path.join(os.tmpdir(), "eliza-logs");
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+    }
 }
 
 const originalWorkflow = elizaLogger.workflow;
+
+// Helper function to extract message from workflow log arguments
+function extractWorkflowMessage(args: any[]): string {
+    try {
+        if (args.length === 0) return '';
+
+        // If first argument is a string, join all arguments
+        if (typeof args[0] === 'string') {
+            return args.map(arg =>
+                typeof arg === 'string' ? arg : JSON.stringify(arg)
+            ).join(' ');
+        }
+
+        // If first argument is an object
+        const obj = args[0];
+
+        // If it's a simple object with a message property
+        if (obj.msg) {
+            return typeof obj.msg === 'string' ? obj.msg : JSON.stringify(obj.msg);
+        }
+
+        // If it has a content property with text
+        if (obj.content?.text) {
+            return obj.content.text;
+        }
+
+        // Fallback to stringifying the entire object
+        return JSON.stringify(obj);
+    } catch (error) {
+        console.error('Error extracting workflow message:', error);
+        return '[Error extracting message]';
+    }
+}
+
+// Override the workflow method with file logging
 elizaLogger.workflow = (...args: Parameters<typeof originalWorkflow>) => {
-    // Chama o logger original para manter o console
+    // Call original logger
     originalWorkflow.apply(elizaLogger, args);
 
-    // Escreve no arquivo de workflow
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toISOString().split('T')[1].split('.')[0];
+    try {
+        // Get current timestamp
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+        const time = now.toISOString().split('T')[1].split('.')[0];
 
-    const logFile = path.join(logDir, `${date}.workflow.log`);
+        // Generate log file path
+        const logFile = path.join(logDir, `${date}.workflow.log`);
 
-    // Extrai apenas a mensagem do objeto
-    let message = '';
-    if (typeof args[0] === 'string') {
-        message = args.join(' ');
-    } else {
-        const obj = args[0] as Record<string, any>;
-        if (obj.msg) {
-            try {
-                const msgObj = JSON.parse(obj.msg);
-                message = msgObj.content?.text || obj.msg;
-            } catch {
-                message = obj.msg;
-            }
-        } else {
-            message = JSON.stringify(obj);
-        }
+        // Extract message
+        const message = extractWorkflowMessage(args);
+
+        // Format log entry
+        const logEntry = `${date} ${time} - ${message}\n`;
+
+        // Write to file synchronously
+        fs.appendFileSync(logFile, logEntry, { encoding: 'utf8' });
+    } catch (error) {
+        console.error('Failed to write workflow log to file:', error);
+        // Call original error logger to ensure error is logged
+        elizaLogger.error('Failed to write workflow log to file:', error);
     }
-
-    const logMessage = `${date} ${time} - ${message}\n`;
-    fs.appendFileSync(logFile, logMessage);
 };
 
 export default elizaLogger;
