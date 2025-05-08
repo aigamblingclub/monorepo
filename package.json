@@ -5,6 +5,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --watch packages/server/src/index.ts"
+    "dev": "bun run --watch packages/server/src/index.ts",
+    "agent-dev": "pnpm --dir agent build && pnpm --dir agent start:debug",
+    "agent": "pnpm --dir agent build && pnpm --dir agent start"
   }
 }
