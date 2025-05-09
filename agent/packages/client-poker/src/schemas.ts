@@ -62,7 +62,7 @@ export const PokerStateSchema = Schema.Struct({
     bet: Schema.Number,
     // TODO: actually consider going back to dealerIndex instead xD
     dealerId: Schema.String,
-    winner: Schema.Option(Schema.String),
+    winner: Schema.Union(Schema.String, Schema.Null),
 });
 export type PokerState = typeof PokerStateSchema.Type;
 

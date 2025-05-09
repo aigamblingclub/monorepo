@@ -612,7 +612,7 @@ export async function initializeClients(
     // Verificar se o personagem tem o cliente de poker configurado
     if (character.clients?.includes("poker")) {
         try {
-            const pokerClient = createPokerClient(runtime);
+            const pokerClient = createPokerClient(runtime, character.name);
             const startedClient = await pokerClient.start(runtime);
             elizaLogger.info("Initialized poker client");
             clients.push(startedClient);

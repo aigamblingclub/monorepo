@@ -2,6 +2,7 @@ import pino, { type LogFn } from "pino";
 import pretty from "pino-pretty";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 import { parseBooleanFromText } from "./parsing.ts";
 
@@ -71,44 +72,113 @@ const options = {
 
 export const elizaLogger = pino(options, createStream());
 
-// Adiciona função específica para workflow que escreve em arquivo
-const logDir = path.join(process.cwd(), "logs");
-if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
+// Create logs directory if it doesn't exist
+let logDir: string;
+try {
+    logDir = path.join(process.cwd(), "logs");
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+    }
+} catch (error) {
+    console.error("Failed to create logs directory:", error);
+    // Fallback to OS temp directory
+    logDir = path.join(os.tmpdir(), "eliza-logs");
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+    }
 }
 
 const originalWorkflow = elizaLogger.workflow;
+
+// Override the workflow method with file logging
 elizaLogger.workflow = (...args: Parameters<typeof originalWorkflow>) => {
-    // Chama o logger original para manter o console
+    // Call original logger
     originalWorkflow.apply(elizaLogger, args);
 
-    // Escreve no arquivo de workflow
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toISOString().split('T')[1].split('.')[0];
+    try {
+        // Get current timestamp
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+        const time = now.toISOString();
 
-    const logFile = path.join(logDir, `${date}.workflow.log`);
+        // Generate log file path
+        const logFile = path.join(logDir, `${date}.workflow.json`);
 
-    // Extrai apenas a mensagem do objeto
-    let message = '';
-    if (typeof args[0] === 'string') {
-        message = args.join(' ');
-    } else {
-        const obj = args[0] as Record<string, any>;
-        if (obj.msg) {
+        // Format log entry as an object
+        const logEntry = {
+            timestamp: time,
+            level: "workflow",
+            message: JSON.parse(args[0]),
+        };
+
+        // Read existing logs or create new array
+        let logs: any[] = [];
+        if (fs.existsSync(logFile)) {
             try {
-                const msgObj = JSON.parse(obj.msg);
-                message = msgObj.content?.text || obj.msg;
-            } catch {
-                message = obj.msg;
+                const content = fs.readFileSync(logFile, 'utf8');
+                logs = JSON.parse(content);
+                if (!Array.isArray(logs)) {
+                    logs = [];
+                }
+            } catch (err) {
+                // If file exists but is invalid JSON, start fresh
+                logs = [];
             }
-        } else {
-            message = JSON.stringify(obj);
         }
-    }
 
-    const logMessage = `${date} ${time} - ${message}\n`;
-    fs.appendFileSync(logFile, logMessage);
+        // Add new entry
+        logs.push(logEntry);
+
+        // Write back to file with pretty formatting
+        fs.writeFileSync(logFile, JSON.stringify(logs, null, 2), { encoding: 'utf8' });
+    } catch (error) {
+        console.error('Failed to write workflow log to file:', error);
+        // Call original error logger to ensure error is logged
+        elizaLogger.error('Failed to write workflow log to file:', error);
+    }
 };
+
+// Add text format logging for other levels
+Object.keys(customLevels).forEach((level) => {
+    if (level === 'workflow') return; // Skip workflow as it's handled above
+
+    const originalMethod = (elizaLogger as any)[level];
+    (elizaLogger as any)[level] = (...args: any[]) => {
+        // Call original logger
+        originalMethod.apply(elizaLogger, args);
+
+        try {
+            // Get current timestamp
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+            const time = now.toISOString().split('T')[1].split('.')[0];
+
+            // Format message
+            let message = '';
+            if (typeof args[0] === 'string') {
+                message = args.map(arg =>
+                    typeof arg === 'string' ? arg :
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) :
+                    String(arg)
+                ).join(' ');
+            } else {
+                message = args.map(arg =>
+                    typeof arg === 'string' ? arg :
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) :
+                    String(arg)
+                ).join('\n');
+            }
+
+            // Format log entry
+            const logEntry = `[${date} ${time}] ${level.toUpperCase()}: ${message}\n`;
+
+            // Generate log file path and append
+            const logFile = path.join(logDir, `${date}.log`);
+            fs.appendFileSync(logFile, logEntry, { encoding: 'utf8' });
+        } catch (error) {
+            console.error(`Failed to write ${level} log to file:`, error);
+        }
+    };
+});
 
 export default elizaLogger;

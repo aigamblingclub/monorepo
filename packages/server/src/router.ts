@@ -47,9 +47,7 @@ export const PokerRpcLive = PokerRpc.toLayer(
         return ROOM.playerView(payload.playerId);
       },
       stateUpdates: (_payload, _headers) => {
-        return ROOM.stateUpdates.pipe(
-          Stream.tap(() => Console.log("state updates"))
-        );
+        return ROOM.stateUpdates
       },
     };
   })

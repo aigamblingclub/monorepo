@@ -5,14 +5,20 @@ import {
     UUID,
     elizaLogger,
     generateText,
+    Memory,
+    getEmbeddingZeroVector,
+    stringToUuid,
+    Content
 } from "@elizaos/core";
 import { GameState, PlayerAction, PokerDecision, Card } from "./game-state";
 import { ApiConnector } from "./api-connector";
 import { PokerState, PlayerView, GameEvent } from "./schemas";
+import { embed } from "@elizaos/core";
 
 export interface PokerClientConfig {
     apiBaseUrl?: string;
     apiKey?: string; // Make API key required in config
+    playerName?: string;
 }
 
 // Extended character interface to include settings
@@ -24,6 +30,52 @@ interface ExtendedCharacter {
             POKER_API_KEY?: string;
         };
     };
+}
+
+// Extend the Content type for poker
+interface PokerContent extends Content {
+    gameId: string;
+    roundId?: string;
+    pokerAction: ExtendedPokerDecision;
+    gameState: {
+        pot: number;
+        currentBet: number;
+        playerCards?: Card[];
+        communityCards: Card[];
+        chips: number;
+        position: number;
+        phase: string;
+        players: Array<{
+            id: string;
+            chips: number;
+            currentBet: number;
+            isFolded: boolean;
+        }>;
+        roundHistory: string[];
+    };
+    outcome?: {
+        won: boolean;
+        chipsWon?: number;
+        finalPot?: number;
+        finalCommunityCards?: Card[];
+        finalPlayerCards?: Card[];
+        roundEndState?: string;
+        handStrength?: string;
+        opponentActions?: string[];
+        opponentFinalCards?: Card[];
+        completeRoundHistory?: string[];
+    };
+}
+
+// Add this near the top of the file, with other interfaces
+interface ExtendedPokerDecision extends PokerDecision {
+    thinking?: string;
+    explanation?: string;
+    analysis?: string;
+    reasoning?: string;
+    strategy?: string;
+    logic?: string;
+    roleplay?: string;
 }
 
 export class PokerClient implements Client {
@@ -45,6 +97,7 @@ export class PokerClient implements Client {
     private isSendingMessage = false;
     private lastPollTime = 0;
     private minPollInterval = 5000; // Minimum time between polls in milliseconds
+    private roundId: string | null = null;
 
     constructor(config: PokerClientConfig) {
         // if (!config.apiKey) {
@@ -61,7 +114,7 @@ export class PokerClient implements Client {
             "http://localhost:3001";
 
         // Initialize API connector with both URL and API key
-        this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey);
+        this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey, config.playerName);
         elizaLogger.info("Poker client created with API endpoint:", apiBaseUrl);
         // elizaLogger.debug("API key configured:", {
         //     apiKeyLength: config.apiKey.length,
@@ -122,6 +175,7 @@ export class PokerClient implements Client {
                     try {
                         const gameState =
                             await this.apiConnector.getGameState();
+                        elizaLogger.debug("1111 gameState:", gameState);
                         await this.handleGameUpdate(gameState);
                     } catch (error) {
                         elizaLogger.error("Error getting game state:", error);
@@ -408,6 +462,22 @@ export class PokerClient implements Client {
 
     private async handleGameUpdate(gameState: GameState): Promise<void> {
         try {
+            // If the round is over, update outcomes for recent memories
+            if (gameState.tableStatus === "ROUND_OVER") {
+                const recentMemories = await this.runtime?.messageManager?.getMemories({
+                    roomId: stringToUuid(this.gameId || 'default-poker-room'),
+                    count: 10
+                }) || [];
+
+                // Update outcomes for memories from this round that don't have outcomes yet
+                for (const memory of recentMemories) {
+                    const content = memory.content as unknown as PokerContent;
+                    if (content.roundId === this.roundId && !content.outcome) {
+                        await this.updateMemoryWithOutcome(memory, gameState);
+                    }
+                }
+            }
+
             // Handle game over state
             if (gameState.isGameOver) {
                 elizaLogger.info("Game is over:", {
@@ -520,46 +590,89 @@ export class PokerClient implements Client {
         }
     }
 
+    async getRelevantMemories(currentState: GameState, limit: number = 5): Promise<Memory[]> {
+        if (!this.runtime?.messageManager) {
+            return [];
+        }
 
+        try {
+            // Criar uma descrição semântica da situação atual
+            const currentSituation = `Poker game in ${currentState.tableStatus} phase with pot ${currentState.pot}.
+                ${currentState.communityCards.length} community cards showing: ${currentState.communityCards.map(c => `${c.rank}${c.suit}`).join(' ')}.
+                ${currentState.players.filter(p => !p.isFolded).length} active players.
+                Current bet is ${currentState.currentBet}.
+                Player position: ${currentState.players.findIndex(p => p.id === this.playerId)}.
+                Stack sizes: ${currentState.players.map(p => p.chips).join(', ')}.`;
 
-    private async makeDecision(gameState: GameState): Promise<PokerDecision> {
+            // Gerar embedding para a situação atual
+            const embedding = await embed(this.runtime, currentSituation);
+
+            // Buscar memórias semanticamente similares
+            const memories = await this.runtime.messageManager.searchMemoriesByEmbedding(
+                embedding,
+                {
+                    match_threshold: 0.7, // Ajustar conforme necessário
+                    count: limit,
+                    roomId: stringToUuid(this.gameId || 'default-poker-room'),
+                    unique: true
+                }
+            );
+
+            // Log para debug
+            elizaLogger.debug('Semantic search results:', {
+                currentSituation,
+                memoriesFound: memories.length,
+                memories: memories.map(m => ({
+                    id: m.id,
+                    phase: (m.content as unknown as PokerContent).gameState?.phase,
+                    action: (m.content as unknown as PokerContent).pokerAction?.action,
+                    similarity: m.similarity
+                }))
+            });
+
+            return memories;
+        } catch (error) {
+            elizaLogger.error("Error in semantic memory search:", error);
+            return [];
+        }
+    }
+
+    private async makeDecision(gameState: GameState): Promise<ExtendedPokerDecision> {
         try {
             if (!this.runtime) return { action: PlayerAction.FOLD };
-            elizaLogger.info("gameState:", gameState);
-            // Prepare context for the model
-            const context = this.prepareGameContext(gameState);
 
-            // Consult the agent to make a decision
-            elizaLogger.info("Asking agent for poker decision");
+            // Get relevant memories using the runtime's message manager
+            const relevantMemories = await this.getRelevantMemories(gameState);
+            const context = this.prepareGameContext(gameState, relevantMemories);
+            const systemPrompt = this.prepareSystemPrompt(gameState);
 
-            const systemPrompt = `You are an experienced poker player named ${
-                    this.runtime.character.name || "PokerBot"
-                }.
-
-                At the table we have ${gameState.players.length} players. At table ${
-                    this.gameId
+            // Log the decision-making process
+            elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_DECISION_START',
+                timestamp: new Date().toISOString(),
+                agent: {
+                    name: this.playerName,
+                    id: this.playerId
+                },
+                game: {
+                    id: this.gameId,
+                    phase: gameState.tableStatus,
+                    pot: gameState.pot,
+                    currentBet: gameState.currentBet,
+                    roundHistory: gameState.roundHistory,
+                    players: gameState.players.map(p => ({
+                        id: p.id,
+                        chips: p.chips,
+                        currentBet: p.currentBet,
+                        status: p.isFolded ? 'folded' : 'active'
+                    }))
+                },
+                context: {
+                    relevantMemoriesCount: relevantMemories.length,
+                    systemPrompt: systemPrompt,
+                    gameContext: context
                 }
-                Your goal is to maximize your winnings using advanced poker strategy.
-                Carefully analyze the current game situation and make a strategic decision.
-
-                Consider the following elements for your decision:
-                1. The strength of your current hand
-                2. Your chances of improving with community cards
-                3. The size of the pot and current bet
-                4. Your position at the table and chip count
-                5. The behavior of other players
-
-                Avoid folding constantly - use check, call or raise when appropriate.
-                A successful poker strategy involves a mix of conservative and aggressive plays.
-
-                IMPORTANT: Respond ONLY with one of the following formats:
-                - "FOLD" (when you want to give up)
-                - "CHECK" (when you want to pass without betting)
-                - "CALL" (when you want to match the current bet)
-                - "RAISE X" (where X is the total bet amount, including the current bet)
-
-                DO NOT include explanations or additional comments - just the action.`
-
+            }));
 
             const response = await generateText({
                 runtime: this.runtime,
@@ -567,118 +680,492 @@ export class PokerClient implements Client {
                 modelClass: ModelClass.MEDIUM,
                 customSystemPrompt: systemPrompt,
             });
-            elizaLogger.info(`Agent response: ${response}`);
-            elizaLogger.info(`Agent context: ${context}`);
-            // Analyze the response to extract the action
+
             const decision = this.parseAgentResponse(response);
-            elizaLogger.info(`Agent decision: ${JSON.stringify(decision)}`);
+
+            // Log the decision outcome
+            elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_DECISION_MADE',
+                timestamp: new Date().toISOString(),
+                agent: {
+                    name: this.playerName,
+                    id: this.playerId
+                },
+                game: {
+                    id: this.gameId,
+                    phase: gameState.tableStatus
+                },
+                decision: {
+                    raw: response,
+                    parsed: {
+                        action: decision.action,
+                        amount: decision.amount || 'N/A'
+                    }
+                }
+            }));
+
+            // Create memory with poker-specific content
+            const memory: Memory = {
+                id: stringToUuid(Date.now().toString()),
+                userId: stringToUuid(this.playerId || Date.now().toString()),
+                roomId: stringToUuid(this.gameId || 'default-poker-room'),
+                agentId: this.runtime.agentId,
+                createdAt: Date.now(),
+                embedding: getEmbeddingZeroVector(),
+                content: {
+                    text: response,
+                    source: 'poker' as const,
+                    action: decision.action,
+                    gameId: this.gameId || '',
+                    roundId: this.roundId,
+                    pokerAction: decision,
+                    gameState: {
+                        pot: gameState.pot,
+                        currentBet: gameState.currentBet,
+                        playerCards: gameState.players.find(p => p.id === this.playerId)?.hand,
+                        communityCards: gameState.communityCards,
+                        chips: gameState.players.find(p => p.id === this.playerId)?.chips || 0,
+                        position: gameState.players.findIndex(p => p.id === this.playerId),
+                        phase: gameState.tableStatus,
+                        players: gameState.players.map(p => ({
+                            id: p.id,
+                            chips: p.chips,
+                            currentBet: p.currentBet,
+                            isFolded: p.isFolded
+                        })),
+                        roundHistory: gameState.roundHistory || []
+                    }
+                } as unknown as Content
+            };
+
+            // Add embedding to memory for semantic search
+            await this.runtime.messageManager.addEmbeddingToMemory(memory);
+
+            // Store memory in the database
+            await this.runtime.messageManager.createMemory(memory);
 
             return decision;
         } catch (error) {
+            // Log error in decision making
+            elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_DECISION_ERROR',
+                timestamp: new Date().toISOString(),
+                agent: {
+                    name: this.playerName,
+                    id: this.playerId
+                },
+                game: {
+                    id: this.gameId,
+                    phase: gameState.tableStatus
+                },
+                error: {
+                    message: error.message,
+                    stack: error.stack
+                }
+            }));
+
             elizaLogger.error("Error making decision:", error);
             return { action: PlayerAction.FOLD };
         }
     }
 
-    private prepareGameContext(gameState: GameState): string {
-        const playerInfo = gameState.players.find(
-            (p) => p.id === this.playerId
-        );
+    private prepareGameContext(gameState: GameState, relevantMemories: Memory[] = []): string {
+        const baseContext = this.prepareBaseGameContext(gameState);
+        let memoryContext = '';
 
+        if (relevantMemories.length > 0) {
+            const memoryAnalysis = relevantMemories.map(m => {
+                const content = m.content as unknown as PokerContent;
+                let resultDescription = "outcome unknown";
+
+                if (content.outcome) {
+                    resultDescription = content.outcome.won
+                        ? `won ${content.outcome.chipsWon} chips`
+                        : `lost ${Math.abs(content.outcome.chipsWon || 0)} chips`;
+
+                    if (content.outcome.finalPlayerCards) {
+                        resultDescription += ` with ${content.outcome.finalPlayerCards.map(c => `${c.rank}${c.suit}`).join(', ')}`;
+                    }
+                    if (content.outcome.finalCommunityCards) {
+                        resultDescription += `\n  * Final board: ${content.outcome.finalCommunityCards.map(c => `${c.rank}${c.suit}`).join(', ')}`;
+                    }
+
+                    if (content.outcome.opponentFinalCards) {
+                        resultDescription += `\n  * Opponent final cards: ${content.outcome.opponentFinalCards.map(c => `${c.rank}${c.suit}`).join(', ')}`;
+                    }
+                    if (content.outcome.opponentActions) {
+                        resultDescription += `\n  * Opponent responses: ${content.outcome.opponentActions.join(', ')}`;
+                    }
+                }
+
+                return `- Similar situation analysis:
+  * Phase: ${content.gameState.phase}
+  * Pot size: ${content.gameState.pot} chips
+  * Community cards: ${content.gameState.communityCards.map(c => `${c.rank}${c.suit}`).join(', ')}
+  * Active players: ${content.gameState.players.filter(p => !p.isFolded).length}
+  * My position: ${content.gameState.position}
+  * My action: ${content.pokerAction.action}${content.pokerAction.amount ? ` (${content.pokerAction.amount})` : ''}
+  * Strategy used: ${content.pokerAction.strategy || 'Not recorded'}
+  * Outcome: ${resultDescription}`;
+            }).join('\n\n');
+
+            memoryContext = `\n\nLearned from previous similar situations:\n${memoryAnalysis}\n\nUse these past experiences to inform your current decision, noting which strategies led to positive outcomes.`;
+        }
+
+        return `${baseContext}${memoryContext}`;
+    }
+
+    private prepareSystemPrompt(gameState: GameState): string {
+        const character = this.runtime?.character as any;
+
+        const bio = typeof character?.bio === 'string' ? character.bio : '';
+        const lore = typeof character?.lore === 'string' ? character.lore : '';
+        const response = {
+            action: 'One of ["FOLD", "CHECK", "CALL", "RAISE", "ALL-IN"]',
+            amount: "number (required only for RAISE, represents total bet amount including current bet)",
+            thinking:
+                "Your internal thought process, including psychological reads and strategic considerations,",
+            explanation:
+                "A technical explanation of the mathematical and strategic reasons for your decision,",
+            analysis:
+                "A detailed breakdown of the current game situation and your position,",
+            reasoning: "The logical steps that led to your decision,",
+            strategy:
+                "Your tactical approach and how this action fits into your broader game plan,",
+            logic: "The fundamental poker concepts and principles guiding your decision,",
+            roleplay:
+                "A character-appropriate comment or reaction showing your emotional state",
+        };
+
+        const responseExample = {
+            action: "RAISE",
+            amount: 500,
+            thinking:
+                "The player to my right has been aggressive but tends to fold to resistance. My pocket Kings are strong enough to apply pressure.",
+            explanation:
+                "With pocket Kings pre-flop, raising to 500 represents 2.5x the big blind, maintaining pot control while building value.",
+            analysis:
+                "Stack sizes are deep, position is favorable as cutoff, and table dynamics suggest players are playing straightforward.",
+            reasoning:
+                "Strong hand + good position + exploitable opponent tendencies = opportunity for value raise.",
+            strategy:
+                "Establishing an aggressive image now will help get paid off with future strong hands.",
+            logic: "Premium pairs should be played aggressively pre-flop to build pot and narrow field.",
+            roleplay:
+                "*adjusts sunglasses and confidently pushes forward a stack of chips*",
+        };
+        return `You are an experienced poker player named ${
+            character?.name || "PokerBot"
+        }.
+
+    # Knowledge
+    ${this.POKER_RULES}
+
+    # About You
+    ${bio}
+    ${lore}
+
+    At the table we have ${gameState.players.length} players. At table ${
+            this.gameId
+        }
+    Your goal is to maximize your winnings using advanced poker strategy while staying true to your character.
+
+    Consider the following elements for your decision:
+    1. Hand Strength Analysis
+    - Current hand strength
+    - Potential for improvement
+    - Position at the table
+    - Pot odds and implied odds
+
+    2. Player Psychology
+    - Your table image
+    - Opponent tendencies
+    - Your character's personality impact
+
+    3. Strategic Elements
+    - Stack sizes and betting patterns
+    - Position and table dynamics
+    - Stage of the tournament/game
+    - Risk/reward balance
+
+    4. Previous Experiences
+    - Learn from past similar situations
+    - Adapt based on results
+    - Consider successful patterns
+
+    IMPORTANT: Respond with a JSON object containing the following fields:
+        {
+            ${Object.keys(response)
+                .map((key) => `${key}: ${response[key]}`)
+                .join("\n")}
+        }
+
+        Example response:
+        {
+            ${Object.keys(responseExample)
+                .map((key) => `${key}: ${responseExample[key]}`)
+                .join("\n")}
+        }
+
+        Ensure your response is a valid JSON object with all required fields.`;
+    }
+
+    private prepareBaseGameContext(gameState: GameState): string {
+        const playerInfo = gameState.players.find(p => p.id === this.playerId);
         if (!playerInfo) {
             return "Could not find your information in the game. Decision: FOLD";
         }
+
+        // Calculate position quality
+        // const totalPlayers = gameState.players.length;
+        // const myPosition = gameState.players.findIndex(p => p.id === this.playerId);
+        // const positionQuality = myPosition === totalPlayers - 1 ? "Button (strongest)" :
+        //                        myPosition === totalPlayers - 2 ? "Cutoff (strong)" :
+        //                        myPosition === 0 ? "Small Blind (weak)" :
+        //                        myPosition === 1 ? "Big Blind (weak)" :
+        //                        "Middle position";
+
+        // Calculate stack sizes and rankings
+        // const sortedStacks = [...gameState.players]
+        //     .sort((a, b) => b.chips - a.chips)
+        //     .map(p => p.chips);
+        // const myStackRank = sortedStacks.indexOf(playerInfo.chips) + 1;
+        // const stackStatus = playerInfo.chips > (sortedStacks[0] * 0.8) ? "Strong stack" :
+        //                    playerInfo.chips > (sortedStacks[0] * 0.5) ? "Medium stack" :
+        //                    "Short stack";
 
         // Format cards for display
         const formatCard = (card: Card) => `${card.rank}${card.suit}`;
         const formatCards = (cards: Card[]) => cards.map(formatCard).join(" ");
 
-        const phase = gameState.communityCards.length === 0 ? "preflop"
-                    : gameState.communityCards.length === 3 ? "flop"
-                    : gameState.communityCards.length === 4 ? "turn"
-                    : "river";
+        const phase = gameState.communityCards.length === 0 ? "preflop" :
+                     gameState.communityCards.length === 3 ? "flop" :
+                     gameState.communityCards.length === 4 ? "turn" : "river";
 
-        const gamePhase =
-            gameState.tableStatus === "WAITING" ||
-            gameState.tableStatus === "ROUND_OVER"
-                ? gameState.tableStatus
-                : phase;
+        // Calculate pot odds if there's a bet to call
+        const potOdds = gameState.currentBet > 0
+            ? ((gameState.currentBet - playerInfo.currentBet) / (gameState.pot + gameState.currentBet)) * 100
+            : 0;
 
         const context = [
-            `Game phase: ${gamePhase}`,
-            `Current pot: ${gameState.pot}`,
-            `Current bet: ${gameState.currentBet}`,
-            `Your cards: ${
-                playerInfo.hand ? formatCards(playerInfo.hand) : "Unknown"
-            }`,
-            // `Estimated hand strength: ${handStrength}`,
-            `Community cards: ${formatCards(gameState.communityCards)}`,
+            `Current Game State:`,
+            `----------------`,
+            `Phase: ${phase.toUpperCase()}`,
+            `Pot: ${gameState.pot} chips`,
+            `Current bet: ${gameState.currentBet} chips`,
+
+            `\nYour Status:`,
+            `----------------`,
+            // `Position: ${positionQuality}`,
+            // `Stack status: ${stackStatus} (Rank ${myStackRank} of ${totalPlayers})`,
             `Your chips: ${playerInfo.chips}`,
-            // `Your chip position: ${myChipRank}th of ${totalPlayers}`,
             `Your current bet: ${playerInfo.currentBet}`,
-            // `Pot odds: ${potOdds}`,
+            `Your cards: ${playerInfo.hand ? formatCards(playerInfo.hand) : "Unknown"}`,
+
+            `\nTable Information:`,
+            `----------------`,
+            `Community cards: ${formatCards(gameState.communityCards)}`,
+            `Pot odds: ${potOdds.toFixed(1)}%`,
+            // `Active players: ${gameState.players.filter(p => !p.isFolded).length} of ${totalPlayers}`,
             `Last action: ${gameState.lastAction || "None"}`,
             `Last raise: ${gameState.lastRaiseAmount || 0}`,
-            // `Active players: ${activePlayers} of ${totalPlayers}`,
-            `\nPlayers:`,
-            ...gameState.players.map(
-                (p) =>
-                    `${p.name}: ${p.chips} chips, bet ${p.currentBet}, ${
-                        p.isFolded ? "folded" : "active"
-                    }`
+
+            `\nPlayer States:`,
+            `----------------`,
+            ...gameState.players.map((p, i) =>
+                `${p.name}${p.id === this.playerId ? ' (You)' : ''}: ` +
+                `${p.chips} chips, bet ${p.currentBet}, ` +
+                `${p.isFolded ? 'folded' : 'active'}`
+                // + `position: ${i === totalPlayers - 1 ? 'BTN' : i === 0 ? 'SB' : i === 1 ? 'BB' : i + 1}`
             ),
-            `\nRound history:`,
-            ...(gameState.roundHistory || []),
-        ].join("\n");
+
+            `\nRound History:`,
+            `----------------`,
+            ...(gameState.roundHistory || []).map(action => `- ${action}`)
+        ].join('\n');
 
         return context;
     }
 
-    private parseAgentResponse(response: string): PokerDecision {
+    private parseAgentResponse(response: string): ExtendedPokerDecision {
         try {
-            const normalized = response.trim().toUpperCase();
-            elizaLogger.info(`Parsing agent response: "${normalized}"`);
+            // Log the raw response
+            elizaLogger.debug("Raw response from agent:", response);
 
-            // Regex patterns to detect different response formats
-            const foldPattern = /\b(FOLD|GIVE UP|FOLDED)\b/;
-            const checkPattern = /\b(CHECK|CHECKED)\b/;
-            const callPattern = /\b(CALL|MATCH|PAY|COVER|EQUAL|EQUALS)\b/;
-            const raisePattern =
-                /\b(RAISE|RAISE TO|INCREASE|BET|R)[ :]+(\d+)\b/;
-            const allInPattern = /\b(ALL[ -]IN|ALL|ALL-IN)\b/;
+            // Clean the response by removing code block markers if present
+            let cleanResponse = response.replace(/```json\n/, '').replace(/```/, '').trim();
+            elizaLogger.debug("Cleaned response:", cleanResponse);
 
-            // Check each pattern in order of priority
-            if (allInPattern.test(normalized)) {
-                // All-in is a form of RAISE with all chips
-                return { action: PlayerAction.ALL_IN };
+            // Try to parse the response as JSON
+            const parsed = JSON.parse(cleanResponse);
+            elizaLogger.debug("Parsed JSON:", parsed);
+
+            const action = parsed.action?.toUpperCase();
+            elizaLogger.debug("Parsed action:", action);
+
+            // Validate the action
+            if (!action || !Object.values(PlayerAction).includes(action)) {
+                elizaLogger.error(`Invalid action: ${action}, valid actions are: ${Object.values(PlayerAction).join(', ')}`);
+                throw new Error(`Invalid action: ${action}`);
             }
 
-            const raiseMatch = normalized.match(raisePattern);
-            if (raiseMatch && raiseMatch[2]) {
-                const amount = parseInt(raiseMatch[2]);
-                if (!isNaN(amount) && amount > 0) {
-                    return { action: PlayerAction.RAISE, amount };
+            // Build the decision object with all analysis fields
+            const decision: ExtendedPokerDecision = {
+                action: action as PlayerAction,
+                thinking: parsed.thinking || '',
+                explanation: parsed.explanation || '',
+                analysis: parsed.analysis || '',
+                reasoning: parsed.reasoning || '',
+                strategy: parsed.strategy || '',
+                logic: parsed.logic || '',
+                roleplay: parsed.roleplay || ''
+            };
+
+            // Add amount if it's a RAISE action
+            if (action === PlayerAction.RAISE) {
+                const amount = parseInt(parsed.amount);
+                if (isNaN(amount) || amount <= 0) {
+                    throw new Error(`Invalid raise amount: ${parsed.amount}`);
                 }
+                decision.amount = amount;
             }
 
-            if (callPattern.test(normalized)) {
-                return { action: PlayerAction.CALL };
-            }
+            // Log the complete decision with all fields
+            elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_DECISION_PARSED',
+                decision: {
+                    action: decision.action,
+                    amount: 'amount' in decision ? decision.amount : undefined,
+                    thinking: decision.thinking,
+                    explanation: decision.explanation,
+                    analysis: decision.analysis,
+                    reasoning: decision.reasoning,
+                    strategy: decision.strategy,
+                    logic: decision.logic,
+                    roleplay: decision.roleplay
+                }
+            }));
 
-            if (checkPattern.test(normalized)) {
-                return { action: PlayerAction.CHECK };
-            }
+            return decision;
 
-            if (foldPattern.test(normalized)) {
-                return { action: PlayerAction.FOLD };
-            }
-
-            // If no pattern matches, return FOLD as default
-            return { action: PlayerAction.FOLD };
         } catch (error) {
             elizaLogger.error("Error parsing agent response:", error);
-            // In case of error, we choose the safest option (CHECK if possible, FOLD as fallback)
-            return { action: PlayerAction.FOLD };
+            elizaLogger.error("Original response:", response);
+            // In case of error, return FOLD with error explanation
+            return {
+                action: PlayerAction.FOLD,
+                thinking: "Error occurred, choosing safest option",
+                explanation: "Error parsing JSON response, folding for safety",
+                analysis: "Unable to properly analyze the situation due to error",
+                reasoning: "Error handling requires conservative play",
+                strategy: "Default to safe play when uncertain",
+                logic: "When system errors occur, minimize potential losses",
+                roleplay: "*looks confused and folds*"
+            };
         }
     }
+
+    private async updateMemoryWithOutcome(memory: Memory, gameState: GameState): Promise<void> {
+        if (!this.runtime?.messageManager) return;
+
+        const content = memory.content as unknown as PokerContent;
+        const myInitialChips = content.gameState.chips;
+        const currentChips = gameState.players.find(p => p.id === this.playerId)?.chips || 0;
+
+        const outcome = {
+            won: currentChips > myInitialChips,
+            chipsWon: currentChips - myInitialChips,
+            finalPot: gameState.pot,
+            finalCommunityCards: gameState.communityCards,
+            finalPlayerCards: content.gameState.playerCards,
+            roundEndState: gameState.tableStatus,
+            opponentActions: gameState.roundHistory?.slice(
+                gameState.roundHistory.findIndex(h => h.includes(content.pokerAction.action)) + 1
+            ) || [],
+            completeRoundHistory: gameState.roundHistory
+        };
+
+        // Update the memory with the outcome
+        content.outcome = outcome;
+
+        // Save the updated memory
+        await this.runtime.messageManager.createMemory(memory, true);
+    }
+
+    // private evaluateHandStrength(communityCards: Card[], playerCards: Card[]): string {
+    //     const allCards = [...communityCards, ...playerCards];
+    //     // This is a simplified evaluation - you'd want a more sophisticated hand evaluator in practice
+    //     const ranks = allCards.map(c => c.rank);
+    //     const suits = allCards.map(c => c.suit);
+
+    //     // Simple patterns - you'd want more sophisticated logic in practice
+    //     const hasFlush = suits.filter(s => suits.filter(x => x === s).length >= 5).length > 0;
+    //     const hasPair = ranks.filter(r => ranks.filter(x => x === r).length >= 2).length > 0;
+    //     const hasTrips = ranks.filter(r => ranks.filter(x => x === r).length >= 3).length > 0;
+
+    //     if (hasFlush) return "Flush or better";
+    //     if (hasTrips) return "Three of a kind";
+    //     if (hasPair) return "Pair";
+    //     return "High card";
+    // }
+
+    private POKER_RULES = `
+    # Texas Hold'em Poker Rules
+
+    ## Hand Rankings (from highest to lowest)
+    1. Royal Flush: A, K, Q, J, 10 of the same suit
+    2. Straight Flush: Five consecutive cards of the same suit
+    3. Four of a Kind: Four cards of the same rank
+    4. Full House: Three of a kind plus a pair
+    5. Flush: Any five cards of the same suit
+    6. Straight: Five consecutive cards of any suit
+    7. Three of a Kind: Three cards of the same rank
+    8. Two Pair: Two different pairs
+    9. One Pair: Two cards of the same rank
+    10. High Card: Highest card when no other hand is made
+
+    ## Game Structure
+    1. Blinds and Position:
+       - Small Blind (SB): First forced bet, to the left of the button
+       - Big Blind (BB): Second forced bet, twice the small blind
+       - Button (BTN): Dealer position, best position at the table
+       - Position importance: BTN > CO > MP > EP > BB > SB
+
+    2. Betting Rounds:
+       - Pre-flop: After hole cards are dealt
+       - Flop: After first three community cards
+       - Turn: After fourth community card
+       - River: After fifth community card
+
+    3. Betting Actions:
+       - Fold: Give up the hand and any bets made
+       - Check: Pass the action when no bet to call
+       - Call: Match the current bet
+       - Raise: Increase the current bet (min-raise = previous bet size)
+       - All-in: Bet all remaining chips
+
+    `;
 }
+
+// ## Strategic Guidelines
+//     1. Position Play:
+//        - Late position (BTN, CO): Play more hands, more aggressive
+//        - Middle position: Be more selective
+//        - Early position: Play premium hands only
+//        - Blinds: Defend with appropriate hands, consider pot odds
+
+//     2. Pot Odds and Math:
+//        - Calculate pot odds: (Call amount) / (Pot size + Call amount)
+//        - Compare to hand equity
+//        - Consider implied odds for drawing hands
+
+//     3. Stack Size Strategy:
+//        - Deep (>100BB): More room for post-flop play
+//        - Medium (40-100BB): Standard play
+//        - Short (<40BB): Push/fold strategy becomes more important
+
+//     4. Hand Selection:
+//        - Premium hands: AA, KK, QQ, AK
+//        - Strong hands: JJ, TT, AQ, AJs
+//        - Speculative hands: Small pairs, suited connectors
+//        - Marginal hands: Weak aces, unsuited connectors

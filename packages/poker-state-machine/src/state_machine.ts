@@ -11,7 +11,7 @@ export const POKER_ROOM_DEFAULT_STATE: PokerState = {
   // FIXME: both of these are bad default values, refactor later
   dealerId: '',
   currentPlayerIndex: -1,
-  winner: Option.none(),
+  winner: null,
 };
 
 export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {
