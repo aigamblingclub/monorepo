@@ -5,6 +5,10 @@ import {
     UUID,
     elizaLogger,
     generateText,
+    Memory,
+    getEmbeddingZeroVector,
+    stringToUuid,
+    Content
 } from "@elizaos/core";
 import { GameState, PlayerAction, PokerDecision, Card } from "./game-state";
 import { ApiConnector } from "./api-connector";
@@ -27,6 +31,55 @@ interface ExtendedCharacter {
     };
 }
 
+// Extend the Content type for poker
+interface PokerContent extends Content {
+    gameId: string;
+    roundId?: string;
+    pokerAction: PokerDecision; // Renamed to avoid conflict with Content.action
+    gameState: {
+        pot: number;
+        currentBet: number;
+        playerCards?: Card[];
+        communityCards: Card[];
+        chips: number;
+        position: number;
+        phase: string;
+        players: Array<{
+            id: string;
+            chips: number;
+            currentBet: number;
+            isFolded: boolean;
+        }>;
+    };
+}
+
+// Memory manager that works with the standard Memory type
+class PokerMemoryManager {
+    private memories: Memory[] = [];
+    private maxMemories: number = 1000;
+
+    async addMemory(memory: Memory): Promise<void> {
+        this.memories.push(memory);
+        if (this.memories.length > this.maxMemories) {
+            this.memories.shift();
+        }
+    }
+
+    async getRelevantMemories(currentState: GameState, limit: number = 5): Promise<Memory[]> {
+        return this.memories
+            .filter(m => {
+                const content = m.content as unknown as PokerContent;
+                return content.source === 'poker' &&
+                       content.gameState?.phase === currentState.tableStatus;
+            })
+            .slice(-limit);
+    }
+
+    async clearMemories(): Promise<void> {
+        this.memories = [];
+    }
+}
+
 export class PokerClient implements Client {
     name = "poker"; // Identifier for the Eliza system
     private runtime: IAgentRuntime | null = null;
@@ -46,6 +99,8 @@ export class PokerClient implements Client {
     private isSendingMessage = false;
     private lastPollTime = 0;
     private minPollInterval = 5000; // Minimum time between polls in milliseconds
+    private memoryManager: PokerMemoryManager;
+    private roundId: string | null = null;
 
     constructor(config: PokerClientConfig) {
         // if (!config.apiKey) {
@@ -67,6 +122,7 @@ export class PokerClient implements Client {
         // elizaLogger.debug("API key configured:", {
         //     apiKeyLength: config.apiKey.length,
         // });
+        this.memoryManager = new PokerMemoryManager();
     }
 
     async start(runtime?: IAgentRuntime): Promise<any> {
@@ -526,11 +582,13 @@ export class PokerClient implements Client {
         try {
             if (!this.runtime) return { action: PlayerAction.FOLD };
 
-            const context = this.prepareGameContext(gameState);
+            const relevantMemories = await this.memoryManager.getRelevantMemories(gameState);
+            const context = this.prepareGameContext(gameState, relevantMemories);
             const systemPrompt = this.prepareSystemPrompt(gameState);
 
-            // Log the complete interaction data in a structured format
+            // Log the decision-making process
             elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_DECISION_START',
                 timestamp: new Date().toISOString(),
                 agent: {
                     name: this.playerName,
@@ -548,9 +606,10 @@ export class PokerClient implements Client {
                         status: p.isFolded ? 'folded' : 'active'
                     }))
                 },
-                prompt: {
-                    system: systemPrompt,
-                    context: context
+                context: {
+                    relevantMemoriesCount: relevantMemories.length,
+                    systemPrompt: systemPrompt,
+                    gameContext: context
                 }
             }));
 
@@ -563,8 +622,9 @@ export class PokerClient implements Client {
 
             const decision = this.parseAgentResponse(response);
 
-            // Log the model's response and parsed decision
+            // Log the decision outcome
             elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_DECISION_MADE',
                 timestamp: new Date().toISOString(),
                 agent: {
                     name: this.playerName,
@@ -574,19 +634,85 @@ export class PokerClient implements Client {
                     id: this.gameId,
                     phase: gameState.tableStatus
                 },
-                model: {
-                    rawResponse: response,
-                    parsedDecision: {
+                decision: {
+                    raw: response,
+                    parsed: {
                         action: decision.action,
                         amount: decision.amount || 'N/A'
                     }
                 }
             }));
 
+            // Create memory with poker-specific content
+            const memory: Memory = {
+                id: stringToUuid(Date.now().toString()),
+                userId: stringToUuid(this.playerId || Date.now().toString()),
+                roomId: stringToUuid(this.gameId || Date.now().toString()),
+                agentId: this.runtime.agentId,
+                createdAt: Date.now(),
+                embedding: getEmbeddingZeroVector(),
+                content: {
+                    text: response,
+                    source: 'poker' as const,
+                    action: decision.action,
+                    gameId: this.gameId || '',
+                    roundId: this.roundId,
+                    pokerAction: decision,
+                    gameState: {
+                        pot: gameState.pot,
+                        currentBet: gameState.currentBet,
+                        playerCards: gameState.players.find(p => p.id === this.playerId)?.hand,
+                        communityCards: gameState.communityCards,
+                        chips: gameState.players.find(p => p.id === this.playerId)?.chips || 0,
+                        position: gameState.players.findIndex(p => p.id === this.playerId),
+                        phase: gameState.tableStatus,
+                        players: gameState.players.map(p => ({
+                            id: p.id,
+                            chips: p.chips,
+                            currentBet: p.currentBet,
+                            isFolded: p.isFolded
+                        }))
+                    },
+                    attachments: []
+                } as unknown as Content
+            };
+
+            await this.memoryManager.addMemory(memory);
+
+            // Log memory storage
+            elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_MEMORY_STORED',
+                timestamp: new Date().toISOString(),
+                memory: {
+                    id: memory.id,
+                    gameId: this.gameId,
+                    roundId: this.roundId,
+                    action: decision.action,
+                    createdAt: memory.createdAt
+                }
+            }));
+
+            // If runtime has messageManager, store in database
+            if (this.runtime.messageManager) {
+                await this.runtime.messageManager.addEmbeddingToMemory(memory);
+                await this.runtime.messageManager.createMemory(memory);
+
+                elizaLogger.workflow(JSON.stringify({
+                    event: 'POKER_MEMORY_PERSISTED',
+                    timestamp: new Date().toISOString(),
+                    memory: {
+                        id: memory.id,
+                        gameId: this.gameId,
+                        roundId: this.roundId
+                    }
+                }));
+            }
+
             return decision;
         } catch (error) {
-            // Log errors in the same structured format
+            // Log error in decision making
             elizaLogger.workflow(JSON.stringify({
+                event: 'POKER_DECISION_ERROR',
                 timestamp: new Date().toISOString(),
                 agent: {
                     name: this.playerName,
@@ -597,16 +723,35 @@ export class PokerClient implements Client {
                     phase: gameState.tableStatus
                 },
                 error: {
-                    type: 'MakeDecision',
-                    message: error.message
+                    message: error.message,
+                    stack: error.stack
                 }
             }));
+
             elizaLogger.error("Error making decision:", error);
             return { action: PlayerAction.FOLD };
         }
     }
 
-    private prepareGameContext(gameState: GameState): string {
+    private prepareGameContext(gameState: GameState, relevantMemories: Memory[] = []): string {
+        const baseContext = this.prepareBaseGameContext(gameState);
+
+        if (relevantMemories.length > 0) {
+            const memoryContext = `\nRecent similar situations:\n${
+                relevantMemories.map(m => {
+                    const content = m.content as unknown as PokerContent;
+                    return `- In similar ${content.gameState.phase} situation with pot ${content.gameState.pot}, ` +
+                           `chose ${content.pokerAction.action}${content.pokerAction.amount ? ` with amount ${content.pokerAction.amount}` : ''}`;
+                }).join('\n')
+            }`;
+
+            return baseContext + memoryContext;
+        }
+
+        return baseContext;
+    }
+
+    private prepareBaseGameContext(gameState: GameState): string {
         const playerInfo = gameState.players.find(
             (p) => p.id === this.playerId
         );
