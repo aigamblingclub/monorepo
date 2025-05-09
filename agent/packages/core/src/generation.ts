@@ -548,19 +548,25 @@ export async function generateText({
         );
 
         // TODO: add to debug log
-        elizaLogger.workflow("[Generation] sending request to model: ", JSON.stringify({
-            prompt: context,
-            system:
-                runtime.character.system ?? settings.SYSTEM_PROMPT ?? undefined,
-            tools: tools,
-            onStepFinish: onStepFinish,
-            maxSteps: maxSteps,
-            temperature: temperature,
-            maxTokens: max_response_length,
-            frequencyPenalty: frequency_penalty,
-            presencePenalty: presence_penalty,
-            experimental_telemetry: experimental_telemetry,
-        }));
+        elizaLogger.debug(
+            "[Generation] sending request to model: ",
+            JSON.stringify({
+                prompt: context,
+                system:
+                    customSystemPrompt ??
+                    runtime.character.system ??
+                    settings.SYSTEM_PROMPT ??
+                    undefined,
+                tools: tools,
+                onStepFinish: onStepFinish,
+                maxSteps: maxSteps,
+                temperature: temperature,
+                maxTokens: max_response_length,
+                frequencyPenalty: frequency_penalty,
+                presencePenalty: presence_penalty,
+                experimental_telemetry: experimental_telemetry,
+            })
+        );
 
         switch (provider) {
             // OPENAI & LLAMACLOUD shared same structure.
@@ -1344,7 +1350,7 @@ export async function generateText({
                 throw new Error(errorMessage);
             }
         }
-        elizaLogger.workflow("[Generation] response: ", JSON.stringify({
+        elizaLogger.debug("[Generation] response: ", JSON.stringify({
             response: response,
         }));
         return response;
