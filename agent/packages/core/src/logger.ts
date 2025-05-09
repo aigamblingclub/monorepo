@@ -90,39 +90,6 @@ try {
 
 const originalWorkflow = elizaLogger.workflow;
 
-// Helper function to extract message from workflow log arguments
-function extractWorkflowMessage(args: any[]): string {
-    try {
-        if (args.length === 0) return '';
-
-        // If first argument is a string, join all arguments
-        if (typeof args[0] === 'string') {
-            return args.map(arg =>
-                typeof arg === 'string' ? arg : JSON.stringify(arg)
-            ).join(' ');
-        }
-
-        // If first argument is an object
-        const obj = args[0];
-
-        // If it's a simple object with a message property
-        if (obj.msg) {
-            return typeof obj.msg === 'string' ? obj.msg : JSON.stringify(obj.msg);
-        }
-
-        // If it has a content property with text
-        if (obj.content?.text) {
-            return obj.content.text;
-        }
-
-        // Fallback to stringifying the entire object
-        return JSON.stringify(obj);
-    } catch (error) {
-        console.error('Error extracting workflow message:', error);
-        return '[Error extracting message]';
-    }
-}
-
 // Override the workflow method with file logging
 elizaLogger.workflow = (...args: Parameters<typeof originalWorkflow>) => {
     // Call original logger
@@ -132,24 +99,86 @@ elizaLogger.workflow = (...args: Parameters<typeof originalWorkflow>) => {
         // Get current timestamp
         const now = new Date();
         const date = now.toISOString().split('T')[0];
-        const time = now.toISOString().split('T')[1].split('.')[0];
+        const time = now.toISOString();
 
         // Generate log file path
-        const logFile = path.join(logDir, `${date}.workflow.log`);
+        const logFile = path.join(logDir, `${date}.workflow.json`);
 
-        // Extract message
-        const message = extractWorkflowMessage(args);
+        // Format log entry as an object
+        const logEntry = {
+            timestamp: time,
+            level: "workflow",
+            message: JSON.parse(args[0]),
+        };
 
-        // Format log entry
-        const logEntry = `${date} ${time} - ${message}\n`;
+        // Read existing logs or create new array
+        let logs: any[] = [];
+        if (fs.existsSync(logFile)) {
+            try {
+                const content = fs.readFileSync(logFile, 'utf8');
+                logs = JSON.parse(content);
+                if (!Array.isArray(logs)) {
+                    logs = [];
+                }
+            } catch (err) {
+                // If file exists but is invalid JSON, start fresh
+                logs = [];
+            }
+        }
 
-        // Write to file synchronously
-        fs.appendFileSync(logFile, logEntry, { encoding: 'utf8' });
+        // Add new entry
+        logs.push(logEntry);
+
+        // Write back to file with pretty formatting
+        fs.writeFileSync(logFile, JSON.stringify(logs, null, 2), { encoding: 'utf8' });
     } catch (error) {
         console.error('Failed to write workflow log to file:', error);
         // Call original error logger to ensure error is logged
         elizaLogger.error('Failed to write workflow log to file:', error);
     }
 };
+
+// Add text format logging for other levels
+Object.keys(customLevels).forEach((level) => {
+    if (level === 'workflow') return; // Skip workflow as it's handled above
+
+    const originalMethod = (elizaLogger as any)[level];
+    (elizaLogger as any)[level] = (...args: any[]) => {
+        // Call original logger
+        originalMethod.apply(elizaLogger, args);
+
+        try {
+            // Get current timestamp
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+            const time = now.toISOString().split('T')[1].split('.')[0];
+
+            // Format message
+            let message = '';
+            if (typeof args[0] === 'string') {
+                message = args.map(arg =>
+                    typeof arg === 'string' ? arg :
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) :
+                    String(arg)
+                ).join(' ');
+            } else {
+                message = args.map(arg =>
+                    typeof arg === 'string' ? arg :
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) :
+                    String(arg)
+                ).join('\n');
+            }
+
+            // Format log entry
+            const logEntry = `[${date} ${time}] ${level.toUpperCase()}: ${message}\n`;
+
+            // Generate log file path and append
+            const logFile = path.join(logDir, `${date}.log`);
+            fs.appendFileSync(logFile, logEntry, { encoding: 'utf8' });
+        } catch (error) {
+            console.error(`Failed to write ${level} log to file:`, error);
+        }
+    };
+});
 
 export default elizaLogger;
