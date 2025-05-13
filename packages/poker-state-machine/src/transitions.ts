@@ -294,7 +294,7 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
     return Effect.succeed({
         ...state,
         status: 'ROUND_OVER',
-        winner: Option.fromNullable(state.players.find(p => (rewards.get(p.id) ?? 0) > 0)?.id ?? null), // only one player won
+        winner: state.players.find(p => (rewards.get(p.id) ?? 0) > 0)?.id ?? null,
         players: state.players.map(p => ({
             ...p,
             chips: p.chips + (rewards.get(p.id) ?? 0),

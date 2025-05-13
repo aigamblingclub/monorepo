@@ -127,7 +127,8 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
         processEvent,
         playerView: playerId => pipe(
             currentState(),
-            Effect.map(state => playerView(state, playerId))
+            Effect.map(state => playerView(state, playerId)),
+            Effect.tap(pv => Console.log('[playerView]', { pv }))
         ),
         // playerView: playerId => pipe(
         //     stateProcessingStream,
