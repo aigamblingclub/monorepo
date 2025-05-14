@@ -19,4 +19,5 @@ export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {
   hand: [],
   chips: 100,
   bet: { round: 0, total: 0 },
+  playerName: "",
 };

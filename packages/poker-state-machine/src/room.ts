@@ -123,7 +123,10 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
     )
 
     return {
-        currentState,
+        currentState: () => pipe(
+            currentState(),
+            Effect.tap(state => Console.log('[currentState]', { state })),
+        ),
         processEvent,
         playerView: playerId => pipe(
             currentState(),
