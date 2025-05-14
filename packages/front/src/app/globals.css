@@ -1,0 +1,306 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Neon Theme - Default */
+[data-theme="neon"] { /* Also apply when explicitly set */
+  /* Theme-specific variables */
+  --theme-primary: #00ff00;
+  --theme-secondary: #00ffff;
+  --theme-accent: #ff00ff;
+  --theme-highlight: #ffff00;
+  --theme-alert: #ff007f;
+  
+  /* Surface colors */
+  --surface-primary: rgba(0, 20, 0, 0.8);
+  --surface-secondary: rgba(0, 0, 0, 0.7);
+  --surface-tertiary: rgba(0, 10, 10, 0.7);
+  
+  /* Border properties */
+  --border-width: 2px;
+  --border-radius-table: 100px;
+  --border-radius-card: 5px;
+  --border-radius-element: 10px;
+  
+  /* Shadow properties */
+  --shadow-strength: 10px;
+  --shadow-inner-strength: 10px;
+  --text-shadow-strength: 3px;
+  --text-shadow-large-strength: 5px;
+}
+
+:root, /* Apply to root by default */
+/* Wireframe Theme */
+[data-theme="wireframe"] {
+  /* Theme-specific variables */
+  --theme-primary: #ffffff;
+  --theme-secondary: #ffffff;
+  --theme-accent: #ffffff;
+  --theme-highlight: #ffffff;
+  --theme-alert: #ffffff;
+  
+  /* Surface colors */
+  --surface-primary: transparent;
+  --surface-secondary: transparent;
+  --surface-tertiary: transparent;
+  
+  /* Border properties */
+  --border-width: 2px;
+  --border-radius-table: 0;
+  --border-radius-card: 0;
+  --border-radius-element: 0;
+  
+  /* Shadow properties */
+  --shadow-strength: 0;
+  --shadow-inner-strength: 0;
+  --text-shadow-strength: 0;
+  --text-shadow-large-strength: 0;
+
+  /* Additional wireframe specific styles */
+  --border-color: #ffffff;
+  --text-color: #ffffff;
+}
+
+
+/* Poker Stars Theme */
+[data-theme="poker-stars"] {
+  /* Theme-specific variables */
+  --theme-primary: #fff;
+  --theme-secondary: #000;
+  --theme-accent: #ff9800;
+  --theme-highlight: #ffc107;
+  --theme-alert: #f44336;
+  
+  /* Surface colors */
+  --surface-primary: #1b5e20;
+  --surface-secondary: rgba(0, 0, 0, 0.9);
+  --surface-tertiary: rgba(253, 255, 254, 0.9);
+  
+  /* Border properties */
+  --border-width: 2px;
+  --border-radius-table: 200px;
+  --border-radius-card: 8px;
+  --border-radius-element: 4px;
+  
+  /* Shadow properties */
+  --shadow-strength: 0px;
+  --shadow-inner-strength: 5px;
+  --text-shadow-strength: 0px;
+  --text-shadow-large-strength: 2px;
+
+  /* Additional poker-stars specific styles */
+  --border-color: #388e3c;
+  --text-color: #ffffff;
+}
+
+/* Theme Definitions */
+:root {
+  /* Base theme variables that don't change */
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 0, 0, 0;
+}
+
+
+
+
+
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-family: "Courier New", monospace;
+  overflow: hidden;
+}
+
+@layer utilities {
+  .text-shadow-green {
+    text-shadow: 0 0 var(--text-shadow-strength) var(--theme-primary);
+  }
+  
+  .text-shadow-cyan {
+    text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
+  }
+  
+  .text-shadow-pink {
+    text-shadow: 0 0 var(--text-shadow-large-strength) var(--theme-accent),
+                 0 0 calc(var(--text-shadow-large-strength) * 2) var(--theme-accent);
+  }
+  
+  .text-shadow-yellow {
+    text-shadow: 0 0 var(--text-shadow-large-strength) var(--theme-highlight);
+  }
+  
+  .text-shadow-red {
+    text-shadow: 0 0 var(--text-shadow-strength) var(--theme-alert);
+  }
+}
+
+/* Neon Poker Table Styles */
+.poker-table-container {
+  position: relative;
+  width: 80vw;
+  height: 80vh;
+  max-width: 1000px;
+  max-height: 600px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.table-surface {
+  width: 90%;
+  height: 90%;
+  background-color: var(--surface-primary);
+  border: var(--border-width) solid var(--theme-primary);
+  box-shadow: 0 0 var(--shadow-strength) var(--theme-primary),
+              inset 0 0 var(--shadow-inner-strength) var(--theme-primary);
+  border-radius: var(--border-radius-table);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.player {
+  position: absolute;
+  width: 120px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  padding: 5px;
+  /* background-color: var(--surface-secondary); */
+  border-radius: var(--border-radius-element);
+}
+
+.player-1 { top: 5%; left: 50%; transform: translateX(-50%); }
+.player-2 { top: 20%; right: 15%; transform: translateY(-50%); }
+.player-3 { bottom: 20%; right: 15%; transform: translateY(50%); }
+.player-4 { bottom: 5%; left: 50%; transform: translateX(-50%); }
+.player-5 { bottom: 20%; left: 15%; transform: translateY(50%); }
+.player-6 { top: 20%; left: 15%; transform: translateY(-50%); }
+.player-7 { top: 50%; left: 2.5%; transform: translate(0%, -50%); }
+.player-8 { top: 50%; right: 2.5%; transform: translate(0%, -50%); }
+
+.center-area {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: 300px;
+}
+
+/* Base styles for game status and pot */
+.game-status {
+  font-size: 1em;
+  color: var(--theme-accent);
+  text-shadow: 0 0 5px var(--theme-accent), 0 0 10px var(--theme-accent);
+  margin-bottom: 10px;
+  border: 1px solid var(--theme-accent);
+  padding: 5px;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.pot {
+  font-size: 1em;
+  color: var(--theme-highlight);
+  text-shadow: 0 0 5px var(--theme-highlight);
+  margin-bottom: 15px;
+  border: 1px solid var(--theme-highlight);
+  padding: 8px;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.river {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.card {
+  width: 45px;
+  height: 65px;
+  border: var(--border-width) solid var(--theme-secondary);
+  box-shadow: 0 0 calc(var(--shadow-strength) * 0.7) var(--theme-secondary),
+              inset 0 0 calc(var(--shadow-strength) * 0.7) var(--theme-secondary);
+  border-radius: var(--border-radius-card);
+  background-color: var(--surface-tertiary);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px;
+  font-size: 1.1em;
+  font-weight: bold;
+}
+
+.card-value {
+  color: var(--theme-secondary);
+  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
+}
+
+.card-suit {
+  font-size: 1.3em;
+  color: var(--theme-secondary);
+  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
+}
+
+.suit-hearts, .suit-diamonds {
+  color: var(--theme-alert);
+  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-alert);
+}
+.suit-clubs, .suit-spades {
+  color: var(--theme-secondary);
+  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
+}
+
+.current-player {
+  width: 180px;
+  height: 180px;
+  border: var(--border-width) solid var(--theme-highlight) !important;
+  box-shadow: 0 0 4px 1px var(--theme-highlight),
+              0 0 4px 1px var(--theme-highlight) inset !important;
+  z-index: 2;
+}
+
+/* Title and Subtitle styles */
+.title {
+  color: var(--theme-primary);
+  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-primary);
+  font-size: 2.25rem;
+  font-weight: bold;
+  margin: 0.25rem 0;
+  display: block;
+}
+
+.subtitle {
+  color: var(--theme-highlight);
+  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-highlight);
+  font-size: 1.25rem;
+  margin: 0 0 2rem 0;
+  display: block;
+}
+
+/* Neon text color utilities (manual override) */
+.text-neon-green {
+  color: var(--theme-primary) !important;
+}
+.text-neon-yellow {
+  color: var(--theme-highlight) !important;
+}
+.text-neon-pink {
+  color: var(--theme-accent) !important;
+}
+.text-neon-cyan {
+  color: var(--theme-secondary) !important;
+}
+.text-neon-red {
+  color: var(--theme-alert) !important;
+}
