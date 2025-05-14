@@ -6,10 +6,12 @@ import { PokerRpc, PokerRpcLive } from "./router";
 
 const WebAppLayer = Layer.unwrapScoped(
   Effect.gen(function* () {
-    const webApp = yield* RpcServer.toHttpAppWebsocket(PokerRpc);
+    const webSocketApp = yield* RpcServer.toHttpAppWebsocket(PokerRpc);
+    const restApp = yield* RpcServer.toHttpApp(PokerRpc);
 
     return HttpRouter.empty.pipe(
-      HttpRouter.mountApp("/rpc", webApp),
+      HttpRouter.mountApp("/rpc", webSocketApp),
+      HttpRouter.mountApp("/api", restApp),
       HttpServer.serve()
     );
   })
