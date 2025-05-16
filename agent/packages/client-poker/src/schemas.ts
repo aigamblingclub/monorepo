@@ -15,7 +15,10 @@ export const CardSchema = Schema.Struct({
     rank: CardValueSchema,
     suit: SuiteSchema,
 });
-export type Card = typeof CardSchema.Type;
+export type Card = {
+    readonly rank: CardValue;
+    readonly suit: Suite;
+};
 
 export const PlayerStatusSchema = Schema.Union(
     Schema.Literal("PLAYING"),
@@ -29,6 +32,7 @@ export type HoleCards = typeof HoleCardsSchema.Type;
 
 export const PlayerStateSchema = Schema.Struct({
     id: Schema.String,
+    playerName: Schema.String,
     status: PlayerStatusSchema,
     hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
     chips: Schema.Number,
@@ -39,30 +43,58 @@ export const PlayerStateSchema = Schema.Struct({
 });
 export type PlayerState = typeof PlayerStateSchema.Type;
 
-// Indicates whether we are still waiting for the minimum amount of players to start
+export const GameConfigSchema = Schema.Struct({
+    maxRounds: Schema.Union(Schema.Number, Schema.Null),
+    startingChips: Schema.Number,
+    smallBlind: Schema.Number,
+    bigBlind: Schema.Number,
+});
+export type GameConfig = typeof GameConfigSchema.Type;
+
 export const TableStatusSchema = Schema.Union(
     Schema.Literal("WAITING"),
     Schema.Literal("PLAYING"),
-    Schema.Literal("ROUND_OVER")
+    Schema.Literal("ROUND_OVER"),
+    Schema.Literal("GAME_OVER")
 );
 export type TableStatus = typeof TableStatusSchema.Type;
+
+export const RoundPhaseSchema = Schema.Union(
+    Schema.Literal("PRE_FLOP"),
+    Schema.Literal("FLOP"),
+    Schema.Literal("TURN"),
+    Schema.Literal("RIVER"),
+    Schema.Literal("SHOWDOWN")
+);
+export type RoundPhase = typeof RoundPhaseSchema.Type;
+
+export const RoundStateSchema = Schema.Struct({
+    phase: RoundPhaseSchema,
+    roundNumber: Schema.Number,
+    // Round-specific pot (will be added to main pot at end of round)
+    roundPot: Schema.Number,
+    // Round-specific bet
+    currentBet: Schema.Number,
+    // Players who have folded this round
+    foldedPlayers: Schema.Array(Schema.String),
+    // Players who are all-in this round
+    allInPlayers: Schema.Array(Schema.String),
+});
+export type RoundState = typeof RoundStateSchema.Type;
 
 export const PokerStateSchema = Schema.Struct({
     status: TableStatusSchema,
     players: Schema.Array(PlayerStateSchema),
     currentPlayerIndex: Schema.Number,
     deck: Schema.Array(CardSchema),
-    // TODO: figure out how to do
-    // { stage: 'preflop', community: [] } | { stage: 'flop', community: [Card, Card, Card] }
-    // in effect/Schema. otherwise keep the community field as the source of truth for current stage
     community: Schema.Array(CardSchema),
-    // this is the total pot
+    // Total pot across all rounds
     pot: Schema.Number,
-    // this is the bet for the current round
-    bet: Schema.Number,
-    // TODO: actually consider going back to dealerIndex instead xD
+    // Current round state
+    round: RoundStateSchema,
     dealerId: Schema.String,
     winner: Schema.Union(Schema.String, Schema.Null),
+    config: GameConfigSchema,
 });
 export type PokerState = typeof PokerStateSchema.Type;
 
@@ -105,7 +137,9 @@ export type PlayerEvent = typeof PlayerEventSchema.Type;
 
 export const SystemEventSchema = Schema.Union(
     Schema.Struct({ type: Schema.Literal("start") }),
-    Schema.Struct({ type: Schema.Literal("transition_phase") })
+    Schema.Struct({ type: Schema.Literal("transition_phase") }),
+    Schema.Struct({ type: Schema.Literal("next_round") }),
+    Schema.Struct({ type: Schema.Literal("end_game") })
 );
 export type SystemEvent = typeof SystemEventSchema.Type;
 
@@ -151,11 +185,9 @@ export const PlayerViewSchema = Schema.Struct({
     dealerId: Schema.String,
     bigBlindId: Schema.Option(Schema.String),
     smallBlindId: Schema.Option(Schema.String),
-    // winningPlayerId: Schema.Option(Schema.String),
     community: Schema.Array(CardSchema),
-    // burnt: Schema.Array(CardSchema),
     pot: Schema.Number,
-    bet: Schema.Number,
+    round: RoundStateSchema,
     player: PlayerStateSchema,
     opponents: Schema.Array(PlayerStateSchema.pick("status", "chips", "bet")),
 });
