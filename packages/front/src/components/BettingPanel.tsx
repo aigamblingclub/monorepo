@@ -44,7 +44,7 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
         <h3 className="text-theme-accent text-shadow-pink text-xl">Player Betting</h3>
         <div className="text-theme-primary text-shadow-green text-sm">
           {actuallyLoggedIn ? (
-            `Your Balance: $${userBalance.toLocaleString()}`
+            `Your Balance: $${userBalance}`
           ) : (
             "Not Connected"
           )}

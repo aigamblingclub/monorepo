@@ -1,13 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PlayerBet } from '../components/BettingPanel';
-import * as nearAPI from 'near-api-js';
 import { parseNearAmount } from 'near-api-js/lib/utils/format';
 import { useNearWallet } from './useNearWallet';
 
 interface UsePlayerBettingProps {
   isConnected?: boolean;
   accountId?: string | null;
-  nearConnection?: nearAPI.Near | null;
   contractId: string;
 }
 
@@ -20,7 +18,7 @@ export const usePlayerBetting = ({
   contractId,
 }: UsePlayerBettingProps) => {
   // Use the Near Wallet hook directly
-  const { accountId, selector, isConnecting, viewMethod } = useNearWallet();
+  const { accountId, selector, viewMethod, getBalance } = useNearWallet();
   
   const [playerBets, setPlayerBets] = useState<PlayerBet[]>([]);
   const [userBalance, setUserBalance] = useState<number>(0);
@@ -33,22 +31,11 @@ export const usePlayerBetting = ({
 
   // Immediate check on mount to see if we're already connected
   useEffect(() => {
-    console.log("🔍 NEAR WALLET CONNECTION CHECK from useNearWallet:", { 
-      isConnected, 
-      accountId,
-      hasSelector: !!selector,
-      initialized,
-      isConnecting
-    });
-    
-    // Force using mock data for development if we can't access contract yet
-    const useMockData = !contractId || contractId === 'dev-placeholder';
-    
-    if (accountId) {
-      // If we have an account ID, we're definitely connected
+    if (!initialized && accountId) {
       console.log("✅ User is signed in with NEAR account:", accountId);
       
-      if (useMockData || !initialized) {
+      const useMockData = !contractId || contractId === 'dev-placeholder';
+      if (useMockData) {
         console.log("Using mock data for development");
         setPlayerBets([
           { playerId: "player1", totalContractBet: 500, userContractBet: 100 },
@@ -58,7 +45,7 @@ export const usePlayerBetting = ({
         setInitialized(true);
       }
     }
-  }, [isConnected, accountId, selector, contractId, initialized, isConnecting]);
+  }, [accountId, initialized, contractId]);
 
   // Fetch player bets and user balance
   const fetchData = useCallback(async () => {
@@ -104,53 +91,38 @@ export const usePlayerBetting = ({
         }
       } catch (viewError) {
         console.error("❌ Error getting player bets, using mock data:", viewError);
-        // Fallback to mock data if the contract method doesn't exist yet
-        const mockPlayerBets: PlayerBet[] = [
-          { playerId: "player1", totalContractBet: 500, userContractBet: 100 },
-          { playerId: "player2", totalContractBet: 1200, userContractBet: 250 },
-        ];
-        setPlayerBets(mockPlayerBets);
+        setPlayerBets([]);
       }
       
-      // Get user balance from contract
+      // Get user balance from NEAR account
       try {
-        // Use viewMethod from useNearWallet
-        const balanceResponse = await viewMethod('getNearBalance', { account_id: accountId })
-          .catch(() => "1000");
+        const balance = await getBalance();
+        console.log("💰 Raw balance response:", balance);
         
-        console.log("💰 User balance from contract:", balanceResponse);
-        
-        let balance = 1000; // Valor padrão
-        
-        if (balanceResponse) {
-          if (typeof balanceResponse === 'string') {
-            balance = parseFloat(balanceResponse);
-          } else if (typeof balanceResponse === 'number') {
-            balance = balanceResponse;
-          }
+        if (balance) {
+          // Convert from yoctoNEAR to NEAR and format to 6 decimal places
+          const balanceInNear = Number((parseFloat(balance) / Math.pow(10, 24)).toFixed(6));
+          console.log("💰 Real balance (in NEAR):", balanceInNear);
+          
+          setUserBalance(balanceInNear);
+        } else {
+          setUserBalance(0);
         }
-        
-        setUserBalance(balance / 10**24); // Convert yoctoNEAR to NEAR
       } catch (balanceError) {
-        console.error("❌ Error getting balance, using mock data:", balanceError);
-        // Mock balance for development
-        setUserBalance(1000);
+        console.error("❌ Error getting real balance:", balanceError);
+        setUserBalance(0);
       }
       
     } catch (err) {
       console.error('❌ Error fetching betting data:', err);
       setError('Failed to load betting data');
-      // Setup mock data for development
-      setPlayerBets([
-        { playerId: "player1", totalContractBet: 500, userContractBet: 100 },
-        { playerId: "player2", totalContractBet: 1200, userContractBet: 250 },
-      ]);
-      setUserBalance(1000);
+      setPlayerBets([]);
+      setUserBalance(0);
     } finally {
       setLoading(false);
       setInitialized(true);
     }
-  }, [accountId, selector, contractId, viewMethod]);
+  }, [accountId, selector, viewMethod, getBalance]);
 
   // Place a bet on a player
   const placeBet = useCallback(async (playerId: string, amount: number) => {
@@ -239,28 +211,20 @@ export const usePlayerBetting = ({
     }
   }, [accountId, selector, contractId, fetchData]);
 
-  // Load data on initial render and when connection state changes
+  // Load data only when necessary
   useEffect(() => {
-    console.log("🔄 Connection state changed:", { 
-      isConnected, 
-      accountId, 
-      hasSelector: !!selector
-    });
-    
-    if (accountId && selector) {
+    if (accountId && selector && !loading && !initialized) {
       fetchData();
     }
-  }, [isConnected, accountId, selector, fetchData]);
+  }, [accountId, selector, loading, initialized, fetchData]);
 
-  return {
+  // Memoize the return value
+  return useMemo(() => ({
     playerBets,
     userBalance,
     loading,
     error,
     placeBet,
-    refreshData: fetchData,
-    isReady: initialized && !!accountId,
-    isConnected: !!accountId,  // Use accountId from useNearWallet
-    accountId,
-  };
+    isConnected,
+  }), [playerBets, userBalance, loading, error, placeBet, isConnected]);
 }; 

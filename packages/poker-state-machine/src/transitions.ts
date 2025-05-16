@@ -340,19 +340,22 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
     }
 
     return Effect.succeed({
-        ...state,
-        status: 'ROUND_OVER',
-        pot: 0, // Reset pot after distributing rewards
-        winner: state.players.find(p => (rewards.get(p.id) ?? 0) > 0)?.id ?? null,
-        players: state.players.map(p => ({
-            ...p,
-            chips: p.chips + (rewards.get(p.id) ?? 0),
-            bet: {
-                total: 0,
-                round: 0,
-            }
-        }))
-    })
+      ...state,
+      status: "ROUND_OVER",
+      pot: 0, // Reset pot after distributing rewards
+      foldedPlayers: [],
+      allInPlayers: [],
+      winner:
+        state.players.find((p) => (rewards.get(p.id) ?? 0) > 0)?.id ?? null,
+      players: state.players.map((p) => ({
+        ...p,
+        chips: p.chips + (rewards.get(p.id) ?? 0),
+        bet: {
+          total: 0,
+          round: 0,
+        },
+      })),
+    });
 }
 
 export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessEventError, never> {

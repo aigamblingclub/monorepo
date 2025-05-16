@@ -28,9 +28,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     loading,
     error,
     placeBet,
-    isReady,
-    isConnected,
-    accountId
+    isConnected
   } = usePlayerBetting({
     contractId
   });
@@ -38,11 +36,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   // Debug logs to check connection state
   useEffect(() => {
     console.log('🔍 NEAR wallet state in PokerTable (direct):', {
-      connected: isConnected,
-      accountId: accountId,
-      ready: isReady
+      connected: isConnected
     });
-  }, [isConnected, accountId, isReady]);
+  }, [isConnected]);
 
   return (
     <div className="h-full bg-black flex flex-row">
