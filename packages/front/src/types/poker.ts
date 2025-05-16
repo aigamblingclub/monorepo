@@ -5,15 +5,24 @@ export type {
   PlayerState,
   TableStatus,
   PokerState,
-  Suite as CardSuit
+  Suite as CardSuit,
+  RoundPhase,
+  RoundState,
+  Move,
+  PlayerView,
+  GameConfig,
+  GameEvent,
+  PlayerEvent,
+  TableAction,
+  CardValue
 } from 'poker-state-machine';
 
 // Import for local use
-import { Suite } from 'poker-state-machine';
+import { Suite, type CardValue as CV, type RoundPhase } from 'poker-state-machine';
 type CardSuit = Suite;
 
 // Utility function to get card label
-export const getCardLabel = (rank: number): string => {
+export const getCardLabel = (rank: CV): string => {
   if (rank === 1) return 'A';
   if (rank === 11) return 'J';
   if (rank === 12) return 'Q';
@@ -30,4 +39,21 @@ export const getCardSuitSymbol = (suit: CardSuit): string => {
     case 'spades': return '♠';
     default: return '';
   }
+};
+
+// Utility function to get the phase name in a more readable format
+export const getPhaseLabel = (phase: RoundPhase): string => {
+  switch (phase) {
+    case 'PRE_FLOP': return 'Pre-Flop';
+    case 'FLOP': return 'Flop';
+    case 'TURN': return 'Turn';
+    case 'RIVER': return 'River';
+    case 'SHOWDOWN': return 'Showdown';
+    default: return 'Unknown';
+  }
+};
+
+// Utility function to format chips amount
+export const formatChips = (amount: number): string => {
+  return new Intl.NumberFormat('en-US').format(amount);
 }; 

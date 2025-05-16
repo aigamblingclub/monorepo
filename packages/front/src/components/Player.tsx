@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlayerState } from '../types/poker';
+import { PlayerState, formatChips } from '../types/poker';
 import { Card } from './Card';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -28,6 +28,7 @@ export const Player: React.FC<PlayerProps> = ({ player, position, isCurrentPlaye
     switch (player.status) {
       case 'FOLDED': return 'text-gray-400';
       case 'ALL_IN': return 'text-neon-yellow';
+      case 'PLAYING': return 'text-neon-green';
       default: return 'text-neon-green';
     }
   };
@@ -63,18 +64,23 @@ export const Player: React.FC<PlayerProps> = ({ player, position, isCurrentPlaye
         </div>
         <div className="flex justify-between items-center mb-1">
           <span className="text-neon-green text-shadow-neon">
-            Chips: ${player.chips}
+            Chips: ${formatChips(player.chips)}
           </span>
         </div>
         <div className="flex justify-between items-center mb-1">
           {player.bet.total > 0 && (
             <span className="text-neon-yellow text-shadow-yellow">
-              Bet: ${player.bet.total}
+              Bet: ${formatChips(player.bet.total)}
+            </span>
+          )}
+          {player.bet.round > 0 && (
+            <span className="text-neon-yellow text-shadow-yellow ml-2">
+              Round: ${formatChips(player.bet.round)}
             </span>
           )}
         </div>
         {/* Player's hand */}
-        {player.hand && player.hand.length > 0 && (
+        {player.hand.length > 0 && (
           <div className="flex gap-1 mt-1">
             {player.hand.map((card, index) => (
               <Card
