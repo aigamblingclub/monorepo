@@ -39,31 +39,39 @@ interface PokerContent extends Content {
     pokerAction: ExtendedPokerDecision;
     gameState: {
         pot: number;
-        currentBet: number;
-        playerCards?: Card[];
-        communityCards: Card[];
+        playerCards?: readonly Card[];
+        communityCards: readonly Card[];
         chips: number;
         position: number;
         phase: string;
         players: Array<{
             id: string;
             chips: number;
-            currentBet: number;
-            isFolded: boolean;
+            bet: {
+                round: number;
+                total: number;
+            };
+            status: "PLAYING" | "FOLDED" | "ALL_IN";
         }>;
-        roundHistory: string[];
+        round: {
+            phase: "PRE_FLOP" | "FLOP" | "TURN" | "RIVER" | "SHOWDOWN";
+            roundNumber: number;
+            roundPot: number;
+            currentBet: number;
+            foldedPlayers: string[];
+            allInPlayers: string[];
+        };
     };
     outcome?: {
         won: boolean;
         chipsWon?: number;
         finalPot?: number;
-        finalCommunityCards?: Card[];
-        finalPlayerCards?: Card[];
+        finalCommunityCards?: readonly Card[];
+        finalPlayerCards?: readonly Card[];
         roundEndState?: string;
         handStrength?: string;
         opponentActions?: string[];
-        opponentFinalCards?: Card[];
-        completeRoundHistory?: string[];
+        opponentFinalCards?: readonly Card[];
     };
 }
 
@@ -173,12 +181,17 @@ export class PokerClient implements Client {
                 // If in a game, check for game state updates
                 if (this.isConnected) {
                     try {
-                        const gameState =
-                            await this.apiConnector.getGameState();
+                        const gameState = await this.apiConnector.getGameState();
                         elizaLogger.debug("1111 gameState:", gameState);
                         await this.handleGameUpdate(gameState);
                     } catch (error) {
-                        elizaLogger.error("Error getting game state:", error);
+                        elizaLogger.error("Error getting game state:", {
+                            error,
+                            message: error.message,
+                            stack: error.stack,
+                            isConnected: this.isConnected,
+                            wsState: this.apiConnector.getWebSocketState()
+                        });
                         // On error, reset the game connection after a few tries
                         this.resetFailedCount =
                             (this.resetFailedCount || 0) + 1;
@@ -239,20 +252,20 @@ export class PokerClient implements Client {
                 const ourPlayer = this.gameState.players.find(p => p.id === this.playerId);
                 if (ourPlayer) {
                     ourPlayer.hand = view.hand.map(card => ({
-                        rank: card.rank.toString(),
+                        rank: card.rank,
                         suit: card.suit
                     }));
                 }
 
                 // Update community cards
                 this.gameState.communityCards = view.community.map(card => ({
-                    rank: card.rank.toString(),
+                    rank: card.rank,
                     suit: card.suit
                 }));
 
                 // Update pot and bet
                 this.gameState.pot = view.pot;
-                this.gameState.currentBet = view.bet;
+                this.gameState.round.currentBet = view.round.currentBet;
 
                 // Update opponents
                 if (view.opponents) {
@@ -260,8 +273,8 @@ export class PokerClient implements Client {
                         const player = this.gameState!.players.find(p => p.id === id);
                         if (player) {
                             player.chips = opponent.chips;
-                            player.currentBet = opponent.bet.round;
-                            player.isFolded = opponent.status === "FOLDED";
+                            player.bet.total = opponent.bet.total;
+                            player.status = opponent.status;
                         }
                     });
                 }
@@ -461,132 +474,140 @@ export class PokerClient implements Client {
     }
 
     private async handleGameUpdate(gameState: GameState): Promise<void> {
-        try {
-            // If the round is over, update outcomes for recent memories
-            if (gameState.tableStatus === "ROUND_OVER") {
-                const recentMemories = await this.runtime?.messageManager?.getMemories({
-                    roomId: stringToUuid(this.gameId || 'default-poker-room'),
-                    count: 10
-                }) || [];
+        if (!this.runtime) {
+            return;
+        }
 
-                // Update outcomes for memories from this round that don't have outcomes yet
-                for (const memory of recentMemories) {
-                    const content = memory.content as unknown as PokerContent;
-                    if (content.roundId === this.roundId && !content.outcome) {
-                        await this.updateMemoryWithOutcome(memory, gameState);
-                    }
-                }
-            }
+        // Initialize roundHistory if undefined
+        if (!gameState.roundHistory) {
+            gameState.roundHistory = [];
+        }
 
-            // Handle game over state
-            if (gameState.isGameOver) {
-                elizaLogger.info("Game is over:", {
-                    winner: gameState.winner?.id,
-                    finalPot: gameState.finalPot,
-                    finalCommunityCards: gameState.finalCommunityCards,
-                });
-                elizaLogger.debug("gameState:", gameState);
+        // Find player by name in the game state (instead of by ID)
+        const ourPlayer = gameState.players.find(
+            (player) => player.id === this.playerId
+        );
 
-                // Reset game state to allow joining new games
-                this.resetGame();
-                return;
-            }
-
-            // Save the current game state
-            this.gameState = gameState;
-
-            // Find player by name in the game state (instead of by ID)
-            const ourPlayer = gameState.players.find(
-                (player) => player.id === this.playerId
+        if (!ourPlayer) {
+            elizaLogger.error(
+                `Player ${this.playerName} not found in game, cannot make decisions`
             );
+            this.resetGame();
+            this.joinGame();
+            return;
+        }
 
-            if (!ourPlayer) {
-                elizaLogger.error(
-                    `Player ${this.playerName} not found in game, cannot make decisions`
+        // Don't make decisions if game is in waiting state, but check if we need to set ready
+        if (gameState.tableStatus === "WAITING") {
+            elizaLogger.info("Game is in waiting state");
+
+            // Check if we need to set ready status - only if we haven't already set it or if server says we're not ready
+            // Use both the playerReadySet flag and the server-reported ready status
+            if (!this.playerReadySet && ourPlayer.status !== "PLAYING") {
+                elizaLogger.info(
+                    "Player is not ready yet, setting ready status"
                 );
-                this.resetGame();
-                this.joinGame();
-                return;
-            }
+                try {
+                    await this.apiConnector.setPlayerReady();
+                    elizaLogger.info("Successfully set player ready status");
+                    // Mark that we've set the player ready, regardless of server state
+                    this.playerReadySet = true;
 
-            // Don't make decisions if game is in waiting state, but check if we need to set ready
-            if (gameState.tableStatus === "WAITING") {
-                elizaLogger.info("Game is in waiting state");
-
-                // Check if we need to set ready status - only if we haven't already set it or if server says we're not ready
-                // Use both the playerReadySet flag and the server-reported ready status
-                if (!this.playerReadySet && !ourPlayer.isReady) {
-                    elizaLogger.info(
-                        "Player is not ready yet, setting ready status"
-                    );
-                    try {
-                        await this.apiConnector.setPlayerReady();
-                        elizaLogger.info(
-                            "Successfully set player ready status"
+                    // After setting ready, update the player state locally to avoid repeated calls
+                    if (this.gameState && this.gameState.players) {
+                        const playerIndex = this.gameState.players.findIndex(
+                            (p) => p.id === ourPlayer.id
                         );
-                        // Mark that we've set the player ready, regardless of server state
-                        this.playerReadySet = true;
-
-                        // After setting ready, update the player state locally to avoid repeated calls
-                        if (this.gameState && this.gameState.players) {
-                            const playerIndex =
-                                this.gameState.players.findIndex(
-                                    (p) => p.id === ourPlayer.id
-                                );
-                            if (playerIndex >= 0) {
-                                this.gameState.players[playerIndex].isReady =
-                                    true;
-                            }
+                        if (playerIndex >= 0) {
+                            this.gameState.players[playerIndex].status = "PLAYING";
                         }
-                    } catch (error) {
-                        elizaLogger.error(
-                            "Error setting player ready status:",
-                            error
-                        );
                     }
-                } else {
-                    // If we've already set ready before OR if server says we're ready
-                    if (this.playerReadySet) {
-                        elizaLogger.info(
-                            "Player ready status already set in this session"
-                        );
-                    } else if (ourPlayer.isReady) {
-                        elizaLogger.info(
-                            "Player is already ready according to server"
-                        );
-                        this.playerReadySet = true; // Update our flag to match server state
-                    }
-                    elizaLogger.info("Waiting for game to start");
-                }
-
-                return;
-            }
-
-            // Check if it's our turn
-            const isOurTurn =
-                gameState.currentPlayerIndex !== undefined &&
-                gameState.players[gameState.currentPlayerIndex]?.name ===
-                    this.playerName;
-
-            if (isOurTurn) {
-                elizaLogger.info("It's our turn, making a decision");
-                const decision = await this.makeDecision(gameState);
-                elizaLogger.info(`Decision made: ${decision.action}`, decision);
-
-                // Submit the action to the server
-                if (this.playerId) {
-                    await this.apiConnector.submitAction({
-                        playerId: this.playerId,
-                        decision
-                    });
-                } else {
+                } catch (error) {
                     elizaLogger.error(
-                        "Cannot submit action: gameId or playerId is missing"
+                        "Error setting player ready status:",
+                        error
                     );
                 }
+            } else {
+                // If we've already set ready before OR if server says we're ready
+                if (this.playerReadySet) {
+                    elizaLogger.info(
+                        "Player ready status already set in this session"
+                    );
+                } else if (ourPlayer.status === "PLAYING") {
+                    elizaLogger.info(
+                        "Player is already ready according to server"
+                    );
+                    this.playerReadySet = true; // Update our flag to match server state
+                }
+                elizaLogger.info("Waiting for game to start");
             }
-        } catch (error) {
-            elizaLogger.error("Error handling game update:", error);
+
+            return;
+        }
+
+        // Check if it's our turn and we need to make a decision
+        const isOurTurn =
+            gameState.currentPlayerIndex ===
+            gameState.players.findIndex((p) => p.id === this.playerId);
+        const player = gameState.players.find((p) => p.id === this.playerId);
+
+        if (isOurTurn && player && player.status === "PLAYING") {
+            try {
+                const decision = await this.makeDecision(gameState);
+                await this.apiConnector.submitAction({
+                    playerId: this.playerId!,
+                    decision,
+                });
+            } catch (error) {
+                elizaLogger.error("Error making decision:", error);
+            }
+        }
+
+        // Update game state
+        this.gameState = gameState;
+
+        // Generate round history based on player actions
+        gameState.roundHistory = gameState.roundHistory.concat(
+            gameState.players.map((player) => {
+                const isOurPlayer = player.id === this.playerId;
+                const handInfo =
+                    isOurPlayer && player.hand && player.hand.length > 0
+                        ? ` with hand [${player.hand
+                              .map((c) => `${c.rank}${c.suit[0]}`)
+                              .join(", ")}]`
+                        : "";
+
+                if (player.status === "FOLDED")
+                    return `${player.playerName} FOLDED${handInfo}`;
+                if (player.status === "ALL_IN")
+                    return `${player.playerName} ALL_IN with ${player.bet.total} chips${handInfo}`;
+                if (player.bet.total > 0)
+                    return `${player.playerName} bet ${player.bet.total} chips${handInfo}`;
+                return `${player.playerName} waiting${handInfo}`;
+            })
+        );
+
+        // Check for game end
+        if (gameState.tableStatus === "GAME_OVER" && player) {
+            const winner = gameState.winner;
+            const outcome: PokerContent["outcome"] = {
+                won: winner === this.playerId,
+                chipsWon: player.chips,
+                finalPot: gameState.pot,
+                finalCommunityCards: gameState.communityCards,
+                finalPlayerCards: player.hand,
+                roundEndState: gameState.tableStatus,
+            };
+
+            // Update memory with outcome
+            const memory = await this.runtime.messageManager?.getMemories({
+                roomId: stringToUuid(this.gameId || "default-poker-room"),
+                count: 1,
+            });
+            if (memory && memory.length > 0) {
+                await this.updateMemoryWithOutcome(memory[0], gameState);
+            }
         }
     }
 
@@ -599,8 +620,8 @@ export class PokerClient implements Client {
             // Criar uma descrição semântica da situação atual
             const currentSituation = `Poker game in ${currentState.tableStatus} phase with pot ${currentState.pot}.
                 ${currentState.communityCards.length} community cards showing: ${currentState.communityCards.map(c => `${c.rank}${c.suit}`).join(' ')}.
-                ${currentState.players.filter(p => !p.isFolded).length} active players.
-                Current bet is ${currentState.currentBet}.
+                ${currentState.players.filter(p => p.status === "PLAYING").length} active players.
+                Current bet is ${currentState.round.currentBet}.
                 Player position: ${currentState.players.findIndex(p => p.id === this.playerId)}.
                 Stack sizes: ${currentState.players.map(p => p.chips).join(', ')}.`;
 
@@ -658,13 +679,13 @@ export class PokerClient implements Client {
                     id: this.gameId,
                     phase: gameState.tableStatus,
                     pot: gameState.pot,
-                    currentBet: gameState.currentBet,
+                    currentBet: gameState.round.currentBet,
                     roundHistory: gameState.roundHistory,
                     players: gameState.players.map(p => ({
                         id: p.id,
                         chips: p.chips,
-                        currentBet: p.currentBet,
-                        status: p.isFolded ? 'folded' : 'active'
+                        bet: p.bet,
+                        status: p.status
                     }))
                 },
                 context: {
@@ -721,7 +742,7 @@ export class PokerClient implements Client {
                     pokerAction: decision,
                     gameState: {
                         pot: gameState.pot,
-                        currentBet: gameState.currentBet,
+                        currentBet: gameState.round.currentBet,
                         playerCards: gameState.players.find(p => p.id === this.playerId)?.hand,
                         communityCards: gameState.communityCards,
                         chips: gameState.players.find(p => p.id === this.playerId)?.chips || 0,
@@ -730,10 +751,17 @@ export class PokerClient implements Client {
                         players: gameState.players.map(p => ({
                             id: p.id,
                             chips: p.chips,
-                            currentBet: p.currentBet,
-                            isFolded: p.isFolded
+                            bet: p.bet,
+                            status: p.status
                         })),
-                        roundHistory: gameState.roundHistory || []
+                        round: {
+                            phase: gameState.round.phase,
+                            roundNumber: gameState.round.roundNumber,
+                            roundPot: gameState.round.roundPot,
+                            currentBet: gameState.round.currentBet,
+                            foldedPlayers: gameState.round.foldedPlayers,
+                            allInPlayers: gameState.round.allInPlayers
+                        }
                     }
                 } as unknown as Content
             };
@@ -802,7 +830,7 @@ export class PokerClient implements Client {
   * Phase: ${content.gameState.phase}
   * Pot size: ${content.gameState.pot} chips
   * Community cards: ${content.gameState.communityCards.map(c => `${c.rank}${c.suit}`).join(', ')}
-  * Active players: ${content.gameState.players.filter(p => !p.isFolded).length}
+  * Active players: ${content.gameState.players.filter(p => p.status === "PLAYING").length}
   * My position: ${content.gameState.position}
   * My action: ${content.pokerAction.action}${content.pokerAction.amount ? ` (${content.pokerAction.amount})` : ''}
   * Strategy used: ${content.pokerAction.strategy || 'Not recorded'}
@@ -911,80 +939,67 @@ export class PokerClient implements Client {
     }
 
     private prepareBaseGameContext(gameState: GameState): string {
-        const playerInfo = gameState.players.find(p => p.id === this.playerId);
-        if (!playerInfo) {
-            return "Could not find your information in the game. Decision: FOLD";
+        const player = gameState.players.find((p) => p.id === this.playerId);
+        if (!player) {
+            throw new Error("Player not found in game state");
         }
 
-        // Calculate position quality
-        // const totalPlayers = gameState.players.length;
-        // const myPosition = gameState.players.findIndex(p => p.id === this.playerId);
-        // const positionQuality = myPosition === totalPlayers - 1 ? "Button (strongest)" :
-        //                        myPosition === totalPlayers - 2 ? "Cutoff (strong)" :
-        //                        myPosition === 0 ? "Small Blind (weak)" :
-        //                        myPosition === 1 ? "Big Blind (weak)" :
-        //                        "Middle position";
+        const opponents = gameState.players.filter((p) => p.id !== this.playerId);
+        const opponentInfo = opponents
+            .map(
+                (opp) =>
+                    `${opp.playerName} (${opp.chips} chips, ${
+                        opp.status === "FOLDED"
+                            ? "FOLDED"
+                            : opp.status === "ALL_IN"
+                            ? "ALL_IN"
+                            : `bet: ${opp.bet.total}`
+                    })`
+            )
+            .join(", ");
 
-        // Calculate stack sizes and rankings
-        // const sortedStacks = [...gameState.players]
-        //     .sort((a, b) => b.chips - a.chips)
-        //     .map(p => p.chips);
-        // const myStackRank = sortedStacks.indexOf(playerInfo.chips) + 1;
-        // const stackStatus = playerInfo.chips > (sortedStacks[0] * 0.8) ? "Strong stack" :
-        //                    playerInfo.chips > (sortedStacks[0] * 0.5) ? "Medium stack" :
-        //                    "Short stack";
+        return `
+Current game state:
+- Your chips: ${player.chips}
+- Pot: ${gameState.pot}
+- Current bet: ${gameState.round.currentBet}
+- Round phase: ${gameState.round.phase}
+- Round number: ${gameState.round.roundNumber}
+- Your position: ${
+            gameState.currentPlayerIndex === gameState.players.findIndex((p) => p.id === this.playerId)
+                ? "Your turn"
+                : "Waiting"
+        }
+- Opponents: ${opponentInfo}
+- Community cards: ${this.formatCards(gameState.communityCards)}
+${
+            player.hand && player.hand.length > 0
+                ? `- Your cards: ${this.formatCards(player.hand)}`
+                : ""
+        }
+`;
+    }
 
-        // Format cards for display
-        const formatCard = (card: Card) => `${card.rank}${card.suit}`;
-        const formatCards = (cards: Card[]) => cards.map(formatCard).join(" ");
+    private formatCard(card: Card): string {
+        const rankMap: { [key: number]: string } = {
+            1: "A",
+            11: "J",
+            12: "Q",
+            13: "K",
+        };
+        const suitMap: { [key: string]: string } = {
+            hearts: "♥",
+            diamonds: "♦",
+            clubs: "♣",
+            spades: "♠",
+        };
+        const rank = rankMap[card.rank] || card.rank.toString();
+        const suit = suitMap[card.suit] || card.suit;
+        return `${rank}${suit}`;
+    }
 
-        const phase = gameState.communityCards.length === 0 ? "preflop" :
-                     gameState.communityCards.length === 3 ? "flop" :
-                     gameState.communityCards.length === 4 ? "turn" : "river";
-
-        // Calculate pot odds if there's a bet to call
-        const potOdds = gameState.currentBet > 0
-            ? ((gameState.currentBet - playerInfo.currentBet) / (gameState.pot + gameState.currentBet)) * 100
-            : 0;
-
-        const context = [
-            `Current Game State:`,
-            `----------------`,
-            `Phase: ${phase.toUpperCase()}`,
-            `Pot: ${gameState.pot} chips`,
-            `Current bet: ${gameState.currentBet} chips`,
-
-            `\nYour Status:`,
-            `----------------`,
-            // `Position: ${positionQuality}`,
-            // `Stack status: ${stackStatus} (Rank ${myStackRank} of ${totalPlayers})`,
-            `Your chips: ${playerInfo.chips}`,
-            `Your current bet: ${playerInfo.currentBet}`,
-            `Your cards: ${playerInfo.hand ? formatCards(playerInfo.hand) : "Unknown"}`,
-
-            `\nTable Information:`,
-            `----------------`,
-            `Community cards: ${formatCards(gameState.communityCards)}`,
-            `Pot odds: ${potOdds.toFixed(1)}%`,
-            // `Active players: ${gameState.players.filter(p => !p.isFolded).length} of ${totalPlayers}`,
-            `Last action: ${gameState.lastAction || "None"}`,
-            `Last raise: ${gameState.lastRaiseAmount || 0}`,
-
-            `\nPlayer States:`,
-            `----------------`,
-            ...gameState.players.map((p, i) =>
-                `${p.name}${p.id === this.playerId ? ' (You)' : ''}: ` +
-                `${p.chips} chips, bet ${p.currentBet}, ` +
-                `${p.isFolded ? 'folded' : 'active'}`
-                // + `position: ${i === totalPlayers - 1 ? 'BTN' : i === 0 ? 'SB' : i === 1 ? 'BB' : i + 1}`
-            ),
-
-            `\nRound History:`,
-            `----------------`,
-            ...(gameState.roundHistory || []).map(action => `- ${action}`)
-        ].join('\n');
-
-        return context;
+    private formatCards(cards: readonly Card[]): string {
+        return cards.map((card) => this.formatCard(card)).join(" ");
     }
 
     private parseAgentResponse(response: string): ExtendedPokerDecision {
@@ -1087,12 +1102,12 @@ export class PokerClient implements Client {
 
         // Update the memory with the outcome
         content.outcome = outcome;
-
+        memory.content = content as unknown as Content;
         // Save the updated memory
         await this.runtime.messageManager.createMemory(memory, true);
     }
 
-    // private evaluateHandStrength(communityCards: Card[], playerCards: Card[]): string {
+    // private evaluateHandStrength(communityCards: SchemaCard[], playerCards: SchemaCard[]): string {
     //     const allCards = [...communityCards, ...playerCards];
     //     // This is a simplified evaluation - you'd want a more sophisticated hand evaluator in practice
     //     const ranks = allCards.map(c => c.rank);

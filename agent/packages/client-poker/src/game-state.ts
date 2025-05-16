@@ -1,8 +1,7 @@
-import { TableStatus } from "./schemas";
+import { TableStatus, RoundPhase, Card as SchemaCard, PlayerStatus } from "./schemas";
 
 export enum PlayerAction {
     FOLD = "FOLD",
-    CHECK = "CHECK",
     CALL = "CALL",
     RAISE = "RAISE",
     ALL_IN = "ALL_IN",
@@ -13,57 +12,66 @@ export interface PokerDecision {
     amount?: number;
 }
 
-export interface Card {
-    suit: string;
-    rank: string;
+export type Card = {
+    readonly rank: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+    readonly suit: "spades" | "diamonds" | "clubs" | "hearts";
+};
+
+export interface RoundState {
+    phase: RoundPhase;
+    roundNumber: number;
+    roundPot: number;
+    currentBet: number;
+    foldedPlayers: string[];
+    allInPlayers: string[];
 }
 
 export interface PlayerState {
     id: string;
-    name: string;
+    playerName: string;
+    status: PlayerStatus;
     chips: number;
-    isReady: boolean;
-    currentBet: number;
-    isFolded: boolean;
-    hand?: Card[];
+    hand?: readonly Card[];
+    bet: {
+        round: number;
+        total: number;
+    };
 }
 
 export interface WinnerInfo {
     id: string;
-    name?: string;
-    winningHand?: Card[];
+    playerName?: string;
+    winningHand?: readonly Card[];
     handDescription?: string;
 }
 
 export interface GameState {
-    // id: string;
     players: PlayerState[];
     tableStatus: TableStatus;
-    // gameState: "waiting" | "preflop" | "flop" | "turn" | "river" | "showdown";
     pot: number;
-    isGameOver: boolean;
-    lastUpdateTime: string;
-    currentBet: number;
-    lastAction?: string;
-    lastRaiseAmount?: number;
-    currentPlayerIndex?: number;
-    communityCards: Card[];
-    roundHistory?: string[];
-    winner?: WinnerInfo;
-    finalHands?: Array<PlayerState & { hand: Card[] }>;
-    finalCommunityCards?: Card[];
-    finalPot?: number;
+    currentPlayerIndex: number;
+    dealerId: string;
+    winner: string | null;
+    round: RoundState;
+    communityCards: readonly Card[];
+    config: {
+        maxRounds: number | null;
+        startingChips: number;
+        smallBlind: number;
+        bigBlind: number;
+    };
+    roundHistory: string[];
 }
 
 export interface AvailableGame {
     id: string;
     players: Array<{
         id?: string;
-        name: string;
-        isReady: boolean;
+        playerName: string;
+        status: PlayerStatus;
     }>;
     createdAt: string;
-    state?: string;
+    tableStatus: TableStatus;
     playersNeeded?: number;
 }
 
