@@ -4,7 +4,7 @@
 import { Effect, Iterable, Option, pipe, Schema } from "effect"
 import { determineWinningPlayers, getShuffledDeck, type RiverCommunity } from "./poker"
 import { bigBlind, findDealerIndex, firstPlayerIndex, rotated, roundRotation, smallBlind } from "./queries"
-import type { Card, Move, PlayerState, PokerState, StateMachineError } from "./schemas"
+import type { Card, Move, PlayerState, PokerState, StateMachineError, ProcessEventError } from "./schemas"
 import { PLAYER_DEFAULT_STATE } from "./state_machine"
 import { commit } from "effect/STM"
 
@@ -82,11 +82,20 @@ export type StateTransition = (state: PokerState) => PokerState
 export const collectBlinds: StateTransition = state => {
     const bigBlindId = bigBlind(state).id;
     const smallBlindId = smallBlind(state).id;
-    return pipe(
+    
+    const nextState = pipe(
         state,
         (state: PokerState) => playerBet(state, smallBlindId, SMALL_BLIND),
         (state: PokerState) => playerBet(state, bigBlindId, BIG_BLIND),
-    )
+    );
+
+    return {
+        ...nextState,
+        round: {
+            ...nextState.round,
+            phase: 'PRE_FLOP'
+        }
+    };
 }
 
 export const startRound: StateTransition = (state: PokerState) => pipe(
@@ -104,12 +113,15 @@ function playerBet(state: PokerState, playerId: string, amount: number): PokerSt
         total: player.bet.total + diff,
     }
     const remaining = player.chips - diff
-    const raised = amount > state.bet
+    const raised = amount > state.round.currentBet
 
     return {
         ...state,
         pot: state.pot + diff,
-        bet: Math.max(state.bet, bet.round),
+        round: {
+            ...state.round,
+            currentBet: Math.max(state.round.currentBet, bet.round)
+        },
         players: state.players.map(p => p.id !== playerId ? p : {
             ...p,
             bet,
@@ -129,21 +141,22 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
     let nextState = structuredClone(state);
     switch (move.type) {
         case "fold": {
-            // TODO: check if the player already has enough bet
             nextState = {
                 ...state,
+                round: {
+                    ...state.round,
+                    foldedPlayers: [...state.round.foldedPlayers, playerId]
+                },
                 players: state.players.map(p => p.id !== playerId ? p : { ...p, status: 'FOLDED' })
             }
             break;
         }
 
         case "call": {
-            nextState = playerBet(nextState, playerId, state.bet)
+            nextState = playerBet(nextState, playerId, state.round.currentBet)
             break;
         }
 
-        // TODO: on raise we should validate amount of chips and return an error if the player
-        // has insufficient chips
         case "raise": {
             nextState = playerBet(nextState, playerId, move.amount)
             break;
@@ -151,6 +164,7 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
 
         case 'all_in': {
             nextState = playerBet(nextState, playerId, player.chips)
+            break;
         }
     }
 
@@ -161,18 +175,17 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
 export function transition(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
     const players = roundRotation(state)
     const isLastPlayer = state.currentPlayerIndex >= players.findLastIndex(p => p.status === "PLAYING")
-    const allCalled = state.bet !== 0 && state.players.every(p => (
+    const allCalled = state.round.currentBet !== 0 && state.players.every(p => (
            p.status    === "FOLDED"
         || p.status    === "ALL_IN"
-        || p.bet.round === state.bet
+        || p.bet.round === state.round.currentBet
     ))
-    const allChecked = state.bet === 0 && isLastPlayer
+    const allChecked = state.round.currentBet === 0 && isLastPlayer
     const playersLeft = state.players.filter(p => p.status === "PLAYING")
 
     if (playersLeft.length <= 1) return showdown(state)
     if (allCalled || allChecked) return nextPhase(state)
 
-    // shift bet rotation
     return Effect.succeed({
         ...state,
         currentPlayerIndex: isLastPlayer
@@ -188,14 +201,25 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
 
     const toBeDealt = ({ 0: 3, 3: 1, 4: 1 })[state.community.length]!
     const deckCards = state.deck.length
-    const community = state.deck.slice(deckCards - toBeDealt, deckCards)
+    const community = [...state.community, ...state.deck.slice(deckCards - toBeDealt, deckCards)]
     const deck = state.deck.slice(0, deckCards - toBeDealt)
+
+    // Map the number of community cards to the corresponding phase
+    const phaseMap: Record<number, 'FLOP' | 'TURN' | 'RIVER'> = {
+        3: 'FLOP',
+        4: 'TURN',
+        5: 'RIVER'
+    }
 
     const nextState: PokerState = {
         ...state,
         deck,
         community,
-        bet: 0,
+        round: {
+            ...state.round,
+            currentBet: 0,
+            phase: phaseMap[community.length] ?? state.round.phase
+        },
         players: state.players.map(p => ({
             ...p,
             bet: {
@@ -304,4 +328,67 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
             }
         }))
     })
+}
+
+export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessEventError, never> {
+    // Check if we've reached max rounds
+    if (state.config.maxRounds !== null && state.round.roundNumber >= state.config.maxRounds) {
+        return Effect.succeed({
+            ...state,
+            status: 'GAME_OVER' as const
+        });
+    }
+
+    // Move dealer button to next active player
+    const activePlayers = state.players.filter(p => p.chips > 0);
+    if (activePlayers.length < 2) {
+        // Game is over - we have a winner
+        return Effect.succeed({
+            ...state,
+            status: 'GAME_OVER' as const,
+            winner: activePlayers[0]?.id ?? null
+        });
+    }
+
+    const currentDealerIndex = activePlayers.findIndex(p => p.id === state.dealerId);
+    const nextDealerIndex = (currentDealerIndex + 1) % activePlayers.length;
+    const nextDealer = activePlayers[nextDealerIndex];
+
+    // Reset player states for new round
+    const resetPlayers = state.players.map(p => ({
+        ...p,
+        status: p.chips > 0 ? 'PLAYING' as const : 'FOLDED' as const,
+        hand: [],
+        bet: { round: 0, total: 0 }
+    })) as PlayerState[];
+
+    // Prepare initial state for the new round
+    const initialState = {
+        ...state,
+        status: 'PLAYING' as const,
+        players: resetPlayers,
+        dealerId: nextDealer.id,
+        currentPlayerIndex: -1,
+        deck: [],  // Will be set by startRound
+        community: [],
+        winner: null,
+        round: {
+            phase: 'PRE_FLOP' as const,
+            roundNumber: state.round.roundNumber + 1,
+            roundPot: 0,
+            currentBet: 0,
+            foldedPlayers: [],
+            allInPlayers: []
+        }
+    };
+
+    // Start the round which will deal cards, rotate blinds and collect blinds
+    return Effect.succeed(startRound(initialState));
+}
+
+export function endGame(state: PokerState): Effect.Effect<PokerState, ProcessEventError, never> {
+    return Effect.succeed({
+        ...state,
+        status: 'GAME_OVER'
+    });
 }
