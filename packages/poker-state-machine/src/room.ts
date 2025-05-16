@@ -3,7 +3,7 @@ import  * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import { POKER_ROOM_DEFAULT_STATE } from "./state_machine";
 import { currentPlayer, playerView } from "./queries";
-import { addPlayer, processPlayerMove, removePlayer, startRound, transition  } from "./transitions";
+import { addPlayer, processPlayerMove, removePlayer, startRound, transition, nextRound, endGame } from "./transitions";
 import type { GameEvent, PlayerView, PokerState, ProcessEventError, ProcessStateError, SystemEvent } from "./schemas";
 
 export interface PokerGameService {
@@ -54,6 +54,12 @@ function computeNextState(
         case 'transition_phase': {
             return transition(state)
         }
+        case 'next_round': {
+            return nextRound(state)
+        }
+        case 'end_game': {
+            return endGame(state)
+        }
     }
 }
 
@@ -68,6 +74,9 @@ function processState(state: PokerState, minPlayers: number): Effect.Effect<Opti
         // the correct way is to make this system event trigger a fork which will
         // wait for a certain amount of time and then emit the new state, tricky though
         return Effect.succeed(Option.some({ type: 'start' }))
+    }
+    if (state.status === "ROUND_OVER") {
+        return Effect.succeed(Option.some({ type: 'next_round' }))
     }
     return Effect.succeed(Option.none())
 }
