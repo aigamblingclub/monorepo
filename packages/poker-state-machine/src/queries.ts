@@ -47,6 +47,14 @@ export const bigBlind = (state: PokerState) => {
 
 export const playerView = (state: PokerState, playerId: string): PlayerView => {
     const player = state.players.find(p => p.id === playerId)!
+    const isShowdown = state.round.phase === 'RIVER' && state.status === 'ROUND_OVER';
+    
+    // Get active players (not folded)
+    const activePlayers = state.players.filter(p => p.status !== 'FOLDED');
+    const allRemainingPlayersAllIn = activePlayers.length > 0 && activePlayers.every(p => p.status === 'ALL_IN');
+    
+    const shouldShowOpponentHands = isShowdown || allRemainingPlayersAllIn;
+
     return {
         hand: player.hand ?? [],
         community: state.community,
@@ -60,6 +68,11 @@ export const playerView = (state: PokerState, playerId: string): PlayerView => {
         player,
         opponents: state.players
             .filter(p => p.id !== playerId)
-            .map(({ status, chips, bet }) => ({ status, chips, bet }))
+            .map(p => ({
+                status: p.status,
+                chips: p.chips,
+                bet: p.bet,
+                hand: shouldShowOpponentHands && p.status !== 'FOLDED' ? p.hand : []
+            }))
     }
 }

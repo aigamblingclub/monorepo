@@ -15,10 +15,7 @@ export const CardSchema = Schema.Struct({
     rank: CardValueSchema,
     suit: SuiteSchema,
 });
-export type Card = {
-    readonly rank: CardValue;
-    readonly suit: Suite;
-};
+export type Card = typeof CardSchema.Type;
 
 export const PlayerStatusSchema = Schema.Union(
     Schema.Literal("PLAYING"),
@@ -189,6 +186,16 @@ export const PlayerViewSchema = Schema.Struct({
     pot: Schema.Number,
     round: RoundStateSchema,
     player: PlayerStateSchema,
-    opponents: Schema.Array(PlayerStateSchema.pick("status", "chips", "bet")),
+    opponents: Schema.Array(
+        Schema.Struct({
+            status: PlayerStatusSchema,
+            chips: Schema.Number,
+            bet: Schema.Struct({
+                round: Schema.Number,
+                total: Schema.Number,
+            }),
+            hand: Schema.Array(CardSchema),
+        })
+    ),
 });
 export type PlayerView = typeof PlayerViewSchema.Type;
