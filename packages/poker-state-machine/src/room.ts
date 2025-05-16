@@ -3,7 +3,7 @@ import  * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import { POKER_ROOM_DEFAULT_STATE } from "./state_machine";
 import { currentPlayer, playerView } from "./queries";
-import { addPlayer, processPlayerMove, removePlayer, startRound, transition  } from "./transitions";
+import { addPlayer, processPlayerMove, removePlayer, startRound, transition, nextRound, endGame } from "./transitions";
 import type { GameEvent, PlayerView, PokerState, ProcessEventError, ProcessStateError, SystemEvent } from "./schemas";
 
 export interface PokerGameService {
@@ -54,6 +54,12 @@ function computeNextState(
         case 'transition_phase': {
             return transition(state)
         }
+        case 'next_round': {
+            return nextRound(state)
+        }
+        case 'end_game': {
+            return endGame(state)
+        }
     }
 }
 
@@ -68,6 +74,9 @@ function processState(state: PokerState, minPlayers: number): Effect.Effect<Opti
         // the correct way is to make this system event trigger a fork which will
         // wait for a certain amount of time and then emit the new state, tricky though
         return Effect.succeed(Option.some({ type: 'start' }))
+    }
+    if (state.status === "ROUND_OVER") {
+        return Effect.succeed(Option.some({ type: 'next_round' }))
     }
     return Effect.succeed(Option.none())
 }
@@ -84,7 +93,7 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
     const processEvent = (event: GameEvent): Effect.Effect<PokerState, ProcessEventError, never> => {
         return pipe(
             currentState(),
-            Effect.tap(({ deck, ...state }) => Console.debug('processano', { event, state })),
+            Effect.tap(({ deck, ...state }) => Console.debug('processing event', { event, state })),
             Effect.flatMap(state => computeNextState(state, event)),
             // Effect.tap(({ deck, ...state }) => Console.log('post-processing', { event, state })),
             Effect.tap(state => Ref.set(stateRef, state)),
@@ -105,7 +114,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
                 onNone: () => Effect.succeed(state),
                 onSome: event => {
                     const next = processEvent(event)
-                    // console.log('onSome process state', { state, event })
                     return next
                 },
             }),
@@ -117,7 +125,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
     // return this or put in a context somehow
     const _systemFiber = pipe(
         stateProcessingStream,
-        // Stream.tap(qlqrcoisa => Console.log({ qlqrcoisa })),
         Stream.run(Sink.drain),
         Effect.runFork,
     )
@@ -133,12 +140,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
             Effect.map(state => playerView(state, playerId)),
             Effect.tap(pv => Console.log('[playerView]', { pv }))
         ),
-        // playerView: playerId => pipe(
-        //     stateProcessingStream,
-        //     Stream.tap(({ deck, ...state }) => Console.log('[playerView]', { state })),
-        //     Stream.map(state => playerView(state, playerId)),
-        //     Stream.tap(pv => Console.log('[playerView]', { pv }))
-        // ),
         stateUpdates: stateProcessingStream,
     }
 })

@@ -1,5 +1,4 @@
 import { type PlayerState, type PokerState } from "./schemas";
-import { Option } from "effect";
 
 export const POKER_ROOM_DEFAULT_STATE: PokerState = {
   status: "WAITING",
@@ -7,11 +6,23 @@ export const POKER_ROOM_DEFAULT_STATE: PokerState = {
   deck: [],
   community: [],
   pot: 0,
-  bet: 0,
-  // FIXME: both of these are bad default values, refactor later
+  round: {
+    phase: "PRE_FLOP",
+    roundNumber: 1,
+    roundPot: 0,
+    currentBet: 0,
+    foldedPlayers: [],
+    allInPlayers: [],
+  },
   dealerId: '',
   currentPlayerIndex: -1,
   winner: null,
+  config: {
+    maxRounds: null,
+    startingChips: 100,
+    smallBlind: 10,
+    bigBlind: 20
+  }
 };
 
 export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {
