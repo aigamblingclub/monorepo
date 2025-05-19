@@ -136,8 +136,8 @@ export function determineWinningPlayers(
 ): string[] {
     // get each players best hand and sort in descending order
     const playerHands = players
-        .map(({ id, hand }) => ({ id, hand: getBestHand(community, hand) }))
-        .toSorted((a, b) => compareHands(b.hand, a.hand))
+      .map(({ id, hand }) => ({ id, hand: getBestHand(community, hand as [Card, Card]) }))
+      .toSorted((a, b) => compareHands(b.hand, a.hand));
 
     return pipe(
         playerHands,
