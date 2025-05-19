@@ -105,7 +105,7 @@ export const startRound: StateTransition = (state: PokerState) => pipe(
     collectBlinds,
 )
 
-function playerBet(state: PokerState, playerId: string, amount: number): PokerState {
+export function playerBet(state: PokerState, playerId: string, amount: number): PokerState {
     const player = state.players.find(p => p.id === playerId)!
     const diff = Math.min(amount - player.bet.round, player.chips)
     const bet = {
@@ -269,26 +269,22 @@ function determinePotWinner(
     return determineWinningPlayers(players, community)
 }
 
-// TODO: RENAME: showdown -> resolveRound, showdown is only after the river state
-// where the players have already shown their hands
-// TEST: test-case for when there's only 1 pot but 2 all-in players in it
-// precondition: all players which are not folded or all-in have the same bet total
-// precondition: either there's only one player left which hasn't folded or gone all-in
-// or we are already at river
+/**
+ * Distributes the pot to the winning players. In case of a tie, the pot is split equally among the winners.
+ * If there are odd chips that cannot be divided equally, they are awarded to players closest to the dealer
+ * in clockwise order (standard poker "odd chip rule").
+ * 
+ * Preconditions:
+ * - All players which are not folded or all-in have the same bet total
+ * - Either there's only one player left which hasn't folded or gone all-in, or we are already at river
+ */
 export function showdown(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
-    // ?? why do we need go to river before checking hands and pots?
-    // fast-forward to river before checking hands and pots
-    // if (state.community.length < 5) return pipe(
-    //     state,
-    //     nextPhase,
-    //     Effect.flatMap(showdown)
-    // )
-
     const allPlayers = state.players.toSorted((a, b) => a.bet.total - b.bet.total)
     const inPlayers = allPlayers.filter(p => p.status !== 'FOLDED')
-    // TODO: better name for this status
+    // Players who are still active (not folded or all-in)
     const playingPlayers = inPlayers.filter(p => p.status === 'PLAYING')
-    // TODO: abstract this into a more general showdown state assertion function
+    
+    // Validate state: all active players should have the same bet
     const playingPotBets = getPotBets(playingPlayers)
     if (playingPotBets.length !== 1) {
         return Effect.fail({
@@ -296,28 +292,57 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
             message: "Inconsistent State Error: there's more than one pot for non all-in players."
         })
     }
+    
     const potBets = getPotBets(allPlayers);
     const pots = calculatePots(potBets, allPlayers);
 
     const rewards: Map<string, number> = new Map()
+    
+    // Process each pot level
     for (const [bet, pot] of pots) {
         const winnerIds = determinePotWinner(bet, inPlayers, state.community as RiverCommunity)
-        // TODO: usually pots are even and ties are 2-ways, but it could be a 3-way tie
-        // so we also have to do a remainder distribution to the player closest to the
-        // dealer
-
+        
+        if (winnerIds.length === 0) continue;
+        
+        // Equal share for each winner
+        const equalShare = Math.floor(pot / winnerIds.length)
+        // Calculate remainder chips that can't be divided equally
+        const remainder = pot % winnerIds.length
+        
+        // Find dealer position in the original player array
+        const dealerIdx = state.players.findIndex(p => p.id === state.dealerId);
+        
+        // Sort winners by proximity to dealer position (clockwise order)
+        // This implements the standard "odd chip rule" in poker
+        const sortedWinnersByPosition = [...winnerIds].sort((a, b) => {
+            const aIdx = state.players.findIndex(p => p.id === a);
+            const bIdx = state.players.findIndex(p => p.id === b);
+            
+            // Calculate positions relative to dealer (clockwise)
+            const aPos = (aIdx - dealerIdx + state.players.length) % state.players.length;
+            const bPos = (bIdx - dealerIdx + state.players.length) % state.players.length;
+            
+            return aPos - bPos; // Lower number = closer to dealer
+        });
+        
+        // Distribute equal shares to all winners
         for (const winnerId of winnerIds) {
             const current = rewards.get(winnerId) ?? 0
-            const reward = Math.floor(pot / winnerIds.length)
-            rewards.set(winnerId, current + reward)
+            rewards.set(winnerId, current + equalShare)
+        }
+        
+        // Distribute remainder chips to players closest to dealer
+        for (let i = 0; i < remainder; i++) {
+            const winnerId = sortedWinnersByPosition[i % sortedWinnersByPosition.length];
+            const current = rewards.get(winnerId) ?? 0
+            rewards.set(winnerId, current + 1)
         }
     }
 
-    // TODO: consider what to do with other fields (i.e. pot)
-    // TODO: best way to send to client the winner per pot
     return Effect.succeed({
         ...state,
         status: 'ROUND_OVER',
+        pot: 0, // Reset pot after distributing rewards
         winner: state.players.find(p => (rewards.get(p.id) ?? 0) > 0)?.id ?? null,
         players: state.players.map(p => ({
             ...p,
