@@ -93,7 +93,7 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
     const processEvent = (event: GameEvent): Effect.Effect<PokerState, ProcessEventError, never> => {
         return pipe(
             currentState(),
-            Effect.tap(({ deck, ...state }) => Console.debug('processano', { event, state })),
+            Effect.tap(({ deck, ...state }) => Console.debug('processing event', { event, state })),
             Effect.flatMap(state => computeNextState(state, event)),
             // Effect.tap(({ deck, ...state }) => Console.log('post-processing', { event, state })),
             Effect.tap(state => Ref.set(stateRef, state)),
@@ -114,7 +114,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
                 onNone: () => Effect.succeed(state),
                 onSome: event => {
                     const next = processEvent(event)
-                    // console.log('onSome process state', { state, event })
                     return next
                 },
             }),
@@ -126,7 +125,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
     // return this or put in a context somehow
     const _systemFiber = pipe(
         stateProcessingStream,
-        // Stream.tap(qlqrcoisa => Console.log({ qlqrcoisa })),
         Stream.run(Sink.drain),
         Effect.runFork,
     )
@@ -142,12 +140,6 @@ export const makePokerRoom = (minPlayers: number): Effect.Effect<PokerGameServic
             Effect.map(state => playerView(state, playerId)),
             Effect.tap(pv => Console.log('[playerView]', { pv }))
         ),
-        // playerView: playerId => pipe(
-        //     stateProcessingStream,
-        //     Stream.tap(({ deck, ...state }) => Console.log('[playerView]', { state })),
-        //     Stream.map(state => playerView(state, playerId)),
-        //     Stream.tap(pv => Console.log('[playerView]', { pv }))
-        // ),
         stateUpdates: stateProcessingStream,
     }
 })
