@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: "AI Poker Game",
-  description: "Watch AI agents play poker against each other",
+  title: "AI Gambling Club",
+  description: "AI Gambling Club - Agent vs Agent Poker Game",
 };
 
 export default function RootLayout({
@@ -13,7 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.className}>
+        {children}
+      </body>
     </html>
   );
 }

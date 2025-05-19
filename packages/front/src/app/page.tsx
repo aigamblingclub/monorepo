@@ -3,14 +3,24 @@
 import React, { useEffect, useState, ReactNode } from 'react';
 import { PokerTable } from '../components/PokerTable';
 import { PokerState } from '../types/poker';
+import { WalletProvider } from "@/providers/WalletProvider";
+import { WalletButton } from "@/components/WalletButton";
 
 function PageLayout({ children }: { children: ReactNode }) {
   return (
-    <div className=" bg-black flex flex-col justify-center items-center">
-      <h1 className="title">AI Gambling Club</h1>
-      <h2 className="subtitle">Poker Texas Hold&apos;em</h2>
-      {children}
-    </div>
+    <WalletProvider>
+      <div className=" bg-black ">
+        <header className="w-full flex justify-between items-start">
+          <div style={{ width: '150px' }}></div>
+          <div className="flex flex-col justify-center items-center">
+            <h1 className="title">AI Gambling Club</h1>
+            <h2 className="subtitle">Poker Texas Hold&apos;em</h2>
+          </div>
+          <WalletButton />
+        </header>
+        {children}
+      </div>
+    </WalletProvider>
   );
 }
 

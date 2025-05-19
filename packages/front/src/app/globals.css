@@ -61,7 +61,6 @@
   --text-color: #ffffff;
 }
 
-
 /* Poker Stars Theme */
 [data-theme="poker-stars"] {
   /* Theme-specific variables */
@@ -99,11 +98,6 @@
   --foreground-rgb: 255, 255, 255;
   --background-rgb: 0, 0, 0;
 }
-
-
-
-
-
 
 html {
   color-scheme: dark;
@@ -303,4 +297,22 @@ body {
 }
 .text-neon-red {
   color: var(--theme-alert) !important;
+}
+
+/* Wallet Button Styles */
+.wallet-button {
+  padding: 0.5rem 1rem;
+  font-family: "Courier New", monospace;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-width: var(--border-width);
+  border-radius: var(--border-radius-element);
+  border-color: var(--theme-primary);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  background-color: var(--surface-secondary);
+  color: var(--theme-primary);
+  box-shadow: 0 0 var(--shadow-strength) var(--theme-primary),
+              inset 0 0 var(--shadow-inner-strength) var(--theme-primary);
+  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-primary);
 }
