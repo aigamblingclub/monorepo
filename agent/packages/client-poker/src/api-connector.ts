@@ -72,6 +72,10 @@ export class ApiConnector {
         return this.baseUrl;
     }
 
+    getWebSocketState(): number | null {
+        return this.ws?.readyState ?? null;
+    }
+
     getPlayerId(): string | null {
         return this.playerId;
     }
@@ -240,45 +244,29 @@ export class ApiConnector {
 
     async getAvailableGames(): Promise<AvailableGame[]> {
         try {
-            // In the Effect backend, we don't have multiple games
-            // We'll return a single game with the current state
-            const state = await this.getCurrentState();
+            const response = await fetch(`${this.baseUrl}/games`, {
+                headers: this.getHeaders(),
+            });
 
-            // Check if the game is in a state where it can accept new players
-            const canJoinGame = state.status === "WAITING"; // || state.winningPlayerId !== undefined;
-
-            if (!canJoinGame) {
-                elizaLogger.info(
-                    `Game is in state ${state.status}, cannot join`
-                );
-                return [];
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            // Check if the game is full (more than 9 players)
-            // const playerCount = Object.keys(state.players).length;
-            // const isGameFull = playerCount >= 9;
-
-            // if (isGameFull) {
-            //     elizaLogger.info(`Game is full with ${playerCount} players`);
-            //     return [];
-            // }
-
-            // elizaLogger.info(`Game is available with ${playerCount} players`);
-            return [
-                {
-                    id: "default",
-                    players: Object.values(state.players).map((player) => ({
-                        id: player.id,
-                        name: player.id, // We don't have names in the new model
-                        isReady: state.status !== "PLAYING",
-                    })),
-                    createdAt: new Date().toISOString(),
-                    state: state.status,
-                },
-            ];
+            const data = await response.json();
+            return data.games.map((game: any) => ({
+                id: game.id,
+                players: game.players.map((p: any) => ({
+                    id: p.id,
+                    playerName: p.playerName || "Unknown",
+                    status: p.status || "PLAYING"
+                })),
+                createdAt: game.createdAt,
+                tableStatus: game.tableStatus || "WAITING",
+                playersNeeded: game.playersNeeded
+            }));
         } catch (error) {
-            elizaLogger.error("Error getting available games:", error);
-            return [];
+            elizaLogger.error("Error fetching available games:", error);
+            throw error;
         }
     }
 
@@ -477,47 +465,31 @@ export class ApiConnector {
 
     // Conversion methods
     convertPokerStateToGameState(state: PokerState): GameState {
-        const players: PlayerState[] = Object.values(state.players).map(
-            (player) => ({
-                id: player.id,
-                name: player.id, // We don't have names in the new model
-                chips: player.chips,
-                isReady: state.status !== "PLAYING",
-                currentBet: player.bet.round,
-                isFolded: player.status === "FOLDED",
-                hand: player.hand.map((card) => ({
-                    rank: card.rank.toString(),
-                    suit: card.suit,
-                })),
-                status: player.status,
-            })
-        );
-
-        // const currentPlayer = players[state.currentPlayerIndex];
-
-
-
         return {
-            players,
-            tableStatus: state.status,
-            // : state.winningPlayerId
-            //     ? "showdown"
-            //     : "preflop", // When playing, start with preflop
-            pot: state.pot,
-            isGameOver: state.status === "ROUND_OVER",
-            lastUpdateTime: new Date().toISOString(),
-            currentBet: state.bet,
-            currentPlayerIndex: state.currentPlayerIndex,
-            communityCards: state.community.map((card) => ({
-                rank: card.rank.toString(),
-                suit: card.suit,
+            players: state.players.map((player) => ({
+                id: player.id,
+                playerName: player.playerName,
+                status: player.status,
+                chips: player.chips,
+                hand: player.hand.length > 0 ? [...player.hand] : undefined,
+                bet: { ...player.bet },
             })),
-            winner: state.winner ? {
-                id: state.winner,
-                // name: state.winner,
-                // winningHand: [],
-                // handDescription: "",
-            } : undefined,
+            tableStatus: state.status,
+            pot: state.pot,
+            currentPlayerIndex: state.currentPlayerIndex,
+            dealerId: state.dealerId,
+            winner: state.winner,
+            round: {
+                phase: state.round.phase,
+                roundNumber: state.round.roundNumber,
+                roundPot: state.round.roundPot,
+                currentBet: state.round.currentBet,
+                foldedPlayers: [...state.round.foldedPlayers],
+                allInPlayers: [...state.round.allInPlayers],
+            },
+            communityCards: [...state.community],
+            config: { ...state.config },
+            roundHistory: [],  // Initialize empty array for round history
         };
     }
 
@@ -525,19 +497,17 @@ export class ApiConnector {
         switch (decision.action) {
             case PlayerAction.FOLD:
                 return { type: "fold" };
-            case PlayerAction.CHECK:
-                return { type: "call" }; // same as call in the backend
             case PlayerAction.CALL:
                 return { type: "call" };
             case PlayerAction.ALL_IN:
                 return { type: "all_in" };
             case PlayerAction.RAISE:
-                return {
-                    type: "raise",
-                    amount: decision.amount || 0,
-                };
+                if (!decision.amount) {
+                    throw new Error("Raise action requires an amount");
+                }
+                return { type: "raise", amount: decision.amount };
             default:
-                throw new Error(`Unknown decision action: ${decision.action}`);
+                throw new Error(`Unsupported action: ${decision.action}`);
         }
     }
 

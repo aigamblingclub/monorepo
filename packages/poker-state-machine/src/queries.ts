@@ -25,12 +25,36 @@ export function roundRotation(state: PokerState): readonly PlayerState[] {
 
 export const currentPlayer = (state: PokerState) => state.players[state.currentPlayerIndex]
 
-export const bigBlind = (state: PokerState) => state.players[(findDealerIndex(state) + 1) % state.players.length]
+export const smallBlind = (state: PokerState) => {
+    const dealerIndex = findDealerIndex(state)
+    // In heads-up play, dealer is small blind
+    if (state.players.length === 2) {
+        return state.players[dealerIndex]
+    }
+    // In regular play, small blind is left of dealer
+    return state.players[(dealerIndex + 1) % state.players.length]
+}
 
-export const smallBlind = (state: PokerState) => state.players[(findDealerIndex(state) + 2) % state.players.length]
+export const bigBlind = (state: PokerState) => {
+    const dealerIndex = findDealerIndex(state)
+    // In heads-up play, non-dealer is big blind
+    if (state.players.length === 2) {
+        return state.players[(dealerIndex + 1) % 2]
+    }
+    // In regular play, big blind is two left of dealer
+    return state.players[(dealerIndex + 2) % state.players.length]
+}
 
 export const playerView = (state: PokerState, playerId: string): PlayerView => {
     const player = state.players.find(p => p.id === playerId)!
+    const isShowdown = state.round.phase === 'RIVER' && state.status === 'ROUND_OVER';
+    
+    // Get active players (not folded)
+    const activePlayers = state.players.filter(p => p.status !== 'FOLDED');
+    const allRemainingPlayersAllIn = activePlayers.length > 0 && activePlayers.every(p => p.status === 'ALL_IN');
+    
+    const shouldShowOpponentHands = isShowdown || allRemainingPlayersAllIn;
+
     return {
         hand: player.hand ?? [],
         community: state.community,
@@ -39,10 +63,16 @@ export const playerView = (state: PokerState, playerId: string): PlayerView => {
         bigBlindId: Option.fromNullable(bigBlind(state)?.id),
         smallBlindId: Option.fromNullable(smallBlind(state)?.id),
         currentPlayerId: Option.fromNullable(currentPlayer(state)?.id),
-        // winningPlayerId: state.winningPlayerId,
         pot: state.pot,
-        bet: state.bet,
+        round: state.round,
         player,
-        opponents: state.players.filter(p => p.id !== playerId).map(({ status, chips, bet }) => ({ status, chips, bet }) )
+        opponents: state.players
+            .filter(p => p.id !== playerId)
+            .map(p => ({
+                status: p.status,
+                chips: p.chips,
+                bet: p.bet,
+                hand: shouldShowOpponentHands && p.status !== 'FOLDED' ? p.hand : []
+            }))
     }
 }
