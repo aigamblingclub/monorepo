@@ -96,7 +96,7 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
     }
     
     // First, check if the contract is already initialized
-    const isInitialized = await isContractInitialized(contractName);
+    const { isInitialized, admin } = await isContractInitialized(contractName);
     if (verbose) {
       console.info(`[INFO][DEPLOY] Contract is initialized: ${isInitialized}`);
     }
@@ -104,7 +104,7 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
     // First, create the account if it doesn't exist
     try {
       // Calculate gas and deposit for deployment
-      const gas = utils.format.parseNearAmount('0.00000000003'); // 300 Tgas
+      const gas = '300000000000000';
 
       const deployResult = await account.deployContract(wasmBinary);
 
@@ -134,7 +134,7 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
             if (verbose) {
               console.info(`[INFO][INIT] Contract initialization successful`);
             }
-            return { success: true, contractId: contractName };
+            return { success: true, contractId: contractName, alreadyInitialized: false };
           } catch (initError) {
             if (initError.toString().includes('Contract already initialized')) {
               if (verbose) {
@@ -151,7 +151,7 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
         }
       }
 
-      return { success: true, contractId: contractName };
+      return { success: true, contractId: contractName, alreadyInitialized: false };
     } catch (error) {
       // Check if the error is because the contract is already initialized
       if (error.toString().includes('Contract already initialized')) {
@@ -181,8 +181,12 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
  * @returns {Object} Method result
  */
 export async function callViewMethod(contractId, methodName, args = {}) {
-  const { NEAR_NODE_URL, NEAR_NETWORK } = process.env;
-  const provider = new providers.JsonRpcProvider(NEAR_NODE_URL || `https://rpc.${NEAR_NETWORK || 'testnet'}.near.org`);
+  const nodeUrl = process.env.NEAR_NODE_URL || 'https://rpc.testnet.near.org';
+  
+  const connectionConfig = {
+    url: nodeUrl
+  };
+  const provider = new providers.JsonRpcProvider(connectionConfig);
   
   try {
     const result = await provider.query({
