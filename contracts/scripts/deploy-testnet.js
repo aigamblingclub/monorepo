@@ -12,7 +12,7 @@ const __dirname = dirname(__filename);
 
 // Paths
 const buildDir = join(__dirname, '..', 'build');
-const contractFile = join(buildDir, 'ai-gaming-club.wasm');
+const contractFile = join(buildDir, 'ai-gambling-club.wasm');
 
 async function main() {
   // Check if contract file exists
@@ -27,23 +27,26 @@ async function main() {
   const accountId = args[0];
   const adminAccount = args[1];
   const usdcTokenContract = args[2] || 'usdc.fakes.testnet'; // Default USDC contract on testnet
+  const backendPublicKey = args[3]; // Backend public key for signature verification
 
   // Validate arguments
-  if (!accountId) {
-    console.error('Usage: deploy-testnet.js [account_id] [admin_account] [usdc_token_contract]');
+  if (!accountId || !backendPublicKey) {
+    console.error('Usage: deploy-testnet.js [account_id] [admin_account] [usdc_token_contract] [backend_public_key]');
     console.error('  account_id: The account ID to deploy the contract to');
     console.error('  admin_account: The account ID of the admin (default: same as account_id)');
-    console.error('  usdc_token_contract: The account ID of the USDC token contract (default: usdc.testnet)');
+    console.error('  usdc_token_contract: The account ID of the USDC token contract (default: usdc.fakes.testnet)');
+    console.error('  backend_public_key: The Ed25519 public key for signature verification (base64 encoded)');
     process.exit(1);
   }
 
   // Set default admin account if not provided
   const finalAdminAccount = adminAccount || accountId;
 
-  console.log(`Deploying AI Gaming Club contract to testnet...`);
+  console.log(`Deploying AI Gambling Club contract to testnet...`);
   console.log(`Account ID: ${accountId}`);
   console.log(`Admin Account: ${finalAdminAccount}`);
   console.log(`USDC Token Contract: ${usdcTokenContract}`);
+  console.log(`Backend Public Key: ${backendPublicKey}`);
 
   try {
     // Login to NEAR account
@@ -64,15 +67,16 @@ async function main() {
       // Initialize the contract
       console.log(`\nInitializing contract...`);
       execSync(
-        `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${usdcTokenContract}"}' --accountId ${accountId} --networkId testnet`,
+        `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${usdcTokenContract}", "backend_public_key": "${backendPublicKey}"}' --accountId ${accountId} --networkId testnet`,
         { stdio: 'inherit' }
       );
     }
 
     console.log(`\nContract deployed successfully!`);
     console.log(`Contract: ${accountId}`);
-    console.log(`Admin: ${admin ? admin : adminAccount ? adminAccount : accountId}`);
+    console.log(`Admin: ${adminAccount ? adminAccount : finalAdminAccount}`);
     console.log(`USDC Token Contract: ${usdcTokenContract}`);
+    console.log(`Backend Public Key: ${backendPublicKey}`);
     console.log(`Explorer URL: https://explorer.testnet.near.org/accounts/${accountId}`);
   } catch (error) {
     console.error('Error deploying contract:', error.message);
