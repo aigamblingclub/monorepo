@@ -229,4 +229,19 @@ export async function callWriteMethod(account, contractId, methodName, args = {}
     console.error(`Error calling change method ${methodName}:`, error);
     throw error;
   }
+}
+
+/**
+ * Helper function to generate Ed25519 signature using NEAR's implementation
+ * @param {string} message - The message to sign
+ * @param {string} privateKey - The Ed25519 private key in NEAR format (ed25519:...)
+ * @returns {string} The base64 encoded signature
+ */
+export function signMessage(message, privateKey) {
+  // Create a KeyPair from the private key
+  const keyPair = utils.KeyPair.fromString(privateKey);
+  
+  // Sign the message using NEAR's Ed25519
+  const messageBuffer = Buffer.from(message);
+  return keyPair.sign(messageBuffer).signature.toString('base64');
 } 
