@@ -1,24 +1,16 @@
-import { elizaLogger } from "@elizaos/core";
+import { elizaLogger, stringToUuid } from "@elizaos/core";
 import {
     GameState,
     PokerDecision,
-    AvailableGamesResponse,
     AvailableGame,
-    PlayerState,
-    Card,
-    WinnerInfo,
     PlayerAction,
 } from "./game-state";
 import {
     GameEvent,
     PlayerView,
     PokerState,
-    ProcessEventError,
-    ProcessStateError,
     PlayerEvent,
-    SystemEvent,
     Move,
-    TableAction,
 } from "./schemas";
 
 export class ApiConnector {
@@ -285,14 +277,15 @@ export class ApiConnector {
     }): Promise<string> {
         await this.connect();
 
-        const playerId = this.playerId || `player-${Date.now()}`;
+        const playerId = stringToUuid(playerName);
         this.setPlayerId(playerId);
         this.setPlayerName(playerName);
 
         // Send join event
         const event: PlayerEvent = {
             type: "table",
-            playerId, // TODO: add player name??
+            playerId,
+            playerName,
             action: "join",
         };
 
@@ -313,6 +306,7 @@ export class ApiConnector {
         const event: PlayerEvent = {
             type: "table",
             playerId,
+            playerName: this.playerName,
             action: "leave",
         };
 
@@ -496,16 +490,16 @@ export class ApiConnector {
     private convertDecisionToMove(decision: PokerDecision): Move {
         switch (decision.action) {
             case PlayerAction.FOLD:
-                return { type: "fold" };
+                return { type: "fold", decisionContext: decision.decisionContext };
             case PlayerAction.CALL:
-                return { type: "call" };
+                return { type: "call", decisionContext: decision.decisionContext };
             case PlayerAction.ALL_IN:
-                return { type: "all_in" };
+                return { type: "all_in", decisionContext: decision.decisionContext };
             case PlayerAction.RAISE:
                 if (!decision.amount) {
                     throw new Error("Raise action requires an amount");
                 }
-                return { type: "raise", amount: decision.amount };
+                return { type: "raise", amount: decision.amount, decisionContext: decision.decisionContext };
             default:
                 throw new Error(`Unsupported action: ${decision.action}`);
         }

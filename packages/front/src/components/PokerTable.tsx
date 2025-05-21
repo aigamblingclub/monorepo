@@ -1,13 +1,15 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Card } from './Card';
 import { Player } from './Player';
 import { PokerState, formatChips, getPhaseLabel } from '../types/poker';
-import { BettingPanel } from './BettingPanel';
-import { usePlayerBetting } from '../hooks/usePlayerBetting';
 
 interface PokerTableProps {
   gameState: PokerState;
-  contractId: string;
+  playerBets: Array<{
+    playerId: string;
+    totalContractBet: number;
+    userContractBet: number;
+  }>;
 }
 
 const getPlayerPosition = (index: number, totalPlayers: number): 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 => {
@@ -19,27 +21,8 @@ const getPlayerPosition = (index: number, totalPlayers: number): 1 | 2 | 3 | 4 |
 
 export const PokerTable: React.FC<PokerTableProps> = ({ 
   gameState,
-  contractId
+  playerBets
 }) => {
-  // Use the betting hook directly with contract ID
-  const {
-    playerBets,
-    userBalance,
-    loading,
-    error,
-    placeBet,
-    isConnected
-  } = usePlayerBetting({
-    contractId
-  });
-
-  // Debug logs to check connection state
-  useEffect(() => {
-    console.log('🔍 NEAR wallet state in PokerTable (direct):', {
-      connected: isConnected
-    });
-  }, [isConnected]);
-
   return (
     <div className="h-full bg-black flex flex-row">
       {/* Main poker table */}
@@ -71,10 +54,10 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             <div className="center-area">
               {/* Game status */}
               <div className="game-status">
-                {gameState.status === "WAITING" && "Waiting for players..."}
-                {gameState.status === "ROUND_OVER" && gameState.winner && `Winner: ${gameState.winner}`}
-                {gameState.status === "GAME_OVER" && gameState.winner && `Game Over - Winner: ${gameState.winner}`}
-                {gameState.status === "PLAYING" && (
+                {gameState.tableStatus === "WAITING" && "Waiting for players..."}
+                {gameState.tableStatus === "ROUND_OVER" && gameState.winner && `Winner: ${gameState.winner}`}
+                {gameState.tableStatus === "GAME_OVER" && gameState.winner && `Game Over - Winner: ${gameState.winner}`}
+                {gameState.tableStatus === "PLAYING" && (
                   <>
                     <div>Phase: {getPhaseLabel(gameState.round.phase)}</div>
                     <div>Round: {gameState.round.roundNumber}</div>
@@ -104,27 +87,6 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Betting sidebar */}
-      <div className="w-80 p-4">
-        <BettingPanel
-          players={[...gameState.players]}
-          playerBets={playerBets}
-          onPlaceBet={placeBet}
-          userBalance={userBalance}
-          isLoggedIn={isConnected}
-        />
-        {error && (
-          <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
-            <p className="text-theme-alert text-shadow-red text-sm">{error}</p>
-          </div>
-        )}
-        {loading && (
-          <div className="mt-4 text-center">
-            <p className="text-theme-secondary text-shadow-cyan text-sm">Loading...</p>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -10,9 +10,9 @@ import {
     stringToUuid,
     Content
 } from "@elizaos/core";
-import { GameState, PlayerAction, PokerDecision, Card } from "./game-state";
+import { GameState, PlayerAction, PokerDecision } from "./game-state";
 import { ApiConnector } from "./api-connector";
-import { PokerState, PlayerView, GameEvent } from "./schemas";
+import { PokerState, PlayerView, GameEvent, Card } from "./schemas";
 import { embed } from "@elizaos/core";
 
 export interface PokerClientConfig {
@@ -36,7 +36,7 @@ interface ExtendedCharacter {
 interface PokerContent extends Content {
     gameId: string;
     roundId?: string;
-    pokerAction: ExtendedPokerDecision;
+    pokerAction: PokerDecision;
     gameState: {
         pot: number;
         playerCards?: readonly Card[];
@@ -73,17 +73,6 @@ interface PokerContent extends Content {
         opponentActions?: string[];
         opponentFinalCards?: readonly Card[];
     };
-}
-
-// Add this near the top of the file, with other interfaces
-interface ExtendedPokerDecision extends PokerDecision {
-    thinking?: string;
-    explanation?: string;
-    analysis?: string;
-    reasoning?: string;
-    strategy?: string;
-    logic?: string;
-    roleplay?: string;
 }
 
 export class PokerClient implements Client {
@@ -124,6 +113,7 @@ export class PokerClient implements Client {
         // Initialize API connector with both URL and API key
         this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey, config.playerName);
         elizaLogger.info("Poker client created with API endpoint:", apiBaseUrl);
+
         // elizaLogger.debug("API key configured:", {
         //     apiKeyLength: config.apiKey.length,
         // });
@@ -165,18 +155,6 @@ export class PokerClient implements Client {
         // Start polling to check game state or find available games
         this.intervalId = setInterval(async () => {
             try {
-                // If not in a game, try to find and join one
-                // if (!this.gameId) {
-                //     const now = Date.now();
-                //     // Only attempt to join if enough time has passed since last attempt
-                //     if (now - this.lastJoinAttempt >= this.joinBackoffMs) {
-                //         this.lastJoinAttempt = now;
-
-                //         // Check if already in a game or try to enter a new one
-                //         await this.checkAndConnectToExistingGame();
-                //     }
-                // }
-
                 // I think that we will not need because of the websocket listener
                 // If in a game, check for game state updates
                 if (this.isConnected) {
@@ -555,6 +533,7 @@ export class PokerClient implements Client {
         if (isOurTurn && player && player.status === "PLAYING") {
             try {
                 const decision = await this.makeDecision(gameState);
+                elizaLogger.debug("Decision made 1111:", decision);
                 await this.apiConnector.submitAction({
                     playerId: this.playerId!,
                     decision,
@@ -653,12 +632,13 @@ export class PokerClient implements Client {
 
             return memories;
         } catch (error) {
+            console.error("Error in semantic memory search:",error)
             elizaLogger.error("Error in semantic memory search:", error);
             return [];
         }
     }
 
-    private async makeDecision(gameState: GameState): Promise<ExtendedPokerDecision> {
+    private async makeDecision(gameState: GameState): Promise<PokerDecision> {
         try {
             if (!this.runtime) return { action: PlayerAction.FOLD };
 
@@ -771,7 +751,12 @@ export class PokerClient implements Client {
 
             // Store memory in the database
             await this.runtime.messageManager.createMemory(memory);
-
+            elizaLogger.debug(
+                JSON.stringify({
+                    event: "teste",
+                    decision: decision,
+                })
+            );
             return decision;
         } catch (error) {
             // Log error in decision making
@@ -826,18 +811,24 @@ export class PokerClient implements Client {
                     }
                 }
 
-                return `- Similar situation analysis:
-  * Phase: ${content.gameState.phase}
-  * Pot size: ${content.gameState.pot} chips
-  * Community cards: ${content.gameState.communityCards.map(c => `${c.rank}${c.suit}`).join(', ')}
-  * Active players: ${content.gameState.players.filter(p => p.status === "PLAYING").length}
-  * My position: ${content.gameState.position}
-  * My action: ${content.pokerAction.action}${content.pokerAction.amount ? ` (${content.pokerAction.amount})` : ''}
-  * Strategy used: ${content.pokerAction.strategy || 'Not recorded'}
-  * Outcome: ${resultDescription}`;
-            }).join('\n\n');
+                return [
+                    `- Similar situation analysis:`,
+                    `  * Phase: ${content.gameState.phase}`,
+                    `  * Pot size: ${content.gameState.pot} chips`,
+                    `  * Community cards: ${content.gameState.communityCards.map(c => `${c.rank}${c.suit}`).join(', ')}`,
+                    `  * Active players: ${content.gameState.players.filter(p => p.status === "PLAYING").length}`,
+                    `  * My position: ${content.gameState.position}`,
+                    `  * My action: ${content.pokerAction.action}${content.pokerAction.amount ? ` (${content.pokerAction.amount})` : ''}`,
+                    `  * Strategy used: ${content.pokerAction.decisionContext?.strategy || 'Not recorded'}`,
+                    `  * Outcome: ${resultDescription}`
+                ].join('\n');
+            });
 
-            memoryContext = `\n\nLearned from previous similar situations:\n${memoryAnalysis}\n\nUse these past experiences to inform your current decision, noting which strategies led to positive outcomes.`;
+            memoryContext = [
+                `\n\nLearned from previous similar situations:`,
+                memoryAnalysis.join("\n\n"),
+                `\n\nUse these past experiences to inform your current decision, noting which strategies led to positive outcomes.`,
+            ].join("\n");
         }
 
         return `${baseContext}${memoryContext}`;
@@ -846,23 +837,24 @@ export class PokerClient implements Client {
     private prepareSystemPrompt(gameState: GameState): string {
         const character = this.runtime?.character as any;
 
-        const bio = typeof character?.bio === 'string' ? character.bio : '';
-        const lore = typeof character?.lore === 'string' ? character.lore : '';
+        const bio = Array.isArray(this.runtime?.character.bio) ? this.runtime?.character.bio.join("\n") : this.runtime?.character.bio;
+        const lore = Array.isArray(this.runtime?.character.lore) ? this.runtime?.character.lore.join("\n") : this.runtime?.character.lore;
+
         const response = {
             action: 'One of ["FOLD", "CHECK", "CALL", "RAISE", "ALL-IN"]',
-            amount: "number (required only for RAISE, represents total bet amount including current bet)",
+            amount: "number (required only for RAISE, represents total bet amount including current bet) as a single string",
             thinking:
-                "Your internal thought process, including psychological reads and strategic considerations,",
+                "Your internal thought process, including psychological reads and strategic considerations as a single string,",
             explanation:
-                "A technical explanation of the mathematical and strategic reasons for your decision,",
+                "A technical explanation of the mathematical and strategic reasons for your decision as a single string,",
             analysis:
-                "A detailed breakdown of the current game situation and your position,",
-            reasoning: "The logical steps that led to your decision,",
+                "A detailed breakdown of the current game situation and your position as a single string,",
+            reasoning: "The logical steps that led to your decision as a single string,",
             strategy:
-                "Your tactical approach and how this action fits into your broader game plan,",
-            logic: "The fundamental poker concepts and principles guiding your decision,",
+                "Your tactical approach and how this action fits into your broader game plan as a single string,",
+            logic: "The fundamental poker concepts and principles guiding your decision as a single string,",
             roleplay:
-                "A character-appropriate comment or reaction showing your emotional state",
+                "A character-appropriate comment or reaction showing your emotional state as a single string",
         };
 
         const responseExample = {
@@ -882,60 +874,56 @@ export class PokerClient implements Client {
             roleplay:
                 "*adjusts sunglasses and confidently pushes forward a stack of chips*",
         };
-        return `You are an experienced poker player named ${
-            character?.name || "PokerBot"
-        }.
 
-    # Knowledge
-    ${this.POKER_RULES}
+        const systemPrompt = [
+            `You are an experienced poker player named ${
+                character?.name || "PokerBot"
+            }.`,
+            `# Knowledge`,
+            `${this.POKER_RULES}`,
+            `# About You`,
+            `${bio}`,
+            `${lore}`,
+            `# Game State`,
+            `At the table we have ${gameState.players.length} players. At table ${this.gameId}`,
+            `Your goal is to maximize your winnings using advanced poker strategy while staying true to your character.`,
+            `# Decision Considerations`,
+            `Consider the following elements for your decision:`,
+            `1. Hand Strength Analysis`,
+            `- Current hand strength`,
+            `- Potential for improvement`,
+            `- Position at the table`,
+            `- Pot odds and implied odds`,
+            `2. Player Psychology`,
+            `- Your table image`,
+            `- Opponent tendencies`,
+            `- Your character's personality impact`,
+            `3. Strategic Elements`,
+            `- Stack sizes and betting patterns`,
+            `- Position and table dynamics`,
+            `- Stage of the tournament/game`,
+            `- Risk/reward balance`,
+            `4. Previous Experiences`,
+            `- Learn from past similar situations`,
+            `- Adapt based on results`,
+            `- Consider successful patterns`,
+            `IMPORTANT: Respond with a JSON object containing the following fields:`,
+            `{`,
+            `${Object.keys(response).map(key => `${key}: ${response[key]}`).join('\n')}`,
+            `}`,
+            `Example response:`,
+            `{`,
+            `${Object.keys(responseExample).map(key => `${key}: ${responseExample[key]}`).join('\n')}`,
+            `}`,
+            `IMPORTANT FORMAT RULES:`,
+            `1. All fields must be strings, not objects or arrays`,
+            `2. The analysis field must be a single string containing all analysis points`,
+            `3. Do not use nested objects or arrays in any field`,
+            `4. Ensure your response is a valid JSON object with all required fields.`,
+        ].join('\n');
 
-    # About You
-    ${bio}
-    ${lore}
-
-    At the table we have ${gameState.players.length} players. At table ${
-            this.gameId
-        }
-    Your goal is to maximize your winnings using advanced poker strategy while staying true to your character.
-
-    Consider the following elements for your decision:
-    1. Hand Strength Analysis
-    - Current hand strength
-    - Potential for improvement
-    - Position at the table
-    - Pot odds and implied odds
-
-    2. Player Psychology
-    - Your table image
-    - Opponent tendencies
-    - Your character's personality impact
-
-    3. Strategic Elements
-    - Stack sizes and betting patterns
-    - Position and table dynamics
-    - Stage of the tournament/game
-    - Risk/reward balance
-
-    4. Previous Experiences
-    - Learn from past similar situations
-    - Adapt based on results
-    - Consider successful patterns
-
-    IMPORTANT: Respond with a JSON object containing the following fields:
-        {
-            ${Object.keys(response)
-                .map((key) => `${key}: ${response[key]}`)
-                .join("\n")}
-        }
-
-        Example response:
-        {
-            ${Object.keys(responseExample)
-                .map((key) => `${key}: ${responseExample[key]}`)
-                .join("\n")}
-        }
-
-        Ensure your response is a valid JSON object with all required fields.`;
+        elizaLogger.debug("System prompt:", systemPrompt);
+        return systemPrompt;
     }
 
     private prepareBaseGameContext(gameState: GameState): string {
@@ -958,26 +946,29 @@ export class PokerClient implements Client {
             )
             .join(", ");
 
-        return `
-Current game state:
-- Your chips: ${player.chips}
-- Pot: ${gameState.pot}
-- Current bet: ${gameState.round.currentBet}
-- Round phase: ${gameState.round.phase}
-- Round number: ${gameState.round.roundNumber}
-- Your position: ${
-            gameState.currentPlayerIndex === gameState.players.findIndex((p) => p.id === this.playerId)
-                ? "Your turn"
-                : "Waiting"
-        }
-- Opponents: ${opponentInfo}
-- Community cards: ${this.formatCards(gameState.communityCards)}
-${
-            player.hand && player.hand.length > 0
+        const baseGameContext = [
+            `Current game state:`,
+            `- Your chips: ${player.chips}`,
+            `- Pot: ${gameState.pot}`,
+            `- Current bet: ${gameState.round.currentBet}`,
+            `- Round phase: ${gameState.round.phase}`,
+            `- Round number: ${gameState.round.roundNumber}`,
+            `- Your position: ${
+                gameState.currentPlayerIndex === gameState.players.findIndex((p) => p.id === this.playerId)
+                    ? "Your turn"
+                    : "Waiting"
+            }`,
+            `- Opponents: ${opponentInfo}`,
+            `- Community cards: ${this.formatCards(gameState.communityCards)}`,
+            `${
+                player.hand && player.hand.length > 0
                 ? `- Your cards: ${this.formatCards(player.hand)}`
                 : ""
-        }
-`;
+            }`,
+        ].join('\n');
+
+        elizaLogger.debug("Base game context:", baseGameContext);
+        return baseGameContext;
     }
 
     private formatCard(card: Card): string {
@@ -1002,7 +993,7 @@ ${
         return cards.map((card) => this.formatCard(card)).join(" ");
     }
 
-    private parseAgentResponse(response: string): ExtendedPokerDecision {
+    private parseAgentResponse(response: string): PokerDecision {
         try {
             // Log the raw response
             elizaLogger.debug("Raw response from agent:", response);
@@ -1025,15 +1016,17 @@ ${
             }
 
             // Build the decision object with all analysis fields
-            const decision: ExtendedPokerDecision = {
+            const decision: PokerDecision = {
                 action: action as PlayerAction,
-                thinking: parsed.thinking || '',
-                explanation: parsed.explanation || '',
-                analysis: parsed.analysis || '',
-                reasoning: parsed.reasoning || '',
-                strategy: parsed.strategy || '',
-                logic: parsed.logic || '',
-                roleplay: parsed.roleplay || ''
+                decisionContext: {
+                    thinking: parsed.thinking || '',
+                    explanation: parsed.explanation || '',
+                    analysis: parsed.analysis || '',
+                    reasoning: parsed.reasoning || '',
+                    strategy: parsed.strategy || '',
+                    logic: parsed.logic || '',
+                    roleplay: parsed.roleplay || ''
+                }
             };
 
             // Add amount if it's a RAISE action
@@ -1048,17 +1041,7 @@ ${
             // Log the complete decision with all fields
             elizaLogger.workflow(JSON.stringify({
                 event: 'POKER_DECISION_PARSED',
-                decision: {
-                    action: decision.action,
-                    amount: 'amount' in decision ? decision.amount : undefined,
-                    thinking: decision.thinking,
-                    explanation: decision.explanation,
-                    analysis: decision.analysis,
-                    reasoning: decision.reasoning,
-                    strategy: decision.strategy,
-                    logic: decision.logic,
-                    roleplay: decision.roleplay
-                }
+                decision: decision
             }));
 
             return decision;
@@ -1069,13 +1052,15 @@ ${
             // In case of error, return FOLD with error explanation
             return {
                 action: PlayerAction.FOLD,
-                thinking: "Error occurred, choosing safest option",
-                explanation: "Error parsing JSON response, folding for safety",
-                analysis: "Unable to properly analyze the situation due to error",
-                reasoning: "Error handling requires conservative play",
-                strategy: "Default to safe play when uncertain",
-                logic: "When system errors occur, minimize potential losses",
-                roleplay: "*looks confused and folds*"
+                decisionContext: {
+                    thinking: "Error occurred, choosing safest option",
+                    explanation: "Error parsing JSON response, folding for safety",
+                    analysis: "Unable to properly analyze the situation due to error",
+                    reasoning: "Error handling requires conservative play",
+                    strategy: "Default to safe play when uncertain",
+                    logic: "When system errors occur, minimize potential losses",
+                    roleplay: "*looks confused and folds*"
+                }
             };
         }
     }

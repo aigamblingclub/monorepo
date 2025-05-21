@@ -1,4 +1,4 @@
-import { TableStatus, RoundPhase, Card as SchemaCard, PlayerStatus } from "./schemas";
+import { TableStatus, RoundPhase, Card, PlayerStatus, DecisionContext } from "./schemas";
 
 export enum PlayerAction {
     FOLD = "FOLD",
@@ -10,12 +10,13 @@ export enum PlayerAction {
 export interface PokerDecision {
     action: PlayerAction;
     amount?: number;
+    decisionContext?: DecisionContext;
 }
 
-export type Card = {
-    readonly rank: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
-    readonly suit: "spades" | "diamonds" | "clubs" | "hearts";
-};
+// export type Card = {
+//     readonly rank: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+//     readonly suit: "spades" | "diamonds" | "clubs" | "hearts";
+// };
 
 export interface RoundState {
     phase: RoundPhase;
