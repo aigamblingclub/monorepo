@@ -6,21 +6,20 @@ import { determineWinningPlayers, getShuffledDeck, type RiverCommunity } from ".
 import { bigBlind, findDealerIndex, firstPlayerIndex, rotated, roundRotation, smallBlind } from "./queries"
 import type { Card, Move, PlayerState, PokerState, StateMachineError, ProcessEventError } from "./schemas"
 import { PLAYER_DEFAULT_STATE } from "./state_machine"
-import { commit } from "effect/STM"
-
 
 export const SMALL_BLIND = 10
 export const BIG_BLIND = 20
 
 // precondition: waiting for players | finished previous round
-export function addPlayer(state: PokerState, playerId: string): PokerState {
+export function addPlayer(state: PokerState, playerId: string, playerName: string): PokerState {
   return {
     ...state,
     players: [
         ...state.players,
         {
             ...PLAYER_DEFAULT_STATE,
-            id: playerId
+            id: playerId,
+            playerName: playerName
         }
     ]
   }
@@ -50,7 +49,7 @@ export function dealCards(state: PokerState): PokerState {
 
     return {
         ...state,
-        status: 'PLAYING',
+        tableStatus: 'PLAYING',
         deck,
         community: [],
         players: state.players.map((p, i) => ({
@@ -340,21 +339,27 @@ export function showdown(state: PokerState): Effect.Effect<PokerState, StateMach
     }
 
     return Effect.succeed({
-      ...state,
-      status: "ROUND_OVER",
-      pot: 0, // Reset pot after distributing rewards
-      foldedPlayers: [],
-      allInPlayers: [],
-      winner:
-        state.players.find((p) => (rewards.get(p.id) ?? 0) > 0)?.id ?? null,
-      players: state.players.map((p) => ({
-        ...p,
-        chips: p.chips + (rewards.get(p.id) ?? 0),
-        bet: {
-          total: 0,
-          round: 0,
+        ...state,
+        tableStatus: "ROUND_OVER",
+        pot: 0, // Reset pot after distributing rewards
+        round: {
+            ...state.round,
+            phase: 'SHOWDOWN',
+            foldedPlayers: [],
+            allInPlayers: [],
+            currentBet: 0
         },
-      })),
+        lastMove: null,
+        winner: state.players.find((p) => (rewards.get(p.id) ?? 0) > 0)?.id ?? null,
+        players: state.players.map((p) => ({
+            ...p,
+            chips: p.chips + (rewards.get(p.id) ?? 0),
+            bet: {
+                total: 0,
+                round: 0,
+            },
+        })),
+        currentPlayerIndex: -1 // Reset current player index
     });
 }
 
@@ -395,6 +400,7 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
         ...state,
         status: 'PLAYING' as const,
         players: resetPlayers,
+        lastMove: null,
         dealerId: nextDealer.id,
         currentPlayerIndex: -1,
         deck: [],  // Will be set by startRound
@@ -417,6 +423,7 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
 export function endGame(state: PokerState): Effect.Effect<PokerState, ProcessEventError, never> {
     return Effect.succeed({
         ...state,
-        status: 'GAME_OVER'
+        status: 'GAME_OVER',
+        lastMove: null
     });
 }
