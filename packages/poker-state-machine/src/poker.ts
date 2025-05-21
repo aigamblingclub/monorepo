@@ -68,7 +68,7 @@ function combinations<T>(array: T[], k: number): T[][] {
 
 function compareHands(a: Hand, b: Hand): -1 | 0 | 1 {
     const indexA = ORDERED_HAND_TYPES.findIndex(ht => ht == a.type)
-    const indexB = ORDERED_HAND_TYPES.findIndex(ht => ht == a.type)
+    const indexB = ORDERED_HAND_TYPES.findIndex(ht => ht == b.type)
 
     if (indexA <  indexB) return -1
     if (indexA >  indexB) return +1
