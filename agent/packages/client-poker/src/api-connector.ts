@@ -468,7 +468,7 @@ export class ApiConnector {
                 hand: player.hand.length > 0 ? [...player.hand] : undefined,
                 bet: { ...player.bet },
             })),
-            tableStatus: state.status,
+            tableStatus: state.tableStatus,
             pot: state.pot,
             currentPlayerIndex: state.currentPlayerIndex,
             dealerId: state.dealerId,
