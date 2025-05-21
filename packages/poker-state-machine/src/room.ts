@@ -64,7 +64,6 @@ function computeNextState(
             return nextRound(state).pipe(
                 Effect.map(newState => ({
                     ...newState,
-                    lastMove: null
                 }))
             )
         }
@@ -72,7 +71,7 @@ function computeNextState(
             return endGame(state).pipe(
                 Effect.map(newState => ({
                     ...newState,
-                    lastMove: null
+                    //lastMove: null
                 }))
             )
         }
