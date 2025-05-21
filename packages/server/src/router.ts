@@ -1,5 +1,5 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
-import { Console, Effect, Schema, Stream } from "effect";
+import { Console, Effect, LogLevel, Schema, Stream } from "effect";
 import { makePokerRoom } from "poker-state-machine";
 import {
   ProcessingStateStreamErrorsSchema,
@@ -34,7 +34,7 @@ export class PokerRpc extends RpcGroup.make(
 export const PokerRpcLive = PokerRpc.toLayer(
   Effect.gen(function* () {
     // TODO: convert poker room to an Effect.Service and provide it
-    const ROOM = yield* makePokerRoom(2);
+    const ROOM = yield* makePokerRoom(2, LogLevel.Debug);
 
     return {
       currentState: (_payload, _headers) => {
