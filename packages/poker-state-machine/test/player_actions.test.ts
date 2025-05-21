@@ -19,11 +19,13 @@ describe('Player Actions', () => {
   // Helper function to create a basic poker state for testing
   function createTestState(players: PlayerState[], currentPlayerIndex = 0): PokerState {
     return {
-      status: "PLAYING",
+      tableId: "table-id",
+      tableStatus: "PLAYING",
       players,
       deck: [],
       community: [],
       pot: 0,
+      lastMove: null,
       round: {
         phase: "PRE_FLOP",
         roundNumber: 1,
@@ -53,7 +55,7 @@ describe('Player Actions', () => {
     const initialState = createTestState([player1, player2, player3], 0);
     
     // Player 1 folds
-    const fold: Move = { type: 'fold' };
+    const fold: Move = { type: 'fold', decisionContext: null };
     const result = await Effect.runPromise(processPlayerMove(initialState, fold));
     
     // Check that player status is updated
@@ -87,7 +89,7 @@ describe('Player Actions', () => {
     };
     
     // Player 1 calls the current bet of 20
-    const call: Move = { type: 'call' };
+    const call: Move = { type: 'call', decisionContext: null };
     const result = await Effect.runPromise(processPlayerMove(initialState, call));
     
     // Check that player chips are updated
@@ -120,7 +122,7 @@ describe('Player Actions', () => {
     };
     
     // Player 1 raises to 50
-    const raise: Move = { type: 'raise', amount: 50 };
+    const raise: Move = { type: 'raise', amount: 50, decisionContext: null };
     const result = await Effect.runPromise(processPlayerMove(initialState, raise));
     
     // Check that player chips are updated
@@ -156,7 +158,7 @@ describe('Player Actions', () => {
     };
     
     // Player 1 calls but only has 15 chips
-    const call: Move = { type: 'call' };
+    const call: Move = { type: 'call', decisionContext: null };
     const result = await Effect.runPromise(processPlayerMove(initialState, call));
     
     // Check that player went all-in
@@ -190,7 +192,7 @@ describe('Player Actions', () => {
     };
     
     // Player 1 tries to raise to 60 but only has 40 chips total
-    const raise: Move = { type: 'raise', amount: 60 };
+    const raise: Move = { type: 'raise', amount: 60, decisionContext: null };
     const result = await Effect.runPromise(processPlayerMove(initialState, raise));
     
     // Check that player went all-in

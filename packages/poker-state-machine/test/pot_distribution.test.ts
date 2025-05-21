@@ -41,8 +41,10 @@ describe('Pot Distribution', () => {
     ]
   ): PokerState {
     return {
-      status: "PLAYING",
+      tableId: "table-id",
+      tableStatus: "PLAYING",
       players,
+      lastMove: null,
       deck: [],
       community,
       pot,
@@ -78,7 +80,7 @@ describe('Pot Distribution', () => {
       const result = await Effect.runPromise(showdown(initialState));
       
       // Check that the game status is updated
-      expect(result.status).toBe('ROUND_OVER');
+      expect(result.tableStatus).toBe('ROUND_OVER');
       
       // Check that the winner is player3
       expect(result.winner).toBe('player3');
@@ -94,7 +96,7 @@ describe('Pot Distribution', () => {
       expect(player2After?.chips).toBe(80);
     } catch (error) {
       // If there's an error in the showdown function, the test will fail
-      console.log('Error in showdown function:', error);
+      // console.log('Error in showdown function:', error);
       throw error;
     }
   });
@@ -127,7 +129,7 @@ describe('Pot Distribution', () => {
       const result = await Effect.runPromise(showdown(initialState));
       
       // Basic structure checks
-      expect(result.status).toBe('ROUND_OVER');
+      expect(result.tableStatus).toBe('ROUND_OVER');
       expect(result.winner).toBeDefined();
       expect(result.pot).toBe(40); // Pot shouldn't change
       
@@ -138,7 +140,7 @@ describe('Pot Distribution', () => {
       }
     } catch (error) {
       // This test might fail without proper mocking of hand comparison
-      console.log('Error in showdown function (expected for this test):', error);
+      // console.log('Error in showdown function (expected for this test):', error);
     }
   });
 
@@ -156,7 +158,7 @@ describe('Pot Distribution', () => {
       const result = await Effect.runPromise(showdown(initialState));
       
       // Basic checks
-      expect(result.status).toBe('ROUND_OVER');
+      expect(result.tableStatus).toBe('ROUND_OVER');
       
       // The total of all players' chips should be 100 (starting) * 3 = 300
       const totalChips = result.players.reduce((sum, p) => sum + p.chips, 0);
@@ -168,7 +170,7 @@ describe('Pot Distribution', () => {
         expect(player.bet.total).toBe(0);
       }
     } catch (error) {
-      console.log('Error in showdown function (expected for complex pot distribution):', error);
+      // console.log('Error in showdown function (expected for complex pot distribution):', error);
     }
   });
 }); 

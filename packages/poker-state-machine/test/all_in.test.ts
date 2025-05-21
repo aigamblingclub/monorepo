@@ -19,7 +19,8 @@ describe('All-in functionality', () => {
   // Helper function to create a basic poker state for testing
   function createTestState(players: PlayerState[], currentPlayerIndex = 0): PokerState {
     return {
-      status: "PLAYING",
+      tableId: "table-id",
+      tableStatus: "PLAYING",
       players,
       deck: [],
       community: [],
@@ -32,6 +33,7 @@ describe('All-in functionality', () => {
         foldedPlayers: [],
         allInPlayers: [],
       },
+      lastMove: null,
       dealerId: players[0]?.id || '',
       currentPlayerIndex,
       winner: null,
@@ -92,7 +94,7 @@ describe('All-in functionality', () => {
     const initialState = createTestState([player1, player2]);
     
     // Mock the processPlayerMove function to avoid going to showdown
-    const allInMove: Move = { type: 'all_in' };
+    const allInMove: Move = { type: 'all_in', decisionContext: null };
     const processedState = playerBet(initialState, 'player1', player1.chips + player1.bet.round);
     
     // Verify the player went all-in correctly (without calling full processPlayerMove)
