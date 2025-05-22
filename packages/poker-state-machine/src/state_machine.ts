@@ -1,8 +1,10 @@
 import { type PlayerState, type PokerState } from "./schemas";
 
 export const POKER_ROOM_DEFAULT_STATE: PokerState = {
-  status: "WAITING",
+  tableId: "", // created in makePokerRoom
+  tableStatus: "WAITING",
   players: [],
+  lastMove: null,
   deck: [],
   community: [],
   pot: 0,
@@ -14,15 +16,15 @@ export const POKER_ROOM_DEFAULT_STATE: PokerState = {
     foldedPlayers: [],
     allInPlayers: [],
   },
-  dealerId: '',
+  dealerId: "",
   currentPlayerIndex: -1,
   winner: null,
   config: {
     maxRounds: null,
     startingChips: 100,
     smallBlind: 10,
-    bigBlind: 20
-  }
+    bigBlind: 20,
+  },
 };
 
 export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {

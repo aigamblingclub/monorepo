@@ -22,7 +22,7 @@ import { setupXDEFI } from "@near-wallet-selector/xdefi";
 import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet";
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import { useEffect, useState, useMemo } from "react";
-
+import { CONTRACT_ID } from "@/utils/constants";
 type ContractArgs = Record<string, unknown>;
 
 interface WalletState {
@@ -32,10 +32,6 @@ interface WalletState {
   accountId: string | null;
   isConnecting: boolean;
 }
-
-const CONTRACT_ID =
-  process.env.NEXT_PUBLIC_CONTRACT_ID ||
-  "new-test-account.aigamingclub.testnet";
 
 export function useNearWallet() {
   const [walletState, setWalletState] = useState<WalletState>({

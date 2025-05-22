@@ -37,8 +37,10 @@ describe('Phase Transitions', () => {
     ]
   ): PokerState {
     return {
-      status: "PLAYING",
+      tableId: "table-id",
+      tableStatus: "PLAYING",
       players,
+      lastMove: null,
       deck,
       community,
       pot: 0,
@@ -246,7 +248,7 @@ describe('Phase Transitions', () => {
     } catch (error) {
       // The test could fail here because showdown tries to compare hands which requires
       // hand evaluation logic we haven't mocked. That's expected and OK for this isolated test.
-      console.log('Expected showdown to be triggered');
+      // console.log('Expected showdown to be triggered');
     }
     
     // The key thing is that nextPhase should call showdown when at RIVER

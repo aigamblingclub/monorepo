@@ -47,7 +47,7 @@ export const bigBlind = (state: PokerState) => {
 
 export const playerView = (state: PokerState, playerId: string): PlayerView => {
     const player = state.players.find(p => p.id === playerId)!
-    const isShowdown = state.round.phase === 'RIVER' && state.status === 'ROUND_OVER';
+    const isShowdown = state.round.phase === 'RIVER' && state.tableStatus === 'ROUND_OVER';
     
     // Get active players (not folded)
     const activePlayers = state.players.filter(p => p.status !== 'FOLDED');
@@ -58,7 +58,7 @@ export const playerView = (state: PokerState, playerId: string): PlayerView => {
     return {
         hand: player.hand ?? [],
         community: state.community,
-        tableStatus: state.status,
+        tableStatus: state.tableStatus,
         dealerId: state.dealerId,
         bigBlindId: Option.fromNullable(bigBlind(state)?.id),
         smallBlindId: Option.fromNullable(smallBlind(state)?.id),

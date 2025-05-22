@@ -6,9 +6,10 @@
   ],
   "scripts": {
     "server-dev": "bun run --watch packages/server/src/index.ts",
+    "poker-test": "bun test packages/poker-state-machine/test",
     "front-dev": "bun run --cwd packages/front dev -p 4000",
-    "agent-dev": "pnpm --dir agent build && pnpm --dir agent start:debug",
-    "agent": "pnpm --dir agent build && pnpm --dir agent start",
-    "dev": "bun run server-dev & bun run front-dev & pnpm run agent-dev"
+    "agent-build": "cp packages/poker-state-machine/src/schemas.ts agent/packages/client-poker/src/schemas.ts && pnpm --dir agent build",
+    "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug",
+    "agent": "pnpm agent-build && pnpm --dir agent start"
   }
 }

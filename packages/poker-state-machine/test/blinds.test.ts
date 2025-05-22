@@ -18,11 +18,13 @@ describe('Blinds functionality', () => {
   // Helper function to create a basic poker state for testing
   function createTestState(players: PlayerState[], dealerId = 'player1'): PokerState {
     return {
-      status: "PLAYING",
+      tableId: "table-id",
+      tableStatus: "PLAYING",
       players,
       deck: [],
       community: [],
       pot: 0,
+      lastMove: null,
       round: {
         phase: "PRE_FLOP",
         roundNumber: 1,

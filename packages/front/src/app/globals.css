@@ -394,3 +394,27 @@ body {
 .border-theme-alert {
   border-color: var(--theme-alert);
 }
+
+/* SimpleBar custom styles */
+.ai-thoughts-scrollbar .simplebar-scrollbar::before {
+  background-color: var(--theme-secondary);
+  border-radius: 0 !important;
+  opacity: 1;
+  width: 8px;
+  right: 0;
+  left: auto;
+}
+
+.ai-thoughts-scrollbar .simplebar-scrollbar.simplebar-visible::before {
+  opacity: 1;
+}
+
+.ai-thoughts-scrollbar .simplebar-track.simplebar-vertical {
+  background-color: var(--surface-secondary);
+  width: 8px;
+  border-radius: 0;
+}
+
+.ai-thoughts-scrollbar .simplebar-track.simplebar-vertical .simplebar-scrollbar:hover::before {
+  background-color: var(--theme-primary);
+}

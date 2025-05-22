@@ -2,7 +2,7 @@ import { expect, test, describe } from "bun:test";
 import { PLAYER_DEFAULT_STATE, POKER_ROOM_DEFAULT_STATE } from "../src/state_machine";
 import { bigBlind, currentPlayer, firstPlayerIndex, smallBlind } from "../src/queries";
 import { Effect } from "effect";
-import { makePokerRoom } from "../src/room";
+import { makePokerRoomForTests } from "../src/room";
 import { playerBet } from "../src/transitions";
 import type { GameEvent, PlayerState, PokerState, RoundState, SystemEvent } from "../src/schemas";
 
@@ -23,7 +23,7 @@ describe('Poker game flow tests', () => {
   
   // Define the expected state shape with proper typing for partial objects
   type ExpectedState = {
-    status?: PokerState['status'];
+    tableStatus?: PokerState['tableStatus'];
     players?: Partial<PlayerState>[];
     currentPlayerIndex?: number;
     deck?: { length: number };
@@ -91,20 +91,21 @@ describe('Poker game flow tests', () => {
   }
   
   test('Initial state should be empty waiting state', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     const state = await Effect.runPromise(pokerRoom.currentState());
     
     // Initial state verification
-    expect(state).toEqual(POKER_ROOM_DEFAULT_STATE);
+    expect(state).toEqual({...POKER_ROOM_DEFAULT_STATE, tableId: 'table-id'});
   });
   
   test('Player 1 joining should update state correctly', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Step 1: Player 1 joins
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
+        playerName: PLAYER_IDS[0],
         action: 'join',
         playerId: PLAYER_IDS[0]
       })
@@ -112,29 +113,30 @@ describe('Poker game flow tests', () => {
     
     const state = await Effect.runPromise(pokerRoom.currentState());
     compareStates(state, {
-      status: 'WAITING',
+      tableStatus: "WAITING",
       players: [
         {
           id: PLAYER_IDS[0],
-          status: 'PLAYING',
+          status: "PLAYING",
           chips: 100,
-          playerName: "",
+          playerName: PLAYER_IDS[0],
           hand: [],
-          bet: { round: 0, total: 0 }
-        }
-      ]
+          bet: { round: 0, total: 0 },
+        },
+      ],
     });
   });
   
   test('Two players joining should start the game', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Player 1 joins
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[0]
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
       })
     );
     
@@ -143,15 +145,16 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[1]
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
       })
     );
     
     const state = await Effect.runPromise(pokerRoom.currentState());
     compareStates(state, {
-      status: 'PLAYING',
+      tableStatus: "PLAYING",
       round: { 
-        phase: 'PRE_FLOP',
+        phase: "PRE_FLOP",
         roundNumber: 1,
         currentBet: 20
       },
@@ -162,15 +165,15 @@ describe('Poker game flow tests', () => {
           status: 'PLAYING',
           chips: 90, // 100 - small blind (10)
           bet: { round: 10, total: 10 },
-          playerName: "",
+          playerName: PLAYER_IDS[0],
           hand: [expect.any(Object), expect.any(Object)]
         },
         {
           id: PLAYER_IDS[1],
-          status: 'PLAYING',
+          status: "PLAYING",
           chips: 80, // 100 - big blind (20)
           bet: { round: 20, total: 20 },
-          playerName: "",
+          playerName: PLAYER_IDS[1],
           hand: [expect.any(Object), expect.any(Object)]
         }
       ],
@@ -188,14 +191,15 @@ describe('Poker game flow tests', () => {
   });
   
   test('Player calling should progress the game to next betting round', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Setup: Two players join
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[0]
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
       })
     );
     
@@ -203,16 +207,17 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[1]
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
       })
     );
     
     // Step 3: Player 1 calls the big blind
     await Effect.runPromise(
       pokerRoom.processEvent({
-        type: 'move',
+        type: "move",
         playerId: PLAYER_IDS[0],
-        move: { type: 'call' }
+        move: { type: "call", decisionContext: null },
       })
     );
     
@@ -245,7 +250,7 @@ describe('Poker game flow tests', () => {
         pokerRoom.processEvent({
           type: 'move',
           playerId: PLAYER_IDS[1],
-          move: { type: 'call' }
+          move: { type: 'call', decisionContext: null }
         })
       );
       
@@ -281,13 +286,13 @@ describe('Poker game flow tests', () => {
   });
   
   test('Checking on the flop should progress to the turn', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Setup: Two players join and go through pre-flop
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[0] }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[1] }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call' } }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call' } }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[0], playerName: PLAYER_IDS[0] }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[1], playerName: PLAYER_IDS[1] }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call', decisionContext: null } }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call', decisionContext: null } }));
     
     // At this point we should be at the flop, Player 2 acts first
     let state = await Effect.runPromise(pokerRoom.currentState());
@@ -297,7 +302,7 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'move',
         playerId: PLAYER_IDS[1],
-        move: { type: 'call' }
+        move: { type: 'call', decisionContext: null }
       })
     );
     
@@ -310,7 +315,7 @@ describe('Poker game flow tests', () => {
         pokerRoom.processEvent({
           type: 'move',
           playerId: PLAYER_IDS[0],
-          move: { type: 'call' }
+          move: { type: 'call', decisionContext: null }
         })
       );
       
@@ -337,26 +342,26 @@ describe('Poker game flow tests', () => {
   });
   
   test('Betting on the turn should update the pot and bets', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Setup: Players join and play through to the turn
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[0] }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[1] }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call' } }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call' } }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[0], playerName: PLAYER_IDS[0] }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[1], playerName: PLAYER_IDS[1] }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call', decisionContext: null } }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call', decisionContext: null } }));
     
     // Get the state to see which phase we're in
     let state = await Effect.runPromise(pokerRoom.currentState());
     
     // If we're still in FLOP, have both players check
     if (state.round.phase === 'FLOP') {
-      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call' } }));
-      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call' } }));
+      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call', decisionContext: null } }));
+      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call', decisionContext: null } }));
     }
     
     // Check the current state and phase
     state = await Effect.runPromise(pokerRoom.currentState());
-    console.log(`Current phase: ${state.round.phase}, current player: ${currentPlayer(state).id}`);
+    // console.log(`Current phase: ${state.round.phase}, current player: ${currentPlayer(state).id}`);
     
     // Player 2 bets 20 on the turn (make sure player 2 is the current player)
     if (currentPlayer(state).id === PLAYER_IDS[1]) {
@@ -364,7 +369,7 @@ describe('Poker game flow tests', () => {
         pokerRoom.processEvent({
           type: 'move',
           playerId: PLAYER_IDS[1],
-          move: { type: 'raise', amount: 20 }
+          move: { type: 'raise', amount: 20, decisionContext: null }
         })
       );
     } else {
@@ -373,7 +378,7 @@ describe('Poker game flow tests', () => {
         pokerRoom.processEvent({
           type: 'move',
           playerId: PLAYER_IDS[0],
-          move: { type: 'call' }
+          move: { type: 'call', decisionContext: null }
         })
       );
       
@@ -382,7 +387,7 @@ describe('Poker game flow tests', () => {
         pokerRoom.processEvent({
           type: 'move',
           playerId: PLAYER_IDS[1],
-          move: { type: 'raise', amount: 20 }
+          move: { type: 'raise', amount: 20, decisionContext: null }
         })
       );
     }
@@ -412,21 +417,21 @@ describe('Poker game flow tests', () => {
   });
   
   test('Folding should end the round and award pot to opponent', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Setup: Players join and play through to the turn with a bet
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[0] }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[1] }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[0], playerName: PLAYER_IDS[0] }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'table', action: 'join', playerId: PLAYER_IDS[1], playerName: PLAYER_IDS[1] }));
     
     // Play to the turn and have player 2 bet
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call' } }));
-    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call' } }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call', decisionContext: null } }));
+    await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call', decisionContext: null } }));
     
     // Move to turn phase by both players checking on flop
     let state = await Effect.runPromise(pokerRoom.currentState());
     if (state.round.phase === 'FLOP') {
-      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call' } }));
-      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call' } }));
+      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[1], move: { type: 'call', decisionContext: null } }));
+      await Effect.runPromise(pokerRoom.processEvent({ type: 'move', playerId: PLAYER_IDS[0], move: { type: 'call', decisionContext: null } }));
     }
     
     // Get updated state
@@ -434,7 +439,7 @@ describe('Poker game flow tests', () => {
     
     // Make sure we're on turn and Player 2 is current player
     if (state.round.phase !== 'TURN' || currentPlayer(state).id !== PLAYER_IDS[1]) {
-      console.log(`Current phase: ${state.round.phase}, current player: ${currentPlayer(state).id}`);
+      // console.log(`Current phase: ${state.round.phase}, current player: ${currentPlayer(state).id}`);
       // Adjust if needed...
     }
     
@@ -443,7 +448,7 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'move',
         playerId: currentPlayer(state).id,
-        move: { type: 'raise', amount: 20 }
+        move: { type: 'raise', amount: 20, decisionContext: null }
       })
     );
     
@@ -454,21 +459,21 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'move',
         playerId: currentPlayer(state).id,
-        move: { type: 'fold' }
+        move: { type: 'fold', decisionContext: null }
       })
     );
     
     state = await Effect.runPromise(pokerRoom.currentState());
     
     // Log the actual state for debugging
-    console.log('After fold, actual state:', {
-      status: state.status,
-      pot: state.pot,
-      round: state.round,
-      winner: state.winner,
-      player1Chips: state.players.find(p => p.id === PLAYER_IDS[0])?.chips,
-      player2Chips: state.players.find(p => p.id === PLAYER_IDS[1])?.chips
-    });
+    // console.log('After fold, actual state:', {
+    //   status: state.tableStatus,
+    //   pot: state.pot,
+    //   round: state.round,
+    //   winner: state.winner,
+    //   player1Chips: state.players.find(p => p.id === PLAYER_IDS[0])?.chips,
+    //   player2Chips: state.players.find(p => p.id === PLAYER_IDS[1])?.chips
+    // });
     
     // Check that player 2 got the chips from the pot
     // Instead of checking the status, we verify that player 2's chips increased
@@ -477,14 +482,15 @@ describe('Poker game flow tests', () => {
   });
   
   test('Player can only join when game is in WAITING state', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2)); // Allow 3 players for this test
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2)); // Allow 3 players for this test
     
     // First player joins successfully when state is WAITING
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[0]
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
       })
     );
     
@@ -493,13 +499,14 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[1]
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
       })
     );
     
     // Get state to verify we're now in PLAYING state
     const state = await Effect.runPromise(pokerRoom.currentState());
-    expect(state.status).toBe('PLAYING');
+    expect(state.tableStatus).toBe('PLAYING');
     
     // Verify players are in the state correctly
     expect(state.players.length).toBe(2);
@@ -513,12 +520,13 @@ describe('Poker game flow tests', () => {
         pokerRoom.processEvent({
           type: 'table',
           action: 'join',
-          playerId: PLAYER_IDS[2]
+          playerId: PLAYER_IDS[2],
+          playerName: PLAYER_IDS[2]
         })
       );
     } catch (error) {
       joinError = error;
-      console.log('As expected, could not join during active game:', error);
+      // console.log('As expected, could not join during active game:', error);
     }
     
     // Verify that attempting to join failed
@@ -526,14 +534,15 @@ describe('Poker game flow tests', () => {
   });
 
   test('Showdown - Two players should compare hands at the river', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Setup: Two players join
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[0]
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
       })
     );
     
@@ -541,7 +550,8 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[1]
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
       })
     );
     
@@ -563,7 +573,7 @@ describe('Poker game flow tests', () => {
       if (phase === 'PRE_FLOP' && initialChips === 0) {
         initialChips = state.players.reduce((sum, p) => sum + p.chips, 0);
         initialPot = state.pot;
-        console.log(`Initial chips: ${initialChips}, Initial pot: ${initialPot}, Total: ${initialChips + initialPot}`);
+        // console.log(`Initial chips: ${initialChips}, Initial pot: ${initialPot}, Total: ${initialChips + initialPot}`);
       }
       
       // Make sure we're in the expected phase
@@ -589,7 +599,7 @@ describe('Poker game flow tests', () => {
           pokerRoom.processEvent({
             type: 'move',
             playerId: currentPlayerId,
-            move: { type: 'call' }
+            move: { type: 'call', decisionContext: null }
           })
         );
         
@@ -619,8 +629,8 @@ describe('Poker game flow tests', () => {
     // Log final state for debugging
     const finalChips = state.players.reduce((sum, p) => sum + p.chips, 0);
     const finalPot = state.pot;
-    console.log(`Final chips: ${finalChips}, Final pot: ${finalPot}, Total: ${finalChips + finalPot}`);
-    console.log(`Round number: ${state.round.roundNumber}`);
+    // console.log(`Final chips: ${finalChips}, Final pot: ${finalPot}, Total: ${finalChips + finalPot}`);
+    // console.log(`Round number: ${state.round.roundNumber}`);
     
     // Don't strictly verify round number as it may depend on implementation
     // Just check that it has advanced from 1
@@ -649,14 +659,15 @@ describe('Poker game flow tests', () => {
   });
 
   test('Dealer rotation - Dealer should rotate between rounds', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Setup: Two players join
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[0]
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
       })
     );
     
@@ -664,7 +675,8 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[1]
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
       })
     );
     
@@ -678,7 +690,7 @@ describe('Poker game flow tests', () => {
     // Get the initial state to check first dealer
     let state = await Effect.runPromise(pokerRoom.currentState());
     const firstDealerId = state.dealerId;
-    console.log(`Initial dealer ID: ${firstDealerId}`);
+    // console.log(`Initial dealer ID: ${firstDealerId}`);
     
     // Play a quick round - first player folds
     const firstPlayerIndex = state.currentPlayerIndex;
@@ -688,7 +700,7 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'move',
         playerId: firstPlayer.id,
-        move: { type: 'fold' }
+        move: { type: 'fold', decisionContext: null }
       })
     );
     
@@ -711,7 +723,7 @@ describe('Poker game flow tests', () => {
     
     // Check that dealer has rotated
     const secondDealerId = state.dealerId;
-    console.log(`New dealer ID: ${secondDealerId}`);
+    // console.log(`New dealer ID: ${secondDealerId}`);
     
     // Dealer should have changed
     expect(secondDealerId).not.toBe(firstDealerId);
@@ -726,14 +738,15 @@ describe('Poker game flow tests', () => {
   });
 
   test('Multiple betting rounds - Raise and re-raise', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(2));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
     
     // Setup: Two players join
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[0]
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
       })
     );
     
@@ -741,7 +754,8 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[1]
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
       })
     );
     
@@ -764,7 +778,7 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'move',
         playerId: firstPlayer.id,
-        move: { type: 'raise', amount: 40 }
+        move: { type: 'raise', amount: 40, decisionContext: null }
       })
     );
     
@@ -781,7 +795,7 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'move',
         playerId: secondPlayer.id,
-        move: { type: 'raise', amount: 80 }
+        move: { type: 'raise', amount: 80, decisionContext: null }
       })
     );
     
@@ -801,7 +815,7 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'move',
         playerId: firstPlayer.id,
-        move: { type: 'call' }
+        move: { type: 'call', decisionContext: null }
       })
     );
     
@@ -822,14 +836,15 @@ describe('Poker game flow tests', () => {
   });
 
   test('Complex all-in scenario - Multiple players', async () => {
-    const pokerRoom = await Effect.runPromise(makePokerRoom(3));
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(3));
     
     // Setup: Three players join with different chip stacks
     await Effect.runPromise(
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[0]
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
       })
     );
     
@@ -837,7 +852,8 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[1]
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
       })
     );
     
@@ -845,7 +861,8 @@ describe('Poker game flow tests', () => {
       pokerRoom.processEvent({
         type: 'table',
         action: 'join',
-        playerId: PLAYER_IDS[2]
+        playerId: PLAYER_IDS[2],
+        playerName: PLAYER_IDS[2]
       })
     );
     
@@ -866,7 +883,7 @@ describe('Poker game flow tests', () => {
       if (state.round.phase === 'PRE_FLOP' && initialChips === 0) {
         initialChips = state.players.reduce((sum, p) => sum + p.chips, 0);
         initialPot = state.pot;
-        console.log(`Initial chips: ${initialChips}, Initial pot: ${initialPot}, Total: ${initialChips + initialPot}`);
+        // console.log(`Initial chips: ${initialChips}, Initial pot: ${initialPot}, Total: ${initialChips + initialPot}`);
       }
       
       // Check if any player can act
@@ -882,7 +899,7 @@ describe('Poker game flow tests', () => {
           pokerRoom.processEvent({
             type: 'move',
             playerId: currentPlayerId,
-            move: { type: 'all_in' }
+            move: { type: 'all_in', decisionContext: null }
           })
         );
         allInExecuted = true;
@@ -892,7 +909,7 @@ describe('Poker game flow tests', () => {
           pokerRoom.processEvent({
             type: 'move',
             playerId: currentPlayerId,
-            move: { type: 'call' }
+            move: { type: 'call', decisionContext: null }
           })
         );
       }
@@ -932,7 +949,7 @@ describe('Poker game flow tests', () => {
             pokerRoom.processEvent({
               type: 'move',
               playerId: currentPlayerId,
-              move: { type: 'call' }
+              move: { type: 'call', decisionContext: null }
             })
           );
           
@@ -943,7 +960,7 @@ describe('Poker game flow tests', () => {
           }
         } catch (error) {
           // If there's an error, we might be trying to act when no more action is needed
-          console.log('Error during betting round:', error);
+          // console.log('Error during betting round:', error);
           bettingComplete = true;
         }
       }
@@ -967,8 +984,8 @@ describe('Poker game flow tests', () => {
     // Log final state for debugging
     const finalChips = state.players.reduce((sum, p) => sum + p.chips, 0);
     const finalPot = state.pot;
-    console.log(`Final chips: ${finalChips}, Final pot: ${finalPot}, Total: ${finalChips + finalPot}`);
-    console.log(`Round number: ${state.round.roundNumber}`);
+    // console.log(`Final chips: ${finalChips}, Final pot: ${finalPot}, Total: ${finalChips + finalPot}`);
+    // console.log(`Round number: ${state.round.roundNumber}`);
     
     // Don't strictly verify round number as it may depend on implementation
     // Just check that it has advanced from 1
