@@ -21,8 +21,7 @@ import { setupCoin98Wallet } from "@near-wallet-selector/coin98-wallet";
 import { setupXDEFI } from "@near-wallet-selector/xdefi";
 import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet";
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
-import { useEffect, useState } from "react";
-import { providers } from "near-api-js";
+import { useEffect, useState, useMemo } from "react";
 
 type ContractArgs = Record<string, unknown>;
 
@@ -164,23 +163,62 @@ export function useNearWallet() {
     const { selector } = walletState;
     if (!selector) throw new Error("Wallet not initialized");
     
-    const { network } = selector.options;
-    const provider = new providers.JsonRpcProvider({ url: network.nodeUrl });
-    
-    return provider.query({
-      request_type: "call_function",
-      account_id: CONTRACT_ID,
-      method_name: methodName,
-      args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
-      finality: "optimistic",
+    const wallet = await selector.wallet();
+    return wallet.signAndSendTransaction({
+      receiverId: CONTRACT_ID,
+      actions: [
+        {
+          type: 'FunctionCall',
+          params: {
+            methodName,
+            args,
+            gas: '0',
+            deposit: '0',
+          }
+        }
+      ]
     });
   };
 
-  return {
+  const getBalance = async () => {
+    const { selector } = walletState;
+    if (!selector) throw new Error("Wallet not initialized");
+    
+    const wallet = await selector.wallet();
+    const accounts = await wallet.getAccounts();
+    
+    if (accounts && accounts.length > 0) {
+      const response = await fetch('https://rpc.testnet.near.org', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'dontcare',
+          method: 'query',
+          params: {
+            request_type: 'view_account',
+            finality: 'final',
+            account_id: accounts[0].accountId
+          }
+        })
+      });
+      
+      const data = await response.json();
+      if (data.result && data.result.amount) {
+        return data.result.amount;
+      }
+    }
+    return "0";
+  };
+
+  return useMemo(() => ({
     ...walletState,
     signIn,
     signOut,
     callMethod,
     viewMethod,
-  };
+    getBalance,
+  }), [walletState, signIn, signOut, callMethod, viewMethod]);
 } 

@@ -316,3 +316,81 @@ body {
               inset 0 0 var(--shadow-inner-strength) var(--theme-primary);
   text-shadow: 0 0 var(--text-shadow-strength) var(--theme-primary);
 }
+
+/* Player Betting Styles */
+.betting-panel-container {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  box-shadow: 0 0 var(--shadow-strength) var(--theme-primary),
+              inset 0 0 var(--shadow-inner-strength) var(--theme-primary);
+}
+
+.player-betting-container {
+  transition: all 0.3s ease;
+  box-shadow: 0 0 calc(var(--shadow-strength) * 0.5) var(--theme-primary);
+}
+
+.player-betting-container:hover {
+  box-shadow: 0 0 var(--shadow-strength) var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+
+/* Utility class for rounded borders based on theme */
+.rounded-border-radius-element {
+  border-radius: var(--border-radius-element);
+}
+
+/* Theme-based text colors */
+.text-theme-primary {
+  color: var(--theme-primary);
+}
+
+.text-theme-secondary {
+  color: var(--theme-secondary);
+}
+
+.text-theme-accent {
+  color: var(--theme-accent);
+}
+
+.text-theme-highlight {
+  color: var(--theme-highlight);
+}
+
+.text-theme-alert {
+  color: var(--theme-alert);
+}
+
+/* Theme-based background colors */
+.bg-surface-primary {
+  background-color: var(--surface-primary);
+}
+
+.bg-surface-secondary {
+  background-color: var(--surface-secondary);
+}
+
+.bg-surface-tertiary {
+  background-color: var(--surface-tertiary);
+}
+
+/* Theme-based border colors */
+.border-theme-primary {
+  border-color: var(--theme-primary);
+}
+
+.border-theme-secondary {
+  border-color: var(--theme-secondary);
+}
+
+.border-theme-accent {
+  border-color: var(--theme-accent);
+}
+
+.border-theme-highlight {
+  border-color: var(--theme-highlight);
+}
+
+.border-theme-alert {
+  border-color: var(--theme-alert);
+}
