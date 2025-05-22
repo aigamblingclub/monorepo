@@ -1,7 +1,7 @@
 {
-  "name": "ai-gaming-club-near",
+  "name": "ai-gambling-club-near",
   "version": "1.0.0",
-  "description": "AI Gaming Club NEAR Contract for GameFi betting",
+  "description": "AI Gambling Club NEAR Contract for GameFi betting",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "deploy": "node scripts/deploy.js",
     "deploy:testnet": "node scripts/deploy-testnet.js",
     "deploy:mainnet": "node scripts/deploy-mainnet.js",
+    "redeploy:testnet": "node scripts/redeploy-testnet.js",
     "interact": "node scripts/interact.js",
     "admin": "node scripts/admin.js",
     "monitor": "node scripts/monitor.js",
@@ -19,9 +20,10 @@
     "blockchain",
     "smart-contract",
     "gaming",
-    "betting"
+    "betting",
+    "gambling"
   ],
-  "author": "AI Gaming Club",
+  "author": "AI Gambling Club",
   "license": "ISC",
   "dependencies": {
     "near-api-js": "^5.1.1",

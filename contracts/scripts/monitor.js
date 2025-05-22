@@ -157,7 +157,7 @@ async function monitorEvents() {
                           
                           // Check if event matches our filters
                           if (
-                            event.standard === 'ai-gaming-club' && 
+                            event.standard === 'ai-gambling-club' && 
                             selectedEventTypes.includes(event.event) &&
                             (!accountFilter || 
                               (event.data.account_id && event.data.account_id === accountFilter) ||

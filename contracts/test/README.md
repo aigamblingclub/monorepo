@@ -1,6 +1,6 @@
-# AI Gaming Club Contract Testing
+# AI Gambling Club Contract Testing
 
-This directory contains automated tests for the AI Gaming Club NEAR contract. These tests use direct RPC calls instead of relying on the NEAR CLI, making them suitable for use in automated systems and backend integration.
+This directory contains automated tests for the AI Gambling Club NEAR contract. These tests use direct RPC calls instead of relying on the NEAR CLI, making them suitable for use in automated systems and backend integration.
 
 ## Prerequisites
 
