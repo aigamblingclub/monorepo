@@ -9,6 +9,7 @@ import { CONTRACT_ID } from "@/utils/constants";
 import { BettingPanel } from "@/components/BettingPanel";
 import { usePlayerBetting } from "@/hooks/usePlayerBetting";
 import { Chat } from "@/components/Chat";
+import { MoveHistoryPanel } from "@/components/MoveHistoryPanel";
 
 function PageLayout({ children }: { children: ReactNode }) {
   return (
@@ -51,9 +52,8 @@ export default function Home() {
         const state = await fetch('/api/current-state');
         const data = await state.json();
         
-        
         // Only update the state if the data is different
-        if (JSON.stringify(data) !== JSON.stringify(gameState)) {
+        if (JSON.stringify(data) !== JSON.stringify(gameState) && !data?.error) {
           setGameState(data);
           console.log("🔍 Game state:", data);
         }
@@ -89,7 +89,9 @@ export default function Home() {
   if (!gameState) {
     return (
       <PageLayout>
-        <div className="text-neon-yellow text-2xl">No game state available</div>
+        <div className="text-neon-yellow text-2xl flex justify-center items-center" style={{ marginTop: '200px' }}>
+          Waiting for game...
+        </div>
       </PageLayout>
     );
   }
@@ -98,15 +100,15 @@ export default function Home() {
     <PageLayout>
       <div className="h-full flex flex-col">
         <div className="flex-grow flex flex-row">
-          <div className="flex-grow">
-            <PokerTable 
-              gameState={gameState} 
-              playerBets={playerBets}
-            />
+          <div className="w-[300px] p-4">
+            <MoveHistoryPanel gameState={gameState} />
           </div>
-          <div className="w-80 p-4">
+          <div className="flex-grow">
+            <PokerTable gameState={gameState} playerBets={playerBets} />
+          </div>
+          <div className="w-[300px] p-4">
             <BettingPanel
-              players={[...gameState.players]}
+              players={gameState?.players?.length > 0 ? [...gameState.players] : []}
               playerBets={playerBets}
               onPlaceBet={placeBet}
               userBalance={userBalance}
@@ -114,12 +116,16 @@ export default function Home() {
             />
             {bettingError && (
               <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
-                <p className="text-theme-alert text-shadow-red text-sm">{bettingError}</p>
+                <p className="text-theme-alert text-shadow-red text-sm">
+                  {bettingError}
+                </p>
               </div>
             )}
             {bettingLoading && (
               <div className="mt-4 text-center">
-                <p className="text-theme-secondary text-shadow-cyan text-sm">Loading...</p>
+                <p className="text-theme-secondary text-shadow-cyan text-sm">
+                  Loading...
+                </p>
               </div>
             )}
           </div>

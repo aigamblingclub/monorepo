@@ -30,17 +30,33 @@ function computeNextState(
 ): Effect.Effect<PokerState, ProcessEventError, never> {
     switch (event.type) {
         case 'table': {
-            if (state.tableStatus === 'PLAYING') {
-                return Effect.fail<ProcessEventError>({ type: 'table_locked' })
-            }
-            switch (event.action) {
-                case 'join': return Effect.succeed({...addPlayer(state, event.playerId, event.playerName), lastMove: null})
-                case 'leave': return Effect.succeed({...removePlayer(state, event.playerId), lastMove: null})
-            }
+          const playerPlaying = state.players.find(p => p.id === event.playerId)
+          if (playerPlaying) {
+              return Effect.succeed({...state})
+          }
+          if (state.tableStatus === "PLAYING") {
+            return Effect.fail<ProcessEventError>({ type: "table_locked" });
+          }
+          switch (event.action) {
+            case "join":
+              return Effect.succeed({
+                ...addPlayer(state, event.playerId, event.playerName),
+                lastMove: null,
+              });
+            case "leave":
+              return Effect.succeed({
+                ...removePlayer(state, event.playerId),
+                lastMove: null,
+              });
+          }
         }
         case 'move': {
-            if (event.playerId !== currentPlayer(state).id) {
-                return Effect.fail<ProcessEventError>({ type: 'not_your_turn' })
+            const current = currentPlayer(state);
+            if (!current) {
+                return Effect.fail<ProcessEventError>({ type: 'not_your_turn' });
+            }
+            if (event.playerId !== current.id) {
+                return Effect.fail<ProcessEventError>({ type: 'not_your_turn' });
             }
             // Store the move event
             return processPlayerMove(state, event.move).pipe(
@@ -48,7 +64,7 @@ function computeNextState(
                     ...newState,
                     lastMove: event
                 }))
-            )
+            );
         }
         case 'start': {
             // console.log('computeNextState', { event })
@@ -57,14 +73,13 @@ function computeNextState(
             // TODO: sanity check for status?
             // return Effect.succeed(startRound(state))
         }
-        case 'transition_phase': {
+        case 'transition_phase': { // not used
             return transition(state)
         }
         case 'next_round': {
             return nextRound(state).pipe(
                 Effect.map(newState => ({
                     ...newState,
-                    lastMove: null
                 }))
             )
         }
@@ -72,7 +87,7 @@ function computeNextState(
             return endGame(state).pipe(
                 Effect.map(newState => ({
                     ...newState,
-                    lastMove: null
+                    //lastMove: null
                 }))
             )
         }

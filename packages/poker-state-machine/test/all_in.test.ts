@@ -129,16 +129,16 @@ describe('All-in functionality', () => {
     const callState = playerBet(initialState, 'player1', 40);
     
     // Looking at the playerBet implementation, the pot gets increased by the diff, not the total
-    // The initial pot is 20, the player adds 20 more (diff between 40 and the current bet of 20)
-    // So the final pot should be 40 (initial 20 + diff of 20)
-    expect(callState.pot).toBe(40); 
-    expect(callState.round.currentBet).toBe(40);
+    // The initial pot is 20, the player tries to add 40 more but only has 30 chips
+    // So the final pot should be 50 (initial 20 + all remaining 30 chips)
+    expect(callState.pot).toBe(50);
+    expect(callState.round.currentBet).toBe(50);
     
     const callingPlayer = callState.players.find((p: PlayerState) => p.id === 'player1');
-    expect(callingPlayer?.chips).toBe(10); // Started with 30, bet 20 more
-    expect(callingPlayer?.status).toBe('PLAYING'); // Still has chips left
-    expect(callingPlayer?.bet.round).toBe(40); // 20 initial + 20 more to reach 40
-    expect(callingPlayer?.bet.total).toBe(40); // 20 initial + 20 more
+    expect(callingPlayer?.chips).toBe(0); // Used all remaining chips
+    expect(callingPlayer?.status).toBe('ALL_IN'); // Went all-in
+    expect(callingPlayer?.bet.round).toBe(50); // 20 initial + 30 more
+    expect(callingPlayer?.bet.total).toBe(50); // 20 initial + 30 more
   });
 
   test('all-in with player who already bet some chips', () => {

@@ -136,13 +136,13 @@ body {
 /* Neon Poker Table Styles */
 .poker-table-container {
   position: relative;
-  width: 80vw;
-  height: 80vh;
+  width: 60vw;
+  height: 60vh;
   max-width: 1000px;
   max-height: 600px;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: start;
 }
 
 .table-surface {
@@ -253,15 +253,6 @@ body {
 .suit-clubs, .suit-spades {
   color: var(--theme-secondary);
   text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
-}
-
-.current-player {
-  width: 180px;
-  height: 180px;
-  border: var(--border-width) solid var(--theme-highlight) !important;
-  box-shadow: 0 0 4px 1px var(--theme-highlight),
-              0 0 4px 1px var(--theme-highlight) inset !important;
-  z-index: 2;
 }
 
 /* Title and Subtitle styles */
