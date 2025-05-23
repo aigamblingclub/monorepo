@@ -14,7 +14,8 @@ export type {
   GameEvent,
   PlayerEvent,
   TableAction,
-  CardValue
+  CardValue,
+  Position,
 } from 'poker-state-machine';
 
 // Import for local use
@@ -57,3 +58,12 @@ export const getPhaseLabel = (phase: RoundPhase): string => {
 export const formatChips = (amount: number): string => {
   return new Intl.NumberFormat('en-US').format(amount);
 }; 
+
+export enum PokerPosition {
+  BB = "Big Blind",
+  SB = "Small Blind",
+  BTN = "Button",
+  EP = "Early Position",
+  MP = "Middle Position",
+  CO = "Cut-off",
+}
