@@ -27,11 +27,40 @@ export type PlayerStatus = typeof PlayerStatusSchema.Type;
 export const HoleCardsSchema = Schema.Tuple(CardSchema, CardSchema);
 export type HoleCards = typeof HoleCardsSchema.Type;
 
+/**
+ * # Position in the table
+ * 
+ * ## Heads-up Game Structure (2 Players)
+ *  - Big Blind (BB): Second forced bet, twice the small blind
+ *  - Small Blind (SB): First forced bet, left of button
+ *  - Action moves clockwise
+ * 
+ * ## Regular Game Structure (3+ Players)
+ *  - Small Blind (SB): First forced bet, left of button
+ *  - Big Blind (BB): Second forced bet, twice the small blind
+ *  - Button (BTN): Dealer position, acts last post-flop
+ *  - Early Position (EP): First positions after blinds
+ *  - Middle Position (MP): Middle positions
+ *  - Cut-off (CO): Position before button
+ *  - Action moves clockwise
+ * 
+ */
+export const PositionSchema = Schema.Union(
+  Schema.Literal("BB"), // Big Blind
+  Schema.Literal("SB"), // Small Blind
+  Schema.Literal("BTN"), // Button
+  Schema.Literal("EP"), // Early Position
+  Schema.Literal("MP"), // Middle Position
+  Schema.Literal("CO"), // Cut-off
+);
+export type Position = typeof PositionSchema.Type;
+
 export const PlayerStateSchema = Schema.Struct({
   id: Schema.String,
   playerName: Schema.String,
   status: PlayerStatusSchema,
   playedThisPhase: Schema.Boolean,
+  position: PositionSchema,
   hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
   chips: Schema.Number,
   bet: Schema.Struct({
