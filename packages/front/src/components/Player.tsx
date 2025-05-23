@@ -49,9 +49,7 @@ export const Player: React.FC<PlayerProps> = ({
 
   return (
     <div
-      className={`player ${positionClasses[tablePosition]}${
-        isCurrentPlayer ? " current-player" : ""
-      }`}
+      className={`player ${positionClasses[tablePosition]}`}
     >
       <div className="relative">
         {/* AVATAR */}
@@ -73,10 +71,19 @@ export const Player: React.FC<PlayerProps> = ({
           </span>
         </div>
         <div className="flex items-center mb-1">
-          <span className={`${statusColor()} text-shadow-neon`}>{status}</span>
+          <span className={`${statusColor()} text-shadow-neon`}>
+            {status === "PLAYING" ? "" : status}
+          </span>
         </div>
         <div className="flex items-center mb-1">
-          <span className={`${statusColor()} text-shadow-neon`}>{PokerPosition[position]}</span>
+          <span className={`${statusColor()} text-shadow-neon font-bold`}>
+            {isCurrentPlayer ? "Computing..." : <br/>}
+          </span>
+        </div>
+        <div className="flex items-center mb-1">
+          <span className={`${statusColor()} text-shadow-neon`}>
+            {PokerPosition[position]}
+          </span>
         </div>
         <div className="flex justify-between items-center mb-1">
           <span className="text-neon-green text-shadow-neon">

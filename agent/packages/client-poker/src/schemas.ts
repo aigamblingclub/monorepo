@@ -29,12 +29,12 @@ export type HoleCards = typeof HoleCardsSchema.Type;
 
 /**
  * # Position in the table
- *
+ * 
  * ## Heads-up Game Structure (2 Players)
  *  - Big Blind (BB): Second forced bet, twice the small blind
  *  - Small Blind (SB): First forced bet, left of button
  *  - Action moves clockwise
- *
+ * 
  * ## Regular Game Structure (3+ Players)
  *  - Small Blind (SB): First forced bet, left of button
  *  - Big Blind (BB): Second forced bet, twice the small blind
@@ -43,7 +43,7 @@ export type HoleCards = typeof HoleCardsSchema.Type;
  *  - Middle Position (MP): Middle positions
  *  - Cut-off (CO): Position before button
  *  - Action moves clockwise
- *
+ * 
  */
 export const PositionSchema = Schema.Union(
   Schema.Literal("BB"), // Big Blind
