@@ -21,7 +21,7 @@ export const POKER_ROOM_DEFAULT_STATE: PokerState = {
   winner: null,
   config: {
     maxRounds: null,
-    startingChips: 100,
+    startingChips: 1000,
     smallBlind: 10,
     bigBlind: 20,
   },
@@ -30,7 +30,8 @@ export const POKER_ROOM_DEFAULT_STATE: PokerState = {
 export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {
   status: "PLAYING",
   hand: [],
-  chips: 100,
+  chips: 1000,
+  playedThisPhase: false,
   bet: { round: 0, total: 0 },
   playerName: "",
 };

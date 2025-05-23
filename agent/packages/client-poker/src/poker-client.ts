@@ -461,6 +461,13 @@ export class PokerClient implements Client {
             gameState.roundHistory = [];
         }
 
+        if (gameState.players.length === 0) {
+            elizaLogger.info("No players in game, trying to join");
+            this.resetGame();
+            this.joinGame();
+            return;
+        }
+
         // Find player by name in the game state (instead of by ID)
         const ourPlayer = gameState.players.find(
             (player) => player.id === this.playerId
@@ -841,7 +848,7 @@ export class PokerClient implements Client {
         const lore = Array.isArray(this.runtime?.character.lore) ? this.runtime?.character.lore.join("\n") : this.runtime?.character.lore;
 
         const response = {
-            action: 'One of ["FOLD", "CHECK", "CALL", "RAISE", "ALL-IN"]',
+            action: 'One of ["FOLD", "CHECK", "CALL", "RAISE", "ALL_IN"]',
             amount: "number (required only for RAISE, represents total bet amount including current bet) as a single string",
             thinking:
                 "Your internal thought process, including psychological reads and strategic considerations as a single string,",
@@ -1006,11 +1013,15 @@ export class PokerClient implements Client {
             const parsed = JSON.parse(cleanResponse);
             elizaLogger.debug("Parsed JSON:", parsed);
 
-            const action = parsed.action?.toUpperCase();
+            let action: string = parsed.action?.toUpperCase();
             elizaLogger.debug("Parsed action:", action);
 
+            if (action.includes("ALL IN") || action.includes("ALL-IN")) {
+                action = PlayerAction.ALL_IN;
+            }
+
             // Validate the action
-            if (!action || !Object.values(PlayerAction).includes(action)) {
+            if (!action || !Object.values(PlayerAction).includes(action as PlayerAction)) {
                 elizaLogger.error(`Invalid action: ${action}, valid actions are: ${Object.values(PlayerAction).join(', ')}`);
                 throw new Error(`Invalid action: ${action}`);
             }
@@ -1124,26 +1135,71 @@ export class PokerClient implements Client {
     9. One Pair: Two cards of the same rank
     10. High Card: Highest card when no other hand is made
 
-    ## Game Structure
-    1. Blinds and Position:
-       - Small Blind (SB): First forced bet, to the left of the button
+    ## Regular Game Structure (3+ Players)
+    1. Positions and Blinds:
+       - Small Blind (SB): First forced bet, left of button
        - Big Blind (BB): Second forced bet, twice the small blind
-       - Button (BTN): Dealer position, best position at the table
-       - Position importance: BTN > CO > MP > EP > BB > SB
+       - Button (BTN): Dealer position, acts last post-flop
+       - Early Position (EP): First positions after blinds
+       - Middle Position (MP): Middle positions
+       - Cut-off (CO): Position before button
+       - Action moves clockwise
 
     2. Betting Rounds:
-       - Pre-flop: After hole cards are dealt
+       - Pre-flop: After hole cards dealt
+         * Action starts from player after BB
+         * Must at least call BB to continue
        - Flop: After first three community cards
+         * Action starts from first active player after button
        - Turn: After fourth community card
+         * Action starts from first active player after button
        - River: After fifth community card
+         * Action starts from first active player after button
+       - Showdown: Players show hands to determine winner
 
-    3. Betting Actions:
-       - Fold: Give up the hand and any bets made
-       - Check: Pass the action when no bet to call
+    ## Heads-Up Structure (2 Players)
+    1. Positions and Blinds:
+       - Button/Small Blind (BTN/SB): Same player posts SB and is button
+       - Big Blind (BB): Other player posts BB
+       - Positions alternate every hand
+       - Pre-flop: BTN/SB acts first
+       - Post-flop: BB acts first
+
+    2. Betting Rounds:
+       - Pre-flop: After hole cards dealt
+         * BTN/SB acts first
+         * BB acts last
+       - Flop, Turn, River:
+         * BB acts first
+         * BTN/SB acts last
+       - Showdown: Players show hands to determine winner
+
+    ## Universal Rules
+    1. Betting Actions:
+       - Fold: Give up hand and any bets made
+       - Check: Pass action when no bet to call
        - Call: Match the current bet
        - Raise: Increase the current bet (min-raise = previous bet size)
        - All-in: Bet all remaining chips
 
+    2. General Rules:
+       - Each player gets 2 hole cards face down
+       - 5 community cards dealt face up (3 flop, 1 turn, 1 river)
+       - Best 5-card hand wins using any combination of hole and community cards
+       - Betting round ends when all active players have bet the same amount
+       - Hand ends when all but one player folds or at showdown
+       - Split pots possible with identical hands
+
+    3. Odd Chip Rule:
+       - If the pot is odd, the player with the odd chip will win the pot
+       - If the pot is even, the player with the higher chip will win the pot
+       - If the pot is even and the players have the same chip, the player with the higher card will win the pot
+       - If the pot is even and the players have the same chip and card, the player with the higher rank will win the pot
+       - If the pot is even and the players have the same chip and card and rank, the player with the higher suit will win the pot
+       - If the pot is even and the players have the same chip and card and rank and suit, the player with the higher rank will win the pot
+
+    4. Game Over:
+       - Game ends when only one player has chips left
     `;
 }
 
