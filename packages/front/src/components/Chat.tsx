@@ -19,7 +19,7 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
 
   useEffect(() => {
     const roleplay = gameState?.lastMove?.move?.decisionContext?.roleplay;
-    const player = gameState?.players.find(
+    const player = gameState?.players?.find(
       (p) => p.id === gameState?.lastMove?.playerId
     );
     if (roleplay && player) {
