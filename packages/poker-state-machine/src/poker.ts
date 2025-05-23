@@ -3,7 +3,7 @@ import { SUITS, type Card, type CardValue, type HoleCards, type PlayerState } fr
 
 export type Deck = Card[];
 
-const ORDERED_HAND_TYPES = [
+export const ORDERED_HAND_TYPES = [
     "high_card",
     "pair",
     "two_pair",
@@ -45,7 +45,7 @@ export function getShuffledDeck(): Deck {
   return fisherYatesShuffle(deck);
 }
 
-// is there a neatier way to implement this?
+// is there a neater way to implement this?
 function combinations<T>(array: T[], k: number): T[][] {
   const result: T[][] = [];
 
@@ -66,55 +66,95 @@ function combinations<T>(array: T[], k: number): T[][] {
   return result;
 }
 
-function compareHands(a: Hand, b: Hand): -1 | 0 | 1 {
+export function compareHands(a: Hand, b: Hand): -1 | 0 | 1 {
     const indexA = ORDERED_HAND_TYPES.findIndex(ht => ht == a.type)
     const indexB = ORDERED_HAND_TYPES.findIndex(ht => ht == b.type)
 
-    if (indexA <  indexB) return -1
-    if (indexA >  indexB) return +1
+    // First compare hand types
+    // Lower index means worse hand (ORDERED_HAND_TYPES is ordered from worst to best)
+    if (indexA < indexB) return -1  // a is worse than b (has lower index)
+    if (indexA > indexB) return 1   // a is better than b (has higher index)
 
-    // FIXME: implement untie criteria (way trickier than I first thought)
+    // If same hand type, compare by highest cards
+    const sortedA = a.cards.toSorted((c1, c2) => {
+        // Convert ranks for comparison (Ace = 14)
+        const rankA = c1.rank === 1 ? 14 : c1.rank
+        const rankB = c2.rank === 1 ? 14 : c2.rank
+        return rankB - rankA
+    })
+    const sortedB = b.cards.toSorted((c1, c2) => {
+        const rankA = c1.rank === 1 ? 14 : c1.rank
+        const rankB = c2.rank === 1 ? 14 : c2.rank
+        return rankB - rankA
+    })
+
+    // Compare each card in order
+    for (let i = 0; i < sortedA.length; i++) {
+        // Convert ranks for comparison (Ace = 14)
+        const rankA = sortedA[i].rank === 1 ? 14 : sortedA[i].rank
+        const rankB = sortedB[i].rank === 1 ? 14 : sortedB[i].rank
+        
+        if (rankA < rankB) return -1  // a is worse than b
+        if (rankA > rankB) return 1   // a is better than b
+    }
+
+    // If all cards are equal, it's a tie
     return 0
 }
 
-// FIXME: this incorrectly determines: fullhouse, straight with king-ace, two pair
 export function determineHandType(cards: BestHandCards): HandType {
-  const sorted = cards.sort();
+  // Sort cards by rank, treating Ace (rank 1) as 14 for high straights
+  const sorted = [...cards].sort((a, b) => {
+    const rankA = a.rank === 1 ? 14 : a.rank;
+    const rankB = b.rank === 1 ? 14 : b.rank;
+    return rankA - rankB;
+  });
 
-  const subsequentDiffs = sorted.map((card, index) =>
-    index < sorted.length - 1 ? sorted[index + 1].rank - card.rank : 1,
-  );
+  // Check for straight by looking at consecutive rank differences
+  // First try normal straight check
+  const subsequentDiffs = sorted.map((card, index) => {
+    if (index >= sorted.length - 1) return 1;
+    const currentRank = card.rank === 1 ? 14 : card.rank;
+    const nextRank = sorted[index + 1].rank === 1 ? 14 : sorted[index + 1].rank;
+    return nextRank - currentRank;
+  });
 
+  // Count cards by rank and suit
   const cardsByValue = cards.reduce(
     (count, card) => ({
       ...count,
       [card.rank]: (count[card.rank] ?? 0) + 1,
     }),
-    {} as { [v: number]: number },
+    {} as { [v: number]: number }
   );
 
   const cardsBySuit = cards.reduce(
-    (count, card) => ({ ...count, [card.suit]: (count[card.suit] ?? 0) + 1 }),
-    {} as { [v: string]: number },
+    (count, card) => ({
+      ...count,
+      [card.suit]: (count[card.suit] ?? 0) + 1
+    }),
+    {} as { [v: string]: number }
   );
 
+  // Check for straight and flush
   const isStraight = subsequentDiffs.every(v => v === 1);
-  const isFlush = Object.values(cardsBySuit).some(c => c >= 4);
+  const isFlush = Object.values(cardsBySuit).some(c => c === 5);
   const isFourKind = Object.values(cardsByValue).some(c => c === 4);
   const isThreeKind = Object.values(cardsByValue).some(c => c === 3);
-  // TODO: const isTwoPair
-  const isPair = Object.values(cardsByValue).some(c => c === 2);
+  const pairs = Object.values(cardsByValue).filter(c => c === 2).length;
+  const isTwoPair = pairs === 2;
+  const isPair = pairs > 0;
 
-  if (isStraight && isFlush) return "straight_flush"
-  if (isFourKind) return "four_kind"
-  // FIXME: this is broken because isThreeKind implies isPair
-  if (isThreeKind && isPair) return "full_house"
-  if (isFlush) return "flush"
-  if (isStraight) return "straight"
-  if (isThreeKind) "three_kind"
-  if (isPair) return "pair"
-
-  return "high_card"
+  // Check combinations in order from highest to lowest
+  if (isStraight && isFlush) return "straight_flush";
+  if (isFourKind) return "four_kind";
+  if (isThreeKind && isPair) return "full_house";
+  if (isFlush) return "flush";
+  if (isStraight) return "straight";
+  if (isThreeKind) return "three_kind";
+  if (isTwoPair) return "two_pair";
+  if (isPair) return "pair";
+  return "high_card";
 }
 
 export function getBestHand(community: RiverCommunity, hole: HoleCards): Hand {
