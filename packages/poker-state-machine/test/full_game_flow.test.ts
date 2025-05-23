@@ -2034,4 +2034,39 @@ describe("Poker game flow tests", () => {
     expect(state.players[1].chips).toBeLessThan(state.players[0].chips); // BB should have less chips after raising
   });
 
+  test("Player position assignment when joining", async () => {
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
+
+    // First player joins - should be assigned SB/dealer position
+    await Effect.runPromise(
+      pokerRoom.processEvent({
+        type: "table",
+        playerName: PLAYER_IDS[0],
+        action: "join",
+        playerId: PLAYER_IDS[0],
+      })
+    );
+
+    let state = await Effect.runPromise(pokerRoom.currentState());
+    expect(state.players[0].position).toBe("SB");
+    expect(state.players.length).toBe(1);
+
+    // Second player joins - should be assigned BB position
+    await Effect.runPromise(
+      pokerRoom.processEvent({
+        type: "table",
+        playerName: PLAYER_IDS[1],
+        action: "join",
+        playerId: PLAYER_IDS[1],
+      })
+    );
+
+    state = await Effect.runPromise(pokerRoom.currentState());
+    expect(state.players[1].position).toBe("BB");
+    expect(state.players.length).toBe(2);
+    console.log('state', state);
+    // Verify first player's position hasn't changed
+    expect(state.players[0].position).toBe("SB");
+  });
+
 }); 

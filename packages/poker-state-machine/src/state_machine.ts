@@ -31,6 +31,7 @@ export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {
   status: "PLAYING",
   hand: [],
   chips: 1000,
+  position: "BB", // will be set by the game-state-machine
   playedThisPhase: false,
   bet: { round: 0, total: 0 },
   playerName: "",
