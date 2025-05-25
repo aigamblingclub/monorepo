@@ -68,7 +68,7 @@ export default function Home() {
 
     const interval = setInterval(getState, 1000);
     return () => clearInterval(interval);
-  }, [gameState]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
