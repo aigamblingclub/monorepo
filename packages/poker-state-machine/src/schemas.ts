@@ -31,6 +31,7 @@ export const PlayerStateSchema = Schema.Struct({
   id: Schema.String,
   playerName: Schema.String,
   status: PlayerStatusSchema,
+  playedThisPhase: Schema.Boolean,
   hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
   chips: Schema.Number,
   bet: Schema.Struct({

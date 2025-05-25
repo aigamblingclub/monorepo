@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from './Card';
 import { Player } from './Player';
 import { PokerState, formatChips, getPhaseLabel } from '../types/poker';
@@ -23,10 +23,18 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   gameState,
   playerBets
 }) => {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (gameState?.players?.length > 1) {
+      setReady(true);
+    }
+  }, [gameState]);
+  console.log("🔍 Game state:", gameState);
   return (
     <div className="h-full bg-black flex flex-row">
       {/* Main poker table */}
-      <div className="flex-grow flex justify-center items-center">
+      <div className="flex-grow flex justify-center items-start">
         <div className="poker-table-container">
           <div className="table-surface">
             {/* Players */}
@@ -54,7 +62,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             <div className="center-area">
               {/* Game status */}
               <div className="game-status">
-                {gameState.tableStatus === "WAITING" && "Waiting for players..."}
+                {gameState.tableStatus === "PLAYING" && !ready && "Waiting for players..."}
                 {gameState.tableStatus === "ROUND_OVER" && gameState.winner && `Winner: ${gameState.winner}`}
                 {gameState.tableStatus === "GAME_OVER" && gameState.winner && `Game Over - Winner: ${gameState.winner}`}
                 {gameState.tableStatus === "PLAYING" && (
@@ -64,26 +72,30 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                   </>
                 )}
               </div>
-              {/* Pot and current bet */}
-              <div className="pot">
-                <div>POT: ${formatChips(gameState.pot)}</div>
-                {gameState.round.currentBet > 0 && (
-                  <div className="current-bet">Current Bet: ${formatChips(gameState.round.currentBet)}</div>
-                )}
-                {gameState.round.roundPot > 0 && (
-                  <div className="round-pot">Round Pot: ${formatChips(gameState.round.roundPot)}</div>
-                )}
-              </div>
-              {/* Community cards */}
-              <div className="river">
-                {gameState?.community?.map((card, index) => (
-                  <Card key={`${card.rank}-${card.suit}-${index}`} card={card} />
-                ))}
-                {/* Empty cards to complete 5 */}
-                {Array.from({ length: Math.max(0, 5 - gameState.community.length) }).map((_, index) => (
-                  <Card key={`empty-${index}`} card={null} />
-                ))}
-              </div>
+              {ready && (
+                <>
+                  {/* Pot and current bet */}
+                  <div className="pot">
+                    <div>POT: ${formatChips(gameState.pot)}</div>
+                    {gameState.round?.currentBet > 0 && (
+                      <div className="current-bet">Current Bet: ${formatChips(gameState.round.currentBet)}</div>
+                    )}
+                    {gameState.round?.roundPot > 0 && (
+                      <div className="round-pot">Round Pot: ${formatChips(gameState.round.roundPot)}</div>
+                    )}
+                  </div>
+                  {/* Community cards */}
+                  <div className="river">
+                    {gameState?.community?.map((card, index) => (
+                      <Card key={`${card.rank}-${card.suit}-${index}`} card={card} />
+                    ))}
+                    {/* Empty cards to complete 5 */}
+                    {Array.from({ length: Math.max(0, 5 - gameState?.community?.length) }).map((_, index) => (
+                      <Card key={`empty-${index}`} card={null} />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

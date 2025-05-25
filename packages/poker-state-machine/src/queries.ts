@@ -10,9 +10,19 @@ export function firstPlayerIndex(state: PokerState): number {
   const players = state.players.length
   const preflop = state.community.length === 0
   const dealerIndex = findDealerIndex(state)
-  return players === 2 && preflop
-    ? dealerIndex
-    : (dealerIndex + 3) % players
+  
+  if (players === 2) {
+    // In Heads-up:
+    // - Pre-flop: Dealer (SB) acts first
+    // - Post-flop: BB (non-dealer) acts first
+    return preflop 
+      ? dealerIndex  // Dealer acts first in pre-flop
+      : (dealerIndex + 1) % 2  // BB acts first after pre-flop
+  }
+  
+  // In regular game (3+ players):
+  // First to act is the position after BB (UTG)
+  return (dealerIndex + 3) % players
 }
 
 export function rotated<T>(array: readonly T[], count: number): readonly T[] {
@@ -23,7 +33,12 @@ export function roundRotation(state: PokerState): readonly PlayerState[] {
     return rotated(state.players, state.players.length - firstPlayerIndex(state))
 }
 
-export const currentPlayer = (state: PokerState) => state.players[state.currentPlayerIndex]
+export const currentPlayer = (state: PokerState) => {
+    if (state.currentPlayerIndex < 0 || state.currentPlayerIndex >= state.players.length) {
+        return null;
+    }
+    return state.players[state.currentPlayerIndex];
+}
 
 export const smallBlind = (state: PokerState) => {
     const dealerIndex = findDealerIndex(state)
