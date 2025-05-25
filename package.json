@@ -5,9 +5,12 @@
     "packages/*"
   ],
   "scripts": {
-    "server-dev": "bun run --watch packages/server/src/index.ts",
+    "poker-server-dev": "bun run --watch packages/server/src/index.ts",
     "poker-test": "bun test packages/poker-state-machine/test",
-    "front-dev": "bun run --cwd packages/front dev -p 4000",
+    "server-dev": "bun run --cwd server-main dev",
+    "front-poker-schema": "cp packages/poker-state-machine/src/schemas.ts front/src/types/schemas.ts",
+    "front-dev": "bun run front-poker-schema && bun run --cwd front dev -p 4000",
+    "front-build": "bun run --cwd front build",
     "agent-build": "cp packages/poker-state-machine/src/schemas.ts agent/packages/client-poker/src/schemas.ts && pnpm --dir agent build",
     "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug",
     "agent": "pnpm agent-build && pnpm --dir agent start"
