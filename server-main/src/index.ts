@@ -23,6 +23,15 @@ app.use('/api/game', highFrequencyLimiter); // Apply high-frequency rate limitin
 // Middleware
 app.use(express.json());
 
+// IP Check Middleware for /api-docs
+app.use('/api-docs', (req, res, next) => {
+  if (req.ip === '::1') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Access denied' });
+  }
+});
+
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

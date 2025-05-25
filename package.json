@@ -5,8 +5,9 @@
     "packages/*"
   ],
   "scripts": {
-    "server-dev": "bun run --watch packages/server/src/index.ts",
+    "poker-server-dev": "bun run --watch packages/server/src/index.ts",
     "poker-test": "bun test packages/poker-state-machine/test",
+    "server-dev": "bun run --cwd server-main dev",
     "front-poker-schema": "cp packages/poker-state-machine/src/schemas.ts front/src/types/schemas.ts",
     "front-dev": "bun run front-poker-schema && bun run --cwd front dev -p 4000",
     "front-build": "bun run --cwd front build",
