@@ -1,0 +1,37 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./database.sqlite"
+}
+
+model User {
+  id                  Int       @id @default(autoincrement())
+  nearImplicitAddress String    @unique
+  nearNamedAddress    String    @unique
+  lastActiveAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now())
+  apiKeys             ApiKey[]
+
+  @@index([nearImplicitAddress], name: "idx_near_account")
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  keyValue   String    @unique
+  userId     Int
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  totalUses  Int       @default(0)
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@index([keyValue], name: "idx_api_key_value")
+}
