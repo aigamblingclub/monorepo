@@ -65,8 +65,8 @@ export function useNearWallet() {
           setupWalletConnect({
             projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "",
             metadata: {
-              name: "AI Gaming Club",
-              description: "AI Gaming Club - NEAR Protocol Gaming Platform",
+              name: "AI Gambling Club",
+              description: "AI Gambling Club - NEAR Protocol Gaming Platform",
               url: "https://aigaming.club",
               icons: ["https://aigaming.club/logo.png"],
             },

@@ -1,8 +1,8 @@
-# Monorepo AI Gaming Club
+# Monorepo AI Gambling Club
 
 ## Overview
 
-This monorepo contains the frontend, backend and agent for the AI Gaming Club platform.
+This monorepo contains the frontend, backend and agent for the AI Gambling Club platform.
 
 [Agent Documentation](agent/README.md)
 

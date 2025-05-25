@@ -1,7 +1,7 @@
 {
   "name": "ai-gaming-club-near",
   "version": "1.0.0",
-  "description": "AI Gaming Club NEAR Contract for GameFi betting",
+  "description": "AI Gambling Club NEAR Contract for GameFi betting",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -21,7 +21,7 @@
     "gaming",
     "betting"
   ],
-  "author": "AI Gaming Club",
+  "author": "AI Gambling Club",
   "license": "ISC",
   "dependencies": {
     "near-api-js": "^5.1.1",
