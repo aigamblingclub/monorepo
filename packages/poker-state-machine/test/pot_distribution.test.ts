@@ -216,18 +216,6 @@ describe('Hand Comparison Tests', () => {
       createCard(2, 'diamonds')
     ], 'flush');
 
-    // Debug logs
-    console.log('Straight Flush:', {
-      type: straightFlush.type,
-      typeIndex: ORDERED_HAND_TYPES.findIndex((ht: string) => ht === straightFlush.type),
-      cards: straightFlush.cards
-    });
-    console.log('Four of a Kind:', {
-      type: fourOfAKind.type,
-      typeIndex: ORDERED_HAND_TYPES.findIndex((ht: string) => ht === fourOfAKind.type),
-      cards: fourOfAKind.cards
-    });
-
     // Test comparisons
     expect(compareHands(straightFlush, fourOfAKind)).toBe(1); // Straight flush beats four of a kind
     expect(compareHands(fourOfAKind, flush)).toBe(1); // Four of a kind beats flush
