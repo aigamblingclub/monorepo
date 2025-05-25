@@ -24,13 +24,44 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   playerBets
 }) => {
   const [ready, setReady] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [timer, setTimer] = useState(120); // 2 minutos em segundos
+  const [showProgressBar, setShowProgressBar] = useState(false);
 
   useEffect(() => {
     if (gameState?.players?.length > 1) {
       setReady(true);
     }
   }, [gameState]);
-  console.log("🔍 Game state:", gameState);
+
+  useEffect(() => {
+    if (gameState.tableStatus === "GAME_OVER") {
+      setShowProgressBar(true);
+      setTimer(120);
+      setProgress(0);
+    } else {
+      setTimer(2);
+      setProgress(99);
+      // setShowProgressBar(false);
+    }
+  }, [gameState.tableStatus]);
+
+  useEffect(() => {
+    if (!showProgressBar) return;
+
+    if (timer === 0) {
+      setShowProgressBar(false);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimer((prev) => prev - 1);
+      setProgress((prev) => prev + (100 / 120));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showProgressBar, timer]);
+
   return (
     <div className="h-full bg-black flex flex-row">
       {/* Main poker table */}
@@ -39,16 +70,21 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           <div className="table-surface">
             {/* Players */}
             {gameState?.players?.map((player, index) => {
-              const playerBet = playerBets.find(bet => bet.playerId === player.id) || {
+              const playerBet = playerBets.find(
+                (bet) => bet.playerId === player.id
+              ) || {
                 playerId: player.id,
                 totalContractBet: 0,
-                userContractBet: 0
+                userContractBet: 0,
               };
-              
+
               return (
                 <Player
                   key={player.id}
-                  tablePosition={getPlayerPosition(index, gameState.players.length)}
+                  tablePosition={getPlayerPosition(
+                    index,
+                    gameState.players.length
+                  )}
                   {...player}
                   isCurrentPlayer={index === gameState?.currentPlayerIndex}
                   totalContractBet={playerBet.totalContractBet}
@@ -61,9 +97,16 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             <div className="center-area">
               {/* Game status */}
               <div className="game-status">
-                {gameState.tableStatus === "PLAYING" && !ready && "Waiting for players..."}
-                {gameState.tableStatus === "ROUND_OVER" && gameState.winner && `Winner: ${gameState.winner}`}
-                {gameState.tableStatus === "GAME_OVER" && gameState.winner && `Game Over - Winner: ${gameState.winner}`}
+                {gameState.tableStatus === "PLAYING" &&
+                  !ready &&
+                  "Waiting for players..."}
+                {gameState.tableStatus === "ROUND_OVER" &&
+                  gameState.winner &&
+                  `Winner: ${gameState.winner}`}
+                {gameState.tableStatus === "GAME_OVER" &&
+                  gameState.winner &&
+                  `Game Over - Winner: ${gameState.winner}`}
+
                 {gameState.tableStatus === "PLAYING" && (
                   <>
                     <div>Phase: {getPhaseLabel(gameState.round.phase)}</div>
@@ -71,25 +114,47 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                   </>
                 )}
               </div>
-              {ready && (
+              {showProgressBar && (
+                <div className="progress-bar-container">
+                  <div className="progress-bar-outer">
+                    <div
+                      className="progress-bar-inner"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="progress-bar-label">
+                    [ Loading next game... {timer}s ]
+                  </div>
+                </div>
+              )}
+              {ready && !showProgressBar && (
                 <>
                   {/* Pot and current bet */}
                   <div className="pot">
                     <div>POT: ${formatChips(gameState.pot)}</div>
                     {gameState.round?.currentBet > 0 && (
-                      <div className="current-bet">Current Bet: ${formatChips(gameState.round.currentBet)}</div>
+                      <div className="current-bet">
+                        Current Bet: ${formatChips(gameState.round.currentBet)}
+                      </div>
                     )}
                     {gameState.round?.roundPot > 0 && (
-                      <div className="round-pot">Round Pot: ${formatChips(gameState.round.roundPot)}</div>
+                      <div className="round-pot">
+                        Round Pot: ${formatChips(gameState.round.roundPot)}
+                      </div>
                     )}
                   </div>
                   {/* Community cards */}
                   <div className="river">
                     {gameState?.community?.map((card, index) => (
-                      <Card key={`${card.rank}-${card.suit}-${index}`} card={card} />
+                      <Card
+                        key={`${card.rank}-${card.suit}-${index}`}
+                        card={card}
+                      />
                     ))}
                     {/* Empty cards to complete 5 */}
-                    {Array.from({ length: Math.max(0, 5 - gameState?.community?.length) }).map((_, index) => (
+                    {Array.from({
+                      length: Math.max(0, 5 - gameState?.community?.length),
+                    }).map((_, index) => (
                       <Card key={`empty-${index}`} card={null} />
                     ))}
                   </div>

@@ -195,9 +195,9 @@ body {
   color: var(--theme-accent);
   text-shadow: 0 0 5px var(--theme-accent), 0 0 10px var(--theme-accent);
   margin-bottom: 10px;
-  border: 1px solid var(--theme-accent);
+  border: 2px solid var(--theme-accent);
   padding: 5px;
-  border-radius: 5px;
+  border-radius: 0px;
   background-color: rgba(0, 0, 0, 0.5);
 }
 
@@ -408,4 +408,38 @@ body {
 
 .ai-thoughts-scrollbar .simplebar-track.simplebar-vertical .simplebar-scrollbar:hover::before {
   background-color: var(--theme-primary);
+}
+
+/* Progress Bar Mainframe/Terminal Style */
+.progress-bar-container {
+  width: 100%;
+  margin: 20px auto;
+  text-align: center;
+  font-family: monospace;
+  color: var(--theme-primary);
+}
+
+.progress-bar-outer {
+  background: var(--surface-secondary, #000);
+  border: 2px solid var(--theme-primary);
+  border-radius: 0;
+  overflow: hidden;
+  height: 28px;
+  margin-bottom: 8px;
+  /* box-shadow: 0 0 8px var(--theme-primary); */
+  /* width: 100%; */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.progress-bar-inner {
+  background: var(--theme-primary);
+  height: 100%;
+  transition: width 1s linear;
+}
+
+.progress-bar-label {
+  color: var(--theme-primary);
+  font-weight: bold;
+  letter-spacing: 1px;
 }

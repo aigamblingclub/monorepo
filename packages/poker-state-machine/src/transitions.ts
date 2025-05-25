@@ -314,25 +314,6 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
     const playersLeft = state.players.filter(p => p.status === "PLAYING")
     const allInPlayers = state.players.filter(p => p.status === "ALL_IN")
 
-    console.log('\n=== DETAILED STATE INFO ===')
-    console.log('Current State:', {
-        phase: state.round.phase,
-        currentPlayerIndex: state.currentPlayerIndex,
-        currentBet: state.round.currentBet,
-        pot: state.pot,
-        canAdvancePhase,
-        allCalled,
-        allChecked,
-        playersLeft: playersLeft.length,
-        allInPlayers: allInPlayers.length
-    })
-    console.log('Player States:', state.players.map(p => ({
-        id: p.id,
-        status: p.status,
-        bet: p.bet,
-        isCurrentPlayer: state.currentPlayerIndex >= 0 && state.players[state.currentPlayerIndex].id === p.id
-    })))
-
     // Se só resta um jogador ativo ou todos os jogadores ativos estão all-in, vamos para showdown
     if (playersLeft.length <= 1 && allInPlayers.length === 0) {
         console.log('Finalizing round due to only one active player or no all-in players')
@@ -429,21 +410,6 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
 
 // precondition: betting round is over
 export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
-    console.log('\n=== NEXT PHASE TRANSITION ===')
-    console.log('Current State:', {
-        phase: state.round.phase,
-        communityCards: state.community.length,
-        currentBet: state.round.currentBet,
-        pot: state.pot,
-        currentPlayerIndex: state.currentPlayerIndex
-    })
-    console.log('Player States:', state.players.map(p => ({
-        id: p.id,
-        status: p.status,
-        bet: p.bet,
-        chips: p.chips
-    })))
-
     if (state.community.length === 5) {
         console.log('Five community cards dealt, moving to showdown')
         return finalizeRound(state)
@@ -685,19 +651,17 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
 export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessEventError, never> {
     // Check if we've reached max rounds
     if (state.config.maxRounds !== null && state.round.roundNumber >= state.config.maxRounds) {
-        return Effect.succeed({
-            ...state,
-            status: 'GAME_OVER' as const
-        });
+        Effect.log('Game is over - max rounds reached')
+        return endGame(state);
     }
 
     // Move dealer button to next active player
     const activePlayers = state.players.filter(p => p.chips > 0);
     if (activePlayers.length < 2) {
         // Game is over - we have a winner
-        return Effect.succeed({
+        Effect.log('Game is over - no active players, we have a winner')
+        return endGame({
             ...state,
-            status: 'GAME_OVER' as const,
             winner: activePlayers[0]?.id ?? null
         });
     }
@@ -742,7 +706,7 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
 export function endGame(state: PokerState): Effect.Effect<PokerState, ProcessEventError, never> {
     return Effect.succeed({
         ...state,
-        status: 'GAME_OVER',
+        tableStatus: 'GAME_OVER',
         lastMove: null
     });
 }

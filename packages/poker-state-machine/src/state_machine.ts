@@ -1,7 +1,7 @@
 import { type PlayerState, type PokerState } from "./schemas";
 
 export const POKER_ROOM_DEFAULT_STATE: PokerState = {
-  tableId: "", // created in makePokerRoom
+  tableId: "0", // created in makePokerRoom
   tableStatus: "WAITING",
   players: [],
   lastMove: null,

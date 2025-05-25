@@ -87,9 +87,26 @@ function computeNextState(
             return endGame(state).pipe(
                 Effect.map(newState => ({
                     ...newState,
-                    //lastMove: null
                 }))
             )
+        }
+        case 'auto_restart': {
+            // Reset the game state to initial values
+            return Effect.succeed({
+                ...POKER_ROOM_DEFAULT_STATE,
+                tableId: state.tableId,
+                tableStatus: "WAITING",
+                players: state.players.map(p => ({
+                    ...p,
+                    status: "PLAYING",
+                    hand: [],
+                    chips: state.config.startingChips,
+                    position: p.position,
+                    playedThisPhase: false,
+                    bet: { round: 0, total: 0 }
+                })),
+                config: state.config,
+            })
         }
     }
 }
@@ -99,21 +116,33 @@ function computeNextState(
 // TODO: make minPlayers part of the Effect's context? (i.e. dependency)
 function processState(state: PokerState, minPlayers: number): Effect.Effect<Option.Option<SystemEvent>, ProcessStateError> {
     if (state.tableStatus === "WAITING" && state.players.length >= minPlayers) {
-        // TODO: add debounce here somehow
-        // actually we can't add the debounce here because that would just stall
-        // everything and not actually allow anyone else to join the table
-        // the correct way is to make this system event trigger a fork which will
-        // wait for a certain amount of time and then emit the new state, tricky though
         return Effect.succeed(Option.some({ type: 'start' }))
     }
     if (state.tableStatus === "ROUND_OVER") {
         return Effect.succeed(Option.some({ type: 'next_round' }))
     }
+    if (state.tableStatus === "GAME_OVER") {
+        // Get auto-restart delay from environment variable or use default (2 minutes)
+        const autoRestartDelay = process.env.AUTO_RESTART_DELAY ? parseInt(process.env.AUTO_RESTART_DELAY) : 120000;
+        return Effect.gen(function* (_) {
+            yield* Effect.sleep(autoRestartDelay)
+            return Option.some({ type: 'auto_restart' })
+        })
+    }
     return Effect.succeed(Option.none())
 }
 
+const createTableId = (tableId: string) => {
+  return String(Number(tableId) + 1)
+}
+
 export const makePokerRoom = (minPlayers: number, logLevel: LogLevel.LogLevel): Effect.Effect<PokerGameService, never, never> => Effect.gen(function* (_adapter) {
-    const stateRef = yield* Ref.make({...POKER_ROOM_DEFAULT_STATE, tableId: "table-id"}) // TODO: get from adapter (db)
+    const stateRef =
+      yield *
+      Ref.make({
+        ...POKER_ROOM_DEFAULT_STATE,
+        tableId: createTableId(POKER_ROOM_DEFAULT_STATE.tableId),
+      }); // TODO: get from adapter (db)
     const stateUpdateQueue = yield* Queue.unbounded<PokerState>()
     const stateStream = Stream.fromQueue(stateUpdateQueue).pipe(
         Stream.tap(() => Effect.logDebug('state stream received update'))
