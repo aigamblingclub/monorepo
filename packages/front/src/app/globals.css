@@ -255,15 +255,6 @@ body {
   text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
 }
 
-.current-player {
-  width: 180px;
-  height: 180px;
-  border: var(--border-width) solid var(--theme-highlight) !important;
-  box-shadow: 0 0 4px 1px var(--theme-highlight),
-              0 0 4px 1px var(--theme-highlight) inset !important;
-  z-index: 2;
-}
-
 /* Title and Subtitle styles */
 .title {
   color: var(--theme-primary);
