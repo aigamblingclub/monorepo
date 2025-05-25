@@ -29,7 +29,6 @@ const ADMIN_OPERATIONS = [
   { name: 'Get USDC Balance', method: 'getUsdcBalance', args: ['account_id'] },
   { name: 'Check if NEAR Locked', method: 'isNearLocked', args: ['account_id'] },
   { name: 'Check if USDC Locked', method: 'isUsdcLocked', args: ['account_id'] },
-  { name: 'Emergency Reset Admin', method: 'emergency_reset_admin', args: ['new_admin'] }
 ];
 
 // Create readline interface for user input

@@ -11,8 +11,8 @@ const __dirname = path.dirname(__filename);
 process.chdir(path.join(__dirname, '..'));
 
 // Relative paths from the contracts directory
-const srcFile = 'src/ai-gaming-club.js';
-const outputFile = 'build/ai-gaming-club.wasm';
+const srcFile = 'src/ai-gambling-club.js';
+const outputFile = 'build/ai-gambling-club.wasm';
 
 // Ensure build directory exists
 if (!fs.existsSync('build')) {
@@ -25,7 +25,7 @@ if (!fs.existsSync(srcFile)) {
   process.exit(1);
 }
 
-console.log('Building AI Gaming Club contract...');
+console.log('Building AI Gambling Club contract...');
 
 try {
   // Use near-sdk-js to build the contract with relative paths

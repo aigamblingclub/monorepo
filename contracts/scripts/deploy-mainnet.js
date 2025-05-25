@@ -12,7 +12,7 @@ const __dirname = dirname(__filename);
 
 // Paths
 const buildDir = join(__dirname, '..', 'build');
-const contractFile = join(buildDir, 'ai-gaming-club.wasm');
+const contractFile = join(buildDir, 'ai-gambling-club.wasm');
 
 // Create readline interface for user input
 const rl = createInterface({
@@ -33,13 +33,15 @@ async function main() {
   const accountId = args[0];
   const adminAccount = args[1];
   const usdcTokenContract = args[2] || 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near'; // Default USDC contract on mainnet
+  const backendPublicKey = args[3]; // Backend public key for signature verification
 
   // Validate arguments
-  if (!accountId) {
-    console.error('Usage: deploy-mainnet.js [account_id] [admin_account] [usdc_token_contract]');
+  if (!accountId || !backendPublicKey) {
+    console.error('Usage: deploy-mainnet.js [account_id] [admin_account] [usdc_token_contract] [backend_public_key]');
     console.error('  account_id: The account ID to deploy the contract to');
     console.error('  admin_account: The account ID of the admin (default: same as account_id)');
     console.error('  usdc_token_contract: The account ID of the USDC token contract (default: a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near)');
+    console.error('  backend_public_key: The Ed25519 public key for signature verification (base64 encoded)');
     process.exit(1);
   }
 
@@ -51,6 +53,7 @@ async function main() {
   console.log(`Account ID: ${accountId}`);
   console.log(`Admin Account: ${finalAdminAccount}`);
   console.log(`USDC Token Contract: ${usdcTokenContract}`);
+  console.log(`Backend Public Key: ${backendPublicKey}`);
   console.log('\nThis is a production environment. Please confirm your action.');
 
   rl.question('Are you sure you want to deploy to mainnet? (yes/no): ', async (answer) => {
@@ -79,7 +82,7 @@ async function main() {
         // Initialize the contract
         console.log(`\nInitializing contract...`);
         execSync(
-          `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${usdcTokenContract}"}' --accountId ${accountId} --networkId mainnet`,
+          `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${usdcTokenContract}", "backend_public_key": "${backendPublicKey}"}' --accountId ${accountId} --networkId mainnet`,
           { stdio: 'inherit' }
         );
       }
@@ -88,6 +91,7 @@ async function main() {
       console.log(`Contract: ${accountId}`);
       console.log(`Admin: ${admin ? admin : adminAccount ? adminAccount : accountId}`);
       console.log(`USDC Token Contract: ${usdcTokenContract}`);
+      console.log(`Backend Public Key: ${backendPublicKey}`);
       console.log(`Explorer URL: https://explorer.near.org/accounts/${accountId}`);
     } catch (error) {
       console.error('Error deploying contract:', error.message);
