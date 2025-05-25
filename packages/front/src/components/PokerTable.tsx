@@ -62,7 +62,6 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     return () => clearInterval(interval);
   }, [showProgressBar, timer]);
 
-  console.log("🔍 Game state:", gameState);
   return (
     <div className="h-full bg-black flex flex-row">
       {/* Main poker table */}

@@ -29,7 +29,7 @@ export function addPlayer(state: PokerState, playerId: string, playerName: strin
             ...PLAYER_DEFAULT_STATE,
             id: playerId,
             playerName: playerName,
-            position: state.players.length === 0  ? "SB" : "BB", // TODO: implement position logic for 3+ players
+            position: state.players.length === 0 ? "SB" : "BB", // TODO: implement position logic for 3+ players
         }
     ]
   }
@@ -567,6 +567,7 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
     
     // Validate state: all active players should have the same bet
     const playingPotBets = getPotBets(playingPlayers)
+    console.log('playingPotBets', playingPotBets, playingPlayers)
     if (playingPotBets.length !== 1) {
         return Effect.fail({
             type: 'inconsistent_state',
@@ -581,6 +582,7 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
     
     // Process each pot level
     for (const [bet, pot] of pots) {
+        console.log({ 'bet': bet, 'pot': pot, 'inPlayers': inPlayers, 'community': state.community })
         const winnerIds = determinePotWinner(bet, inPlayers, state.community as RiverCommunity)
         
         if (winnerIds.length === 0) continue;
@@ -619,7 +621,7 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
             rewards.set(winnerId, current + 1)
         }
     }
-
+    console.log('rewards', rewards)
     return Effect.succeed({
         ...state,
         tableStatus: "ROUND_OVER",
