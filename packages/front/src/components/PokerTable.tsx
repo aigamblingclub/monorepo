@@ -48,10 +48,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               return (
                 <Player
                   key={player.id}
-                  position={getPlayerPosition(index, gameState.players.length)}
+                  tablePosition={getPlayerPosition(index, gameState.players.length)}
                   {...player}
                   isCurrentPlayer={index === gameState?.currentPlayerIndex}
-                  isDealer={player.id === gameState.dealerId}
                   totalContractBet={playerBet.totalContractBet}
                   userContractBet={playerBet.userContractBet}
                 />

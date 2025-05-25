@@ -28,7 +28,8 @@ export function addPlayer(state: PokerState, playerId: string, playerName: strin
         {
             ...PLAYER_DEFAULT_STATE,
             id: playerId,
-            playerName: playerName
+            playerName: playerName,
+            position: state.players.length === 0 ? "SB" : "BB", // TODO: implement position logic for 3+ players
         }
     ]
   }

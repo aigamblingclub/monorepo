@@ -1,13 +1,12 @@
 import React from 'react';
-import { PlayerState, formatChips } from '../types/poker';
+import { PlayerState, formatChips, PokerPosition } from '../types/poker';
 import { Card } from './Card';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 interface PlayerProps extends PlayerState {
-  position: PlayerPosition;
+  tablePosition: PlayerPosition;
   isCurrentPlayer?: boolean;
-  isDealer?: boolean;
   totalContractBet?: number;
   userContractBet?: number;
 }
@@ -27,45 +26,45 @@ export const Player: React.FC<PlayerProps> = ({
   playerName,
   status,
   hand,
+  position,
   chips,
   bet,
-  position,
+  tablePosition,
   isCurrentPlayer = false,
-  isDealer = false,
-  totalContractBet = 0,
-  userContractBet = 0
+  totalContractBet = 1000,
+  userContractBet = 0,
 }) => {
   const statusColor = () => {
     switch (status) {
-      case 'FOLDED': return 'text-gray-400';
-      case 'ALL_IN': return 'text-neon-yellow';
-      case 'PLAYING': return 'text-neon-green';
-      default: return 'text-neon-green';
+      case "FOLDED":
+        return "text-gray-400";
+      case "ALL_IN":
+        return "text-neon-yellow";
+      case "PLAYING":
+        return "text-neon-green";
+      default:
+        return "text-neon-green";
     }
   };
 
   return (
     <div
-      className={`player ${positionClasses[position]}${
+      className={`player ${positionClasses[tablePosition]}${
         isCurrentPlayer ? " current-player" : ""
       }`}
     >
       <div className="relative">
-        <div className="w-12 h-12 bg-black border-2 border-neon-green shadow-neon rounded-full mr-2 flex items-center justify-center">
+        {/* AVATAR */}
+        {/* <div className="w-12 h-12 bg-black border-2 border-neon-green shadow-neon rounded-full mr-2 flex items-center justify-center">
           <span className={`${statusColor()} text-shadow-neon`}>
             {playerName.slice(0, 2)}
           </span>
         </div>
-        {isDealer && (
-          <span className="absolute -top-2 -right-2 text-xs text-white bg-neon-pink/80 px-1 rounded shadow-neon-pink">
-            D
-          </span>
-        )}
         {totalContractBet > 0 && (
           <span className="absolute -bottom-2 -right-2 text-xs text-white bg-theme-highlight/80 px-1 rounded shadow-neon-yellow">
             ${formatChips(totalContractBet)}
           </span>
-        )}
+        )} */}
       </div>
       <div className="flex flex-col text-xs flex-grow">
         <div className="flex items-center mb-1">
@@ -74,9 +73,10 @@ export const Player: React.FC<PlayerProps> = ({
           </span>
         </div>
         <div className="flex items-center mb-1">
-          <span className={`${statusColor()} text-shadow-neon`}>
-            {status}
-          </span>
+          <span className={`${statusColor()} text-shadow-neon`}>{status}</span>
+        </div>
+        <div className="flex items-center mb-1">
+          <span className={`${statusColor()} text-shadow-neon`}>{PokerPosition[position]}</span>
         </div>
         <div className="flex justify-between items-center mb-1">
           <span className="text-neon-green text-shadow-neon">
@@ -86,12 +86,14 @@ export const Player: React.FC<PlayerProps> = ({
         <div className="flex justify-between items-center mb-1">
           {bet.total > 0 && (
             <span className="text-neon-yellow text-shadow-yellow">
-              Bet: ${formatChips(bet.total)}
+              Bet Total: ${formatChips(bet.total)}
             </span>
           )}
+        </div>
+        <div className="flex justify-between items-center mb-1">
           {bet.round > 0 && (
             <span className="text-neon-yellow text-shadow-yellow ml-2">
-              Round: ${formatChips(bet.round)}
+              Bet Round: ${formatChips(bet.round)}
             </span>
           )}
         </div>
