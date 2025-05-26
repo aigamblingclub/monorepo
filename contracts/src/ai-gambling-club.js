@@ -157,9 +157,6 @@ export class AIGamblingClub {
    */
   @call({private: true})
   _after_usdc_withdrawal({ account_id, amount, previous_balance }) {
-    // Clear pending status regardless of outcome
-    this.usdcWithdrawalsPending.set(account_id, "0");
-
     // Check if the transfer was successful
     if (!near.promiseResult(0)) {
       throw new Error("USDC transfer failed");
@@ -168,15 +165,18 @@ export class AIGamblingClub {
     // Update balance only after successful transfer
     const newBalance = BigInt(previous_balance) - BigInt(amount);
     this.usdcBalances.set(account_id, newBalance.toString());
+
+    // Clear pending status regardless of outcome
+    this.usdcWithdrawalsPending.set(account_id, "0");
     
     // Emit withdrawal event
     this._emitEvent("USDC_WITHDRAWAL", {
       account_id,
       amount,
       new_balance: newBalance.toString(),
-      timestamp: this._getCurrentTimestamp()
+      timestamp: this._getCurrentTimestamp(),
     });
-    
+
     return newBalance.toString();
   }
 

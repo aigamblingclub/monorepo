@@ -11,6 +11,7 @@ datasource db {
   url      = "file:./database.sqlite"
 }
 
+/// Authentication
 model User {
   id                  Int       @id @default(autoincrement())
   nearImplicitAddress String    @unique
@@ -34,4 +35,147 @@ model ApiKey {
   user       User      @relation(fields: [userId], references: [id])
 
   @@index([keyValue], name: "idx_api_key_value")
+}
+
+model UserBalance {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int     
+  onchainBalance   Int
+  virtualBalance   Int
+  pendingUnlock   Boolean @default(false)
+  pendingUnlockTxHash       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Game Core
+model Table {
+  id          Int      @id @default(autoincrement())
+  tableId     String   @unique
+  tableStatus String   // WAITING, PLAYING, ROUND_OVER, GAME_OVER
+  volume      Int // Sum of all rounds volume
+  config      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Player {
+  id              String    @id @default(uuid())
+  playerId        String
+  playerName      String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Player_Table {
+  id        Int      @id @default(autoincrement())
+  player    Player   @relation(fields: [playerId], references: [id])
+  playerId  String
+  table     Table     @relation(fields: [tableId], references: [id])
+  tableId   String
+  status          String    // Non Necessary, use Move.
+  volume          Int // Round Volume(pot) + PlayerBet Volume
+  initialBalance  Int
+  currentBalance  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Game Flow
+model Round {
+  id        Int      @id @default(autoincrement())
+  table     Table     @relation(fields: [tableId], references: [tableId])
+  tableId   String
+  roundNumber Int
+  volume      Int // Sum of all phases volume (pot)
+  player    Player @relation(fields: [winners], references: [id])
+  winners  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Phase {
+  id        Int      @id @default(autoincrement())
+  table     Table     @relation(fields: [tableId], references: [tableId])
+  tableId   String
+  round     Round    @relation(fields: [roundId], references: [id])
+  roundId   Int
+  phaseName String
+  volume    Int // Sum of all moves volume
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DecisionContext {
+  id        Int      @id @default(autoincrement())
+  thinking String
+  explanation String
+  analysis String
+  reasoning String
+  strategy String
+  logic String
+  roleplay String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Moves {
+  id        String   @id @default(uuid())
+  table     Table     @relation(fields: [tableId], references: [tableId])
+  tableId   String
+  round     Round    @relation(fields: [roundId], references: [id])
+  roundId   Int
+  phase     Phase    @relation(fields: [phaseId], references: [id])
+  phaseId   Int
+  player    Player   @relation(fields: [playerId], references: [id])
+  playerId  String
+  playerTurn Int
+  move      String
+  decisionContext DecisionContext @relation(fields: [decisionContextId], references: [id])
+  decisionContextId Int
+  amount    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlayerHand {
+  id        Int      @id @default(autoincrement())
+  table     Table     @relation(fields: [tableId], references: [id])
+  tableId   String
+  round     Round    @relation(fields: [roundId], references: [id])
+  roundId   Int
+  player    Player   @relation(fields: [playerId], references: [id])
+  playerId  String
+  firstCardRank Int
+  firstCardSuit String
+  secondCardRank Int
+  secondCardSuit String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Betting System
+model UserBet {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  table     Table     @relation(fields: [tableId], references: [id])
+  tableId   String
+  player    Player   @relation(fields: [playerId], references: [id])
+  playerId  String
+  round     Round    @relation(fields: [roundId], references: [id])
+  roundId   Int
+  amount    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// State Management
+model RawState {
+  id        Int      @id @default(autoincrement())
+  status    String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
