@@ -16,7 +16,7 @@ export type {
   TableAction,
   CardValue,
   Position,
-} from 'poker-state-machine';
+} from './schemas';
 
 // Import for local use
 import { Suite, type CardValue as CV, type RoundPhase } from 'poker-state-machine';
