@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PokerState } from '../types/poker';
+import { PlayerState, PokerState } from '../types/poker';
 
 interface MoveHistoryPanelProps {
   gameState: PokerState;
@@ -25,7 +25,9 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({ gameState })
   const getMoveDescription = (move: NonNullable<PokerState["lastMove"]>) => {
     const { playerId, move: playerMove } = move;
     console.log("🔍 Move:", move);
-    const playerName = gameState.players.find(p => p.id === playerId)?.playerName ?? playerId;
+    const playerName =
+      gameState.players.find((p: PlayerState) => p.id === playerId)
+        ?.playerName ?? playerId;
 
     switch (playerMove.type) {
       case "fold":
