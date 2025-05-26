@@ -54,7 +54,7 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({ gameState })
         ) : (
           <ul className="space-y-2">
             {moveHistory.map(
-              (move, index) =>
+              (move: PokerState["lastMove"], index: number) =>
                 move && (
                   <li
                     key={index}

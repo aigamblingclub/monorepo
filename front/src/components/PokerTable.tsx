@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from './Card';
 import { Player } from './Player';
-import { PokerState, formatChips, getPhaseLabel } from '../types/poker';
+import { PlayerState, PokerState, formatChips, getPhaseLabel, Card as CardType } from '../types/poker';
 
 interface PokerTableProps {
   gameState: PokerState;
@@ -69,7 +69,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         <div className="poker-table-container">
           <div className="table-surface">
             {/* Players */}
-            {gameState?.players?.map((player, index) => {
+            {gameState?.players?.map((player: PlayerState, index: number) => {
               const playerBet = playerBets.find(
                 (bet: { playerId: string; totalContractBet: number; userContractBet: number }) => bet.playerId === player.id
               ) || {
@@ -145,7 +145,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                   </div>
                   {/* Community cards */}
                   <div className="river">
-                    {gameState?.community?.map((card, index) => (
+                    {gameState?.community?.map((card: CardType, index: number) => (
                       <Card
                         key={`${card.rank}-${card.suit}-${index}`}
                         card={card}
