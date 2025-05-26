@@ -189,7 +189,8 @@ export const SystemEventSchema = Schema.Union(
   Schema.Struct({ type: Schema.Literal("start") }),
   Schema.Struct({ type: Schema.Literal("transition_phase") }),
   Schema.Struct({ type: Schema.Literal("next_round") }),
-  Schema.Struct({ type: Schema.Literal("end_game") })
+  Schema.Struct({ type: Schema.Literal("end_game") }),
+  Schema.Struct({ type: Schema.Literal("auto_restart") })
 );
 export type SystemEvent = typeof SystemEventSchema.Type;
 

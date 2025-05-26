@@ -10,6 +10,9 @@ describe("Poker game flow tests", () => {
   // Unique player IDs to avoid duplication issues in the original test
   const PLAYER_IDS = ["player1", "player2", "player3"];
 
+  // set the environment variable to true
+  process.env.AUTO_RESTART_ENABLED = "true";
+
   // Helper function to create a test player
   function createPlayer(
     id: string,

@@ -28,6 +28,10 @@ export class PokerRpc extends RpcGroup.make(
     success: PokerStateSchema,
     error: ProcessingStateStreamErrorsSchema,
     stream: true,
+  }),
+  Rpc.make("startGame", {
+    success: PokerStateSchema,
+    error: ProcessingStateStreamErrorsSchema,
   })
 ) {}
 
@@ -48,6 +52,9 @@ export const PokerRpcLive = PokerRpc.toLayer(
       },
       stateUpdates: (_payload, _headers) => {
         return ROOM.stateUpdates
+      },
+      startGame: (_payload, _headers) => {
+        return ROOM.startGame();
       },
     };
   })
