@@ -33,6 +33,37 @@ const NETWORK_CONFIGS = {
   }
 };
 
+// Function to check account state and balance
+async function checkAccountState(accountId, networkId) {
+  try {
+    const result = execSync(
+      `near state ${accountId} --networkId ${networkId}`,
+      { encoding: 'utf8' }
+    );
+    const stateData = JSON.parse(result);
+    return {
+      exists: true,
+      balance: parseFloat(stateData.amount) / 10**24 // Convert yoctoNEAR to NEAR
+    };
+  } catch (error) {
+    if (error.message.includes('does not exist')) {
+      return { exists: false, balance: 0 };
+    }
+    throw error;
+  }
+}
+
+// Function to verify account access
+async function verifyAccountAccess(accountId, networkId) {
+  try {
+    // Try to view access key list - this will fail if we don't have access
+    execSync(`near keys ${accountId} --networkId ${networkId}`, { stdio: 'pipe' });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 async function main() {
   // Check if contract file exists
   if (!fs.existsSync(contractFile)) {
@@ -111,16 +142,61 @@ async function main() {
     console.log(`\nPlease login to your NEAR account (${accountId})...`);
     execSync(`near login`, { stdio: 'inherit' });
 
+    // Safety checks before proceeding
+    console.log('\nPerforming safety checks...');
+    
+    // 1. Check target account balance
+    const targetAccount = await checkAccountState(accountId, networkArg);
+    if (targetAccount.exists) {
+      console.log(`Target account ${accountId} exists with ${targetAccount.balance} NEAR`);
+      if (targetAccount.balance > 10) {
+        console.log(`⚠️  WARNING: Account has more than 10 NEAR (${targetAccount.balance} NEAR)`);
+        const proceed = await new Promise(resolve => {
+          const rl = require('readline').createInterface({
+            input: process.stdin,
+            output: process.stdout
+          });
+          rl.question('Do you want to proceed with deletion? (yes/no): ', answer => {
+            rl.close();
+            resolve(answer.toLowerCase() === 'yes');
+          });
+        });
+        if (!proceed) {
+          console.log('Operation cancelled.');
+          process.exit(0);
+        }
+      }
+    }
+
+    // 2. Check beneficiary account balance and access
+    const beneficiaryState = await checkAccountState(beneficiaryAccount, networkArg);
+    if (!beneficiaryState.exists) {
+      console.error(`Error: Beneficiary account ${beneficiaryAccount} does not exist`);
+      process.exit(1);
+    }
+    
+    if (beneficiaryState.balance < 10) {
+      console.error(`Error: Beneficiary account ${beneficiaryAccount} has insufficient funds (${beneficiaryState.balance} NEAR). Needs at least 10 NEAR.`);
+      process.exit(1);
+    }
+
+    // 3. Verify we have access to beneficiary account
+    const hasBeneficiaryAccess = await verifyAccountAccess(beneficiaryAccount, networkArg);
+    if (!hasBeneficiaryAccess) {
+      console.error(`Error: No access to beneficiary account ${beneficiaryAccount}. Please login to this account first.`);
+      process.exit(1);
+    }
+
+    console.log('✅ All safety checks passed');
+
     // Delete the existing contract account
-    console.log(`\nDeleting existing contract account...`);
-    try {
+    if (targetAccount.exists) {
+      console.log(`\nDeleting existing contract account...`);
       execSync(
         `near delete-account ${accountId} ${beneficiaryAccount} --networkId ${networkArg}`,
         { stdio: 'inherit' }
       );
       console.log(`Successfully deleted account ${accountId}`);
-    } catch (error) {
-      console.log(`Failed to delete account, it might not exist yet. Proceeding with deployment...`);
     }
 
     // Create the account again

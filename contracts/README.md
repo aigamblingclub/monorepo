@@ -146,10 +146,10 @@ npm run redeploy <network> <account_id> [admin_account] [usdc_token_contract] [b
 Example:
 ```bash
 # Testnet deployment
-npm run redeploy testnet aigaming.testnet aigaming.testnet usdc.fakes.testnet aigaming.testnet ed25519:public-address
+npm run redeploy testnet aigamingclub.testnet aigamingclub.testnet usdc.fakes.testnet aigamingclub.testnet ed25519:public-address
 
 # Mainnet deployment
-npm run redeploy mainnet aigaming.near aigaming.near usdc.near aigaming.near ed25519:public-address
+npm run redeploy mainnet aigamingclub.near aigamingclub.near usdc.near aigamingclub.near ed25519:public-address
 ```
 
 Note: For mainnet deployments, the script will prompt for confirmation before proceeding.
