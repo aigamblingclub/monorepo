@@ -22,6 +22,8 @@ export interface PokerGameService {
       ProcessEventError | ProcessStateError,
       never
   >
+
+  readonly startGame: () => Effect.Effect<PokerState, ProcessEventError, never>
 }
 
 function computeNextState(
@@ -91,10 +93,10 @@ function computeNextState(
             )
         }
         case 'auto_restart': {
-            // Reset the game state to initial values
+            // Reset the game state to initial values, but with the same players and tableId
             return Effect.succeed({
                 ...POKER_ROOM_DEFAULT_STATE,
-                tableId: state.tableId,
+                tableId: state.tableId, // TODO: get a new tableId from the adapter
                 tableStatus: "WAITING",
                 players: state.players.map(p => ({
                     ...p,
@@ -115,18 +117,28 @@ function computeNextState(
 // before emitting them, but maybe all of that should just be emulated on the frontend.
 // TODO: make minPlayers part of the Effect's context? (i.e. dependency)
 function processState(state: PokerState, minPlayers: number): Effect.Effect<Option.Option<SystemEvent>, ProcessStateError> {
-    if (state.tableStatus === "WAITING" && state.players.length >= minPlayers) {
-        return Effect.succeed(Option.some({ type: 'start' }))
+    if (
+      state.tableStatus === "WAITING" &&
+      state.players.length >= minPlayers &&
+      process.env.AUTO_RESTART_ENABLED === "true"
+    ) {
+      // auto start / restart
+      return Effect.succeed(Option.some({ type: "start" }));
     }
     if (state.tableStatus === "ROUND_OVER") {
         return Effect.succeed(Option.some({ type: 'next_round' }))
     }
     if (state.tableStatus === "GAME_OVER") {
         // Get auto-restart delay from environment variable or use default (2 minutes)
-        const autoRestartDelay = process.env.AUTO_RESTART_DELAY ? parseInt(process.env.AUTO_RESTART_DELAY) : 120000;
+        const autoRestartDelay = process.env.AUTO_RESTART_ENABLED === "true" 
+                                    ? 0 
+                                    : process.env.AUTO_RESTART_DELAY 
+                                        ? parseInt(process.env.AUTO_RESTART_DELAY) 
+                                        : 120000;
+
         return Effect.gen(function* (_) {
             yield* Effect.sleep(autoRestartDelay)
-            return Option.some({ type: 'auto_restart' })
+            return Option.some({ type: 'auto_restart' }) // the state will be ready to start a new game
         })
     }
     return Effect.succeed(Option.none())
@@ -192,6 +204,18 @@ export const makePokerRoom = (minPlayers: number, logLevel: LogLevel.LogLevel): 
         Stream.tapError(error => Effect.whenLogLevel(Effect.logError('error in state processing', error), LogLevel.Error)),
     );
 
+    const startGame = () => {
+        return pipe(
+            currentState(),
+            Effect.flatMap(state => processEvent({ type: 'start' })),
+            Effect.tap(({ deck, ...state }) =>
+                Effect.whenLogLevel(
+                    Effect.logInfo("post-processing", { event: { type: 'start' }, state }),
+                    LogLevel.Debug
+                )
+            )
+        )
+    }
     // return this or put in a context somehow
     const _systemFiber = pipe(
         stateProcessingStream,
@@ -211,6 +235,7 @@ export const makePokerRoom = (minPlayers: number, logLevel: LogLevel.LogLevel): 
             // Effect.tap(pv => Effect.whenLogLevel(Effect.logInfo('[playerView]', { pv }), LogLevel.Info))
         ),
         stateUpdates: stateProcessingStream,
+        startGame,
     }
 })
 
