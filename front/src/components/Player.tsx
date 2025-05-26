@@ -1,8 +1,20 @@
 import React from 'react';
-import { PlayerState, formatChips, PokerPosition } from '../types/poker';
+import { PlayerState, formatChips } from '../types/poker';
 import { Card } from './Card';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+const getPositionLabel = (position: PlayerState['position']): string => {
+  switch (position) {
+    case 'BB': return 'Big Blind';
+    case 'SB': return 'Small Blind';
+    case 'BTN': return 'Button';
+    case 'EP': return 'Early Position';
+    case 'MP': return 'Middle Position';
+    case 'CO': return 'Cut-off';
+    default: return position;
+  }
+};
 
 interface PlayerProps {
   id: string;
@@ -89,7 +101,7 @@ export const Player: React.FC<PlayerProps> = ({
         </div>
         <div className="flex items-center mb-1">
           <span className={`${statusColor()} text-shadow-neon`}>
-            {PokerPosition[position]}
+            {getPositionLabel(position)}
           </span>
         </div>
         <div className="flex justify-between items-center mb-1">
