@@ -71,7 +71,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             {/* Players */}
             {gameState?.players?.map((player, index) => {
               const playerBet = playerBets.find(
-                (bet) => bet.playerId === player.id
+                (bet: { playerId: string; totalContractBet: number; userContractBet: number }) => bet.playerId === player.id
               ) || {
                 playerId: player.id,
                 totalContractBet: 0,

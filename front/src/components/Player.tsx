@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlayerState, formatChips } from '../types/poker';
+import { Card as CardType, PlayerState, formatChips } from '../types/poker';
 import { Card } from './Card';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -67,9 +67,7 @@ export const Player: React.FC<PlayerProps> = ({
   };
 
   return (
-    <div
-      className={`player ${positionClasses[tablePosition]}`}
-    >
+    <div className={`player ${positionClasses[tablePosition]}`}>
       <div className="relative">
         {/* AVATAR */}
         {/* <div className="w-12 h-12 bg-black border-2 border-neon-green shadow-neon rounded-full mr-2 flex items-center justify-center">
@@ -96,7 +94,7 @@ export const Player: React.FC<PlayerProps> = ({
         </div>
         <div className="flex items-center mb-1">
           <span className={`${statusColor()} text-shadow-neon font-bold`}>
-            {isCurrentPlayer ? "Computing..." : <br/>}
+            {isCurrentPlayer ? "Computing..." : <br />}
           </span>
         </div>
         <div className="flex items-center mb-1">
@@ -136,7 +134,7 @@ export const Player: React.FC<PlayerProps> = ({
         {/* Player's hand */}
         {hand.length > 0 && (
           <div className="flex gap-1 mt-1">
-            {hand.map((card, index) => (
+            {hand.map((card: CardType, index: number) => (
               <Card
                 key={`${card.rank}-${card.suit}-${index}`}
                 card={card}
