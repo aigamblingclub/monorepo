@@ -33,7 +33,6 @@
     "@near-wallet-selector/xdefi": "^9.0.1",
     "near-api-js": "^5.1.1",
     "next": "15.3.2",
-    "poker-state-machine": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "simplebar-react": "^3.3.1"
