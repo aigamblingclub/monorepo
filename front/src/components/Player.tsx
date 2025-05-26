@@ -4,7 +4,14 @@ import { Card } from './Card';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-interface PlayerProps extends PlayerState {
+interface PlayerProps {
+  id: string;
+  playerName: string;
+  status: PlayerState['status'];
+  hand: PlayerState['hand'];
+  position: PlayerState['position'];
+  chips: number;
+  bet: PlayerState['bet'];
   tablePosition: PlayerPosition;
   isCurrentPlayer?: boolean;
   totalContractBet?: number;
