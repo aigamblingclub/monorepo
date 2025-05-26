@@ -24,7 +24,7 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
   isLoggedIn,
 }) => {
   // Only show betting for active players
-  const activePlayers = players.filter(player => player.status !== 'FOLDED');
+  const activePlayers = players.filter((player: PlayerState) => player.status !== 'FOLDED');
   
   // Log the login state for debugging
   useEffect(() => {
@@ -68,8 +68,8 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
           
           {activePlayers.length > 0 ? (
             <div className="grid gap-2">
-              {activePlayers.map(player => {
-                const playerBet = playerBets.find(bet => bet.playerId === player.id) || {
+              {activePlayers.map((player: PlayerState) => {
+                const playerBet = playerBets.find((bet: PlayerBet) => bet.playerId === player.id) || {
                   playerId: player.id,
                   totalContractBet: 0,
                   userContractBet: 0

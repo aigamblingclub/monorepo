@@ -47,7 +47,7 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
         <input
           type="number"
           value={betAmount}
-          onChange={(e) => setBetAmount(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBetAmount(e.target.value)}
           placeholder="Enter bet amount"
           className="flex-1 px-2 py-1 rounded-border-radius-element bg-surface-primary border border-theme-primary text-theme-primary placeholder-theme-secondary"
         />

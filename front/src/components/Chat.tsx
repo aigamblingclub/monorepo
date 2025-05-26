@@ -50,7 +50,7 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
         className="ai-thoughts-scrollbar"
       >
         <div className="p-4 space-y-2">
-          {messages.map((thought) => (
+          {messages.map((thought: ChatMessage) => (
             <div key={thought.id} className="flex items-baseline space-x-2">
               <span className="text-theme-primary text-shadow-cyan font-bold min-w-[100px]">
                 {thought.playerName}:
