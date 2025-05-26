@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
-import { PokerState } from '@/types/poker';
+import { PokerState, PlayerState } from '@/types/poker';
 
 interface ChatMessage {
   id: string;
@@ -20,7 +20,7 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
   useEffect(() => {
     const roleplay = gameState?.lastMove?.move?.decisionContext?.roleplay;
     const player = gameState?.players?.find(
-      (p) => p.id === gameState?.lastMove?.playerId
+      (p: PlayerState) => p.id === gameState?.lastMove?.playerId
     );
     if (roleplay && player) {
       const playerName = player?.playerName || player?.id;
