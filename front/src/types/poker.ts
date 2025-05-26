@@ -1,4 +1,3 @@
-// Re-export the types from poker-state-machine package
 export type {
   Card,
   PlayerStatus,
@@ -19,7 +18,8 @@ export type {
 } from './schemas';
 
 // Import for local use
-import { Suite, type CardValue as CV, type RoundPhase } from 'poker-state-machine';
+import { Suite, type CardValue as CV, type RoundPhase } from './schemas';
+
 type CardSuit = Suite;
 
 // Utility function to get card label
