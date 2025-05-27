@@ -15,9 +15,9 @@ bun server-start
 ## Running the server-poker
 
 ```bash
-bun poker-server-dev
-bun poker-server-build
-bun poker-server-start
+bun poker-dev
+bun poker-build
+bun poker-start
 ```
 
 ## Running the agent

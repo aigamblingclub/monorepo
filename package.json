@@ -15,8 +15,9 @@
     "front-poker-schema": "cp packages/poker-state-machine/src/schemas.ts front/src/types/schemas.ts",
     "front-dev": "bun run front-poker-schema && bun run --cwd front dev -p 4000",
     "front-build": "bun run front-poker-schema && bun run --cwd front build",
-    "agent-build": "cp packages/poker-state-machine/src/schemas.ts agent/packages/client-poker/src/schemas.ts && pnpm --dir agent build",
+    "agent-build": "cp packages/poker-state-machine/src/schemas.ts agent/packages/client-poker/src/schemas.ts && npx pnpm --dir agent install && YOUTUBE_DL_SKIP_PYTHON_CHECK=1 npx pnpm --dir agent build",
     "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug",
+    "agent-start": "npx pnpm --dir agent start",
     "agent": "pnpm agent-build && pnpm --dir agent start"
   }
 }

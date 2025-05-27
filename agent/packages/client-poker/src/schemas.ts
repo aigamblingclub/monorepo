@@ -211,7 +211,10 @@ export type StateMachineError = typeof StateMachineErrorSchema.Type;
 export const ProcessEventErrorSchema = Schema.Union(
   StateMachineErrorSchema,
   Schema.Struct({ type: Schema.Literal("not_your_turn") }),
-  Schema.Struct({ type: Schema.Literal("table_locked") })
+  Schema.Struct({ type: Schema.Literal("table_locked") }),
+  Schema.Struct({ type: Schema.Literal("game_already_started") }),
+  Schema.Struct({ type: Schema.Literal("insufficient_players") }),
+  Schema.Struct({ type: Schema.Literal("game_not_over") })
 );
 export type ProcessEventError = typeof ProcessEventErrorSchema.Type;
 
