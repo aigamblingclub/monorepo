@@ -14,8 +14,9 @@ export async function GET() {
     if (!response.ok) {
       return NextResponse.json({ error: "Failed to fetch poker state" }, { status: 500 });  
     }
-
-    return NextResponse.json(response);
+    const data = await response.json();
+    
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching poker state:", error);
     return NextResponse.json({ error: "Failed to fetch poker state" }, { status: 500 });
