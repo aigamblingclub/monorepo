@@ -55,6 +55,12 @@ export const PositionSchema = Schema.Union(
 );
 export type Position = typeof PositionSchema.Type;
 
+export const BetSchema = Schema.Struct({
+  amount: Schema.Number,
+  volume: Schema.Number,
+});
+export type Bet = typeof BetSchema.Type;
+
 export const PlayerStateSchema = Schema.Struct({
   id: Schema.String,
   playerName: Schema.String,
@@ -63,10 +69,7 @@ export const PlayerStateSchema = Schema.Struct({
   position: PositionSchema,
   hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
   chips: Schema.Number,
-  bet: Schema.Struct({
-    round: Schema.Number,
-    total: Schema.Number,
-  }),
+  bet: BetSchema,
 });
 export type PlayerState = typeof PlayerStateSchema.Type;
 
@@ -247,10 +250,7 @@ export const PlayerViewSchema = Schema.Struct({
     Schema.Struct({
       status: PlayerStatusSchema,
       chips: Schema.Number,
-      bet: Schema.Struct({
-        round: Schema.Number,
-        total: Schema.Number,
-      }),
+      bet: BetSchema,
       hand: Schema.Array(CardSchema),
     })
   ),

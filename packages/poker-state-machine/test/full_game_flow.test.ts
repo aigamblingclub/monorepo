@@ -136,7 +136,7 @@ describe("Poker game flow tests", () => {
           chips: 1000,
           playerName: PLAYER_IDS[0],
           hand: [],
-          bet: { round: 0, total: 0 },
+          bet: { amount: 0, volume: 0 },
         },
       ],
     });
@@ -179,7 +179,7 @@ describe("Poker game flow tests", () => {
           id: PLAYER_IDS[0],
           status: "PLAYING",
           chips: 990, // 1000 - 10 total
-          bet: { round: 10, total: 10 },
+          bet: { amount: 10, volume: 10 },
           playerName: PLAYER_IDS[0],
           hand: [expect.any(Object), expect.any(Object)],
         },
@@ -187,7 +187,7 @@ describe("Poker game flow tests", () => {
           id: PLAYER_IDS[1],
           status: "PLAYING",
           chips: 980,
-          bet: { round: 20, total: 20 },
+          bet: { amount: 20, volume: 20 },
           playerName: PLAYER_IDS[1],
           hand: [expect.any(Object), expect.any(Object)],
         },
@@ -251,13 +251,13 @@ describe("Poker game flow tests", () => {
             id: PLAYER_IDS[0],
             status: "PLAYING",
             chips: 980, // 1000 - 20 total
-            bet: { round: 20, total: 20 },
+            bet: { amount: 20, volume: 20 },
           },
           {
             id: PLAYER_IDS[1],
             status: "PLAYING",
             chips: 980,
-            bet: { round: 20, total: 20 },
+            bet: { amount: 20, volume: 20 },
           },
         ],
       });
@@ -287,12 +287,12 @@ describe("Poker game flow tests", () => {
       players: [
         {
           id: PLAYER_IDS[0],
-          bet: { round: 0, total: 20 }, // Reset round bet to 0 in new phase
+          bet: { amount: 0, volume: 20 }, // Reset round bet to 0 in new phase
           chips: 980,
         },
         {
           id: PLAYER_IDS[1],
-          bet: { round: 0, total: 20 }, // Reset round bet to 0 in new phase
+          bet: { amount: 0, volume: 20 }, // Reset round bet to 0 in new phase
           chips: 980,
         },
       ],
@@ -507,13 +507,13 @@ describe("Poker game flow tests", () => {
       players: [
         {
           id: PLAYER_IDS[0],
-          bet: { round: 0, total: 20 },
+          bet: { amount: 0, volume: 20 },
           chips: 980,
         },
         {
           id: PLAYER_IDS[1],
           chips: 960, // 980 - 20
-          bet: { round: 20, total: 40 },
+          bet: { amount: 20, volume: 40 },
         },
       ],
     });
@@ -632,8 +632,8 @@ describe("Poker game flow tests", () => {
     // Verify both players have appropriate bets for new round
     state.players.forEach((player) => {
       expect(player.status).toBe("PLAYING"); // Both should be PLAYING for next round
-      expect(player.bet.round).toBeGreaterThan(0); // Should have paid blind
-      expect(player.bet.total).toBeGreaterThan(0); // Should have paid blind
+      expect(player.bet.amount).toBeGreaterThan(0); // Should have paid blind
+      expect(player.bet.volume).toBeGreaterThan(0); // Should have paid blind
     });
   });
 
@@ -791,7 +791,7 @@ describe("Poker game flow tests", () => {
     // Verify either that players' round bets are reset OR we're in a new round
     state.players.forEach((player) => {
       const roundBetResetOrNewRound =
-        player.bet.round === 0 || state.round.roundNumber > 1;
+        player.bet.amount === 0 || state.round.roundNumber > 1;
       expect(roundBetResetOrNewRound).toBe(true);
     });
 
@@ -958,7 +958,7 @@ describe("Poker game flow tests", () => {
 
     // Verify first player's bet and chips
     const updatedFirstPlayer = state.players.find(p => p.id === current.id);
-    expect(updatedFirstPlayer?.bet.round).toBe(40);
+    expect(updatedFirstPlayer?.bet.amount).toBe(40);
     expect(updatedFirstPlayer?.chips).toBe(960); // 1000 - 40
 
     // Player 2 (BB) re-raises to 60
@@ -972,7 +972,7 @@ describe("Poker game flow tests", () => {
 
     // Get state after BB re-raise
     state = await Effect.runPromise(pokerRoom.currentState());
-    expect(state.players[1].bet.total).toBe(60);
+    expect(state.players[1].bet.volume).toBe(60);
     expect(state.players[1].chips).toBe(940); // 980 - 40
     expect(state.round.currentBet).toBe(60);
     expect(state.round.phase).toBe("PRE_FLOP");
@@ -989,7 +989,7 @@ describe("Poker game flow tests", () => {
     // Get state after SB call - should move to FLOP
     state = await Effect.runPromise(pokerRoom.currentState());
     expect(state.round.phase).toBe("FLOP");
-    expect(state.players[0].bet.total).toBe(60);
+    expect(state.players[0].bet.volume).toBe(60);
     expect(state.players[0].chips).toBe(940); // 960 - 20 (call amount)
     expect(state.pot).toBe(120); // Total pot after pre-flop
 
@@ -1019,7 +1019,7 @@ describe("Poker game flow tests", () => {
 
     // Get state after SB bet
     state = await Effect.runPromise(pokerRoom.currentState());
-    expect(state.players[0].bet.round).toBe(20);
+    expect(state.players[0].bet.amount).toBe(20);
     expect(state.players[0].chips).toBe(920); // 940 - 20
     expect(state.round.currentBet).toBe(20);
     expect(state.round.phase).toBe("FLOP");
@@ -1036,7 +1036,7 @@ describe("Poker game flow tests", () => {
     // Get final state - should be in TURN phase
     state = await Effect.runPromise(pokerRoom.currentState());
     expect(state.round.phase).toBe("TURN");
-    expect(state.players[1].bet.total).toBe(80);
+    expect(state.players[1].bet.volume).toBe(80);
     expect(state.players[1].chips).toBe(920); // 940 - 20
     expect(state.pot).toBe(160); // 120 + 20 + 20
     expect(state.community.length).toBe(4); // 3 flop cards + 1 turn card
@@ -1378,8 +1378,8 @@ describe("Poker game flow tests", () => {
     expect(preFlop!.id).toBe(PLAYER_IDS[0]); // Dealer (SB) acts first in pre-flop
 
     // Check initial betting state
-    expect(state.players[0].bet.total).toBe(10); // SB bet 10
-    expect(state.players[1].bet.total).toBe(20); // BB bet 20
+    expect(state.players[0].bet.volume).toBe(10); // SB bet 10
+    expect(state.players[1].bet.volume).toBe(20); // BB bet 20
 
     // Dealer/SB acts first - calls
     await Effect.runPromise(
@@ -1400,8 +1400,8 @@ describe("Poker game flow tests", () => {
     expect(state.community.length).toBe(0); // No community cards yet
 
     // Check betting state after SB's call
-    expect(state.players[0].bet.total).toBe(20); // SB completed to 20
-    expect(state.players[1].bet.total).toBe(20); // BB already bet 20
+    expect(state.players[0].bet.volume).toBe(20); // SB completed to 20
+    expect(state.players[1].bet.volume).toBe(20); // BB already bet 20
 
     // BB checks
     await Effect.runPromise(
@@ -1483,9 +1483,9 @@ describe("Poker game flow tests", () => {
     expect(state.tableStatus).toBe("PLAYING");
     
     // Verify initial blinds state
-    expect(state.players[0].bet.total).toBe(10); // SB bet 10
+    expect(state.players[0].bet.volume).toBe(10); // SB bet 10
     expect(state.players[0].chips).toBe(990); // 1000 - 10
-    expect(state.players[1].bet.total).toBe(20); // BB bet 20
+    expect(state.players[1].bet.volume).toBe(20); // BB bet 20
     expect(state.players[1].chips).toBe(980); // 1000 - 20
 
     // SB raises to 40
@@ -1499,7 +1499,7 @@ describe("Poker game flow tests", () => {
 
     // Get state after SB raise
     state = await Effect.runPromise(pokerRoom.currentState());
-    expect(state.players[0].bet.total).toBe(40);
+    expect(state.players[0].bet.volume).toBe(40);
     expect(state.players[0].chips).toBe(960); // 990 - 30
     expect(state.round.currentBet).toBe(40);
     expect(state.round.phase).toBe("PRE_FLOP");
@@ -1515,7 +1515,7 @@ describe("Poker game flow tests", () => {
 
     // Get state after BB re-raise
     state = await Effect.runPromise(pokerRoom.currentState());
-    expect(state.players[1].bet.total).toBe(60);
+    expect(state.players[1].bet.volume).toBe(60);
     expect(state.players[1].chips).toBe(940); // 980 - 40
     expect(state.round.currentBet).toBe(60);
     expect(state.round.phase).toBe("PRE_FLOP");
@@ -1532,7 +1532,7 @@ describe("Poker game flow tests", () => {
     // Get state after SB call - should move to FLOP
     state = await Effect.runPromise(pokerRoom.currentState());
     expect(state.round.phase).toBe("FLOP");
-    expect(state.players[0].bet.total).toBe(60);
+    expect(state.players[0].bet.volume).toBe(60);
     expect(state.players[0].chips).toBe(940); // 960 - 20 (call amount)
     expect(state.pot).toBe(120); // Total pot after pre-flop
 
@@ -1562,7 +1562,7 @@ describe("Poker game flow tests", () => {
 
     // Get state after SB bet
     state = await Effect.runPromise(pokerRoom.currentState());
-    expect(state.players[0].bet.round).toBe(20);
+    expect(state.players[0].bet.amount).toBe(20);
     expect(state.players[0].chips).toBe(920); // 940 - 20
     expect(state.round.currentBet).toBe(20);
     expect(state.round.phase).toBe("FLOP");
@@ -1579,7 +1579,7 @@ describe("Poker game flow tests", () => {
     // Get final state - should be in TURN phase
     state = await Effect.runPromise(pokerRoom.currentState());
     expect(state.round.phase).toBe("TURN");
-    expect(state.players[1].bet.total).toBe(80);
+    expect(state.players[1].bet.volume).toBe(80);
     expect(state.players[1].chips).toBe(920); // 940 - 20
     expect(state.pot).toBe(160); // 120 + 20 + 20
     expect(state.community.length).toBe(4); // 3 flop cards + 1 turn card
@@ -1878,7 +1878,7 @@ describe("Poker game flow tests", () => {
     // Get state after raise
     state = await Effect.runPromise(pokerRoom.currentState());
     expect(state.round.currentBet).toBe(40);
-    expect(state.players[0].bet.round).toBe(40);
+    expect(state.players[0].bet.amount).toBe(40);
     expect(state.players[0].chips).toBe(960); // 1000 - 40
 
     // Test 3: BB re-raises to 60
@@ -1894,7 +1894,7 @@ describe("Poker game flow tests", () => {
     state = await Effect.runPromise(pokerRoom.currentState());
 
     expect(state.round.currentBet).toBe(60);
-    expect(state.players[1].bet.round).toBe(60);
+    expect(state.players[1].bet.amount).toBe(60);
     expect(state.players[1].chips).toBe(940); // 980 - 60
     expect(state.round.phase).toBe("PRE_FLOP");
 
@@ -1940,7 +1940,7 @@ describe("Poker game flow tests", () => {
     state = await Effect.runPromise(pokerRoom.currentState());
     expect(state.round.phase).toBe("FLOP");
     expect(state.round.currentBet).toBe(20);
-    expect(state.players[0].bet.round).toBe(20);
+    expect(state.players[0].bet.amount).toBe(20);
 
     // Test 7: BB can raise after checking
     await Effect.runPromise(
@@ -1955,7 +1955,7 @@ describe("Poker game flow tests", () => {
     state = await Effect.runPromise(pokerRoom.currentState());
     expect(state.round.phase).toBe("FLOP");
     expect(state.round.currentBet).toBe(40);
-    expect(state.players[1].bet.round).toBe(40);
+    expect(state.players[1].bet.amount).toBe(40);
     expect(state.players[1].chips).toBeLessThan(state.players[0].chips); // BB should have less chips after raising
   });
 

@@ -6,7 +6,7 @@ import type { PlayerState, PokerState, Move } from "../src/schemas";
 
 describe('All-in functionality', () => {
   // Helper function to create a test player
-  function createPlayer(id: string, chips: number, bet = { round: 0, total: 0 }): PlayerState {
+  function createPlayer(id: string, chips: number, bet = { amount: 0, volume: 0 }): PlayerState {
     return {
       ...PLAYER_DEFAULT_STATE,
       id,
@@ -63,8 +63,8 @@ describe('All-in functionality', () => {
     expect(allInPlayer).toBeDefined();
     expect(allInPlayer?.chips).toBe(0);
     expect(allInPlayer?.status).toBe('ALL_IN');
-    expect(allInPlayer?.bet.round).toBe(50);
-    expect(allInPlayer?.bet.total).toBe(50);
+    expect(allInPlayer?.bet.amount).toBe(50);
+    expect(allInPlayer?.bet.volume).toBe(50);
   });
 
   test('playerBet should limit bet to available chips', () => {
@@ -82,8 +82,8 @@ describe('All-in functionality', () => {
     const limitedPlayer = limitedBetState.players.find((p: PlayerState) => p.id === 'player1');
     expect(limitedPlayer?.chips).toBe(0);
     expect(limitedPlayer?.status).toBe('ALL_IN');
-    expect(limitedPlayer?.bet.round).toBe(30);
-    expect(limitedPlayer?.bet.total).toBe(30);
+    expect(limitedPlayer?.bet.amount).toBe(30);
+    expect(limitedPlayer?.bet.volume).toBe(30);
   });
 
   test('processPlayerMove should handle all-in move type', () => {
@@ -95,7 +95,7 @@ describe('All-in functionality', () => {
     
     // Mock the processPlayerMove function to avoid going to showdown
     const allInMove: Move = { type: 'all_in', decisionContext: null };
-    const processedState = playerBet(initialState, 'player1', player1.chips + player1.bet.round);
+    const processedState = playerBet(initialState, 'player1', player1.chips + player1.bet.amount);
     
     // Verify the player went all-in correctly (without calling full processPlayerMove)
     expect(processedState.pot).toBe(50);
@@ -103,13 +103,13 @@ describe('All-in functionality', () => {
     const allInPlayer = processedState.players.find((p: PlayerState) => p.id === 'player1');
     expect(allInPlayer?.chips).toBe(0);
     expect(allInPlayer?.status).toBe('ALL_IN');
-    expect(allInPlayer?.bet.round).toBe(50);
-    expect(allInPlayer?.bet.total).toBe(50);
+    expect(allInPlayer?.bet.amount).toBe(50);
+    expect(allInPlayer?.bet.volume).toBe(50);
   });
 
   test('partial bet leading to all-in', () => {
     // Player already bet 20 and has 30 chips left
-    const player1 = createPlayer('player1', 30, { round: 20, total: 20 });
+    const player1 = createPlayer('player1', 30, { amount: 20, volume: 20 });
     const player2 = createPlayer('player2', 100);
     
     const initialState = {
@@ -137,13 +137,13 @@ describe('All-in functionality', () => {
     const callingPlayer = callState.players.find((p: PlayerState) => p.id === 'player1');
     expect(callingPlayer?.chips).toBe(0); // Used all remaining chips
     expect(callingPlayer?.status).toBe('ALL_IN'); // Went all-in
-    expect(callingPlayer?.bet.round).toBe(50); // 20 initial + 30 more
-    expect(callingPlayer?.bet.total).toBe(50); // 20 initial + 30 more
+    expect(callingPlayer?.bet.amount).toBe(50); // 20 initial + 30 more
+    expect(callingPlayer?.bet.volume).toBe(50); // 20 initial + 30 more
   });
 
   test('all-in with player who already bet some chips', () => {
     // Player already bet 20 and has 30 chips left, now goes all-in
-    const player1 = createPlayer('player1', 30, { round: 20, total: 20 });
+    const player1 = createPlayer('player1', 30, { amount: 20, volume: 20 });
     const player2 = createPlayer('player2', 100);
     
     const initialState = {
@@ -160,7 +160,7 @@ describe('All-in functionality', () => {
     };
     
     // Player goes all-in with remaining 30 chips
-    const allInState = playerBet(initialState, 'player1', initialState.players[0].chips + initialState.players[0].bet.round);
+    const allInState = playerBet(initialState, 'player1', initialState.players[0].chips + initialState.players[0].bet.amount);
     
     expect(allInState.pot).toBe(50); // 20 initial + 30 all-in
     expect(allInState.round.currentBet).toBe(50); // 20 initial + 30 all-in
@@ -168,8 +168,8 @@ describe('All-in functionality', () => {
     const allInPlayer = allInState.players.find((p: PlayerState) => p.id === 'player1');
     expect(allInPlayer?.chips).toBe(0);
     expect(allInPlayer?.status).toBe('ALL_IN');
-    expect(allInPlayer?.bet.round).toBe(50); // 20 initial + 30 all-in
-    expect(allInPlayer?.bet.total).toBe(50); // 20 initial + 30 all-in
+    expect(allInPlayer?.bet.amount).toBe(50); // 20 initial + 30 all-in
+    expect(allInPlayer?.bet.volume).toBe(50); // 20 initial + 30 all-in
   });
 
   test('multiple players going all-in with different chip amounts', () => {
@@ -199,16 +199,16 @@ describe('All-in functionality', () => {
     const p1 = state3.players.find((p: PlayerState) => p.id === 'player1');
     expect(p1?.chips).toBe(0);
     expect(p1?.status).toBe('ALL_IN');
-    expect(p1?.bet.round).toBe(20);
+    expect(p1?.bet.amount).toBe(20);
     
     const p2 = state3.players.find((p: PlayerState) => p.id === 'player2');
     expect(p2?.chips).toBe(0);
     expect(p2?.status).toBe('ALL_IN');
-    expect(p2?.bet.round).toBe(50);
+    expect(p2?.bet.amount).toBe(50);
     
     const p3 = state3.players.find((p: PlayerState) => p.id === 'player3');
     expect(p3?.chips).toBe(50); // Started with 100, bet 50
     expect(p3?.status).toBe('PLAYING');
-    expect(p3?.bet.round).toBe(50);
+    expect(p3?.bet.amount).toBe(50);
   });
 }); 

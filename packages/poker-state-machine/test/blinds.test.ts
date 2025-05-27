@@ -5,7 +5,7 @@ import type { PlayerState, PokerState } from "../src/schemas";
 
 describe('Blinds functionality', () => {
   // Helper function to create a test player
-  function createPlayer(id: string, chips: number, bet = { round: 0, total: 0 }): PlayerState {
+  function createPlayer(id: string, chips: number, bet = { amount: 0, volume: 0 }): PlayerState {
     return {
       ...PLAYER_DEFAULT_STATE,
       id,
@@ -63,22 +63,22 @@ describe('Blinds functionality', () => {
     const smallBlindPlayer = afterBlindsState.players.find(p => p.id === 'player2');
     expect(smallBlindPlayer).toBeDefined();
     expect(smallBlindPlayer?.chips).toBe(100 - SMALL_BLIND);
-    expect(smallBlindPlayer?.bet.round).toBe(SMALL_BLIND);
-    expect(smallBlindPlayer?.bet.total).toBe(SMALL_BLIND);
+    expect(smallBlindPlayer?.bet.amount).toBe(SMALL_BLIND);
+    expect(smallBlindPlayer?.bet.volume).toBe(SMALL_BLIND);
     
     // Check big blind player
     const bigBlindPlayer = afterBlindsState.players.find(p => p.id === 'player3');
     expect(bigBlindPlayer).toBeDefined();
     expect(bigBlindPlayer?.chips).toBe(100 - BIG_BLIND);
-    expect(bigBlindPlayer?.bet.round).toBe(BIG_BLIND);
-    expect(bigBlindPlayer?.bet.total).toBe(BIG_BLIND);
+    expect(bigBlindPlayer?.bet.amount).toBe(BIG_BLIND);
+    expect(bigBlindPlayer?.bet.volume).toBe(BIG_BLIND);
     
     // Check dealer (shouldn't have posted any blind yet)
     const dealerPlayer = afterBlindsState.players.find(p => p.id === 'player1');
     expect(dealerPlayer).toBeDefined();
     expect(dealerPlayer?.chips).toBe(100);
-    expect(dealerPlayer?.bet.round).toBe(0);
-    expect(dealerPlayer?.bet.total).toBe(0);
+    expect(dealerPlayer?.bet.amount).toBe(0);
+    expect(dealerPlayer?.bet.volume).toBe(0);
     
     // Check current bet
     expect(afterBlindsState.round.currentBet).toBe(BIG_BLIND);
@@ -100,13 +100,13 @@ describe('Blinds functionality', () => {
     const smallBlindPlayer = afterBlindsState.players.find(p => p.id === 'player1');
     expect(smallBlindPlayer).toBeDefined();
     expect(smallBlindPlayer?.chips).toBe(100 - SMALL_BLIND);
-    expect(smallBlindPlayer?.bet.round).toBe(SMALL_BLIND);
+    expect(smallBlindPlayer?.bet.amount).toBe(SMALL_BLIND);
     
     // Check other player is big blind
     const bigBlindPlayer = afterBlindsState.players.find(p => p.id === 'player2');
     expect(bigBlindPlayer).toBeDefined();
     expect(bigBlindPlayer?.chips).toBe(100 - BIG_BLIND);
-    expect(bigBlindPlayer?.bet.round).toBe(BIG_BLIND);
+    expect(bigBlindPlayer?.bet.amount).toBe(BIG_BLIND);
   });
 
   test('collectBlinds should handle player with insufficient chips for blinds', () => {
@@ -123,7 +123,7 @@ describe('Blinds functionality', () => {
     const smallBlindPlayer = afterBlindsState.players.find(p => p.id === 'player2');
     expect(smallBlindPlayer).toBeDefined();
     expect(smallBlindPlayer?.chips).toBe(0);
-    expect(smallBlindPlayer?.bet.round).toBe(5); // All 5 chips went to blind
+    expect(smallBlindPlayer?.bet.amount).toBe(5); // All 5 chips went to blind
     expect(smallBlindPlayer?.status).toBe('ALL_IN');
     
     // Pot should have 5 (partial small blind) + BIG_BLIND
@@ -142,7 +142,7 @@ describe('Blinds functionality', () => {
     const bigBlindPlayer = afterBlindsState2.players.find(p => p.id === 'player6');
     expect(bigBlindPlayer).toBeDefined();
     expect(bigBlindPlayer?.chips).toBe(0);
-    expect(bigBlindPlayer?.bet.round).toBe(15); // All 15 chips went to blind
+    expect(bigBlindPlayer?.bet.amount).toBe(15); // All 15 chips went to blind
     expect(bigBlindPlayer?.status).toBe('ALL_IN');
     
     // Pot should have SMALL_BLIND + 15 (partial big blind)

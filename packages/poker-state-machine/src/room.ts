@@ -105,7 +105,7 @@ function computeNextState(
                     chips: state.config.startingChips,
                     position: p.position,
                     playedThisPhase: false,
-                    bet: { round: 0, total: 0 }
+                    bet: { amount: 0, volume: 0 }
                 })),
                 config: state.config,
             })

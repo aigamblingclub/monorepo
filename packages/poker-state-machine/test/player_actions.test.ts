@@ -6,7 +6,7 @@ import type { PlayerState, PokerState, Move } from "../src/schemas";
 
 describe('Player Actions', () => {
   // Helper function to create a test player
-  function createPlayer(id: string, chips: number, bet = { round: 0, total: 0 }, status: 'PLAYING' | 'FOLDED' | 'ALL_IN' = 'PLAYING'): PlayerState {
+  function createPlayer(id: string, chips: number, bet = { amount: 0, volume: 0 }, status: 'PLAYING' | 'FOLDED' | 'ALL_IN' = 'PLAYING'): PlayerState {
     return {
       ...PLAYER_DEFAULT_STATE,
       id,
@@ -72,7 +72,7 @@ describe('Player Actions', () => {
   test('player call action should update pot and player chips', async () => {
     // Setup with three players, second player has already bet 20
     const player1 = createPlayer('player1', 100);
-    const player2 = createPlayer('player2', 80, { round: 20, total: 20 });
+    const player2 = createPlayer('player2', 80, { amount: 20, volume: 20 });
     const player3 = createPlayer('player3', 100);
     
     const initialState = {
@@ -95,8 +95,8 @@ describe('Player Actions', () => {
     // Check that player chips are updated
     const callingPlayer = result.players.find(p => p.id === 'player1');
     expect(callingPlayer?.chips).toBe(80); // 100 - 20
-    expect(callingPlayer?.bet.round).toBe(20);
-    expect(callingPlayer?.bet.total).toBe(20);
+    expect(callingPlayer?.bet.amount).toBe(20);
+    expect(callingPlayer?.bet.volume).toBe(20);
     
     // Check that pot is updated
     expect(result.pot).toBe(40); // Initial 20 + call of 20
@@ -105,7 +105,7 @@ describe('Player Actions', () => {
   test('player raise action should update pot, current bet, and player chips', async () => {
     // Setup with three players, current bet is 20
     const player1 = createPlayer('player1', 100);
-    const player2 = createPlayer('player2', 80, { round: 20, total: 20 });
+    const player2 = createPlayer('player2', 80, { amount: 20, volume: 20 });
     const player3 = createPlayer('player3', 100);
     
     const initialState = {
@@ -128,8 +128,8 @@ describe('Player Actions', () => {
     // Check that player chips are updated
     const raisingPlayer = result.players.find(p => p.id === 'player1');
     expect(raisingPlayer?.chips).toBe(50); // 100 - 50
-    expect(raisingPlayer?.bet.round).toBe(50);
-    expect(raisingPlayer?.bet.total).toBe(50);
+    expect(raisingPlayer?.bet.amount).toBe(50);
+    expect(raisingPlayer?.bet.volume).toBe(50);
     
     // Check that pot is updated
     expect(result.pot).toBe(70); // Initial 20 + raise of 50
@@ -141,7 +141,7 @@ describe('Player Actions', () => {
   test('player call with insufficient chips should go all-in', async () => {
     // Setup with player having only 15 chips but need to call 20
     const player1 = createPlayer('player1', 15);
-    const player2 = createPlayer('player2', 80, { round: 20, total: 20 });
+    const player2 = createPlayer('player2', 80, { amount: 20, volume: 20 });
     const player3 = createPlayer('player3', 100);
     
     const initialState = {
@@ -165,8 +165,8 @@ describe('Player Actions', () => {
     const callingPlayer = result.players.find(p => p.id === 'player1');
     expect(callingPlayer?.chips).toBe(0);
     expect(callingPlayer?.status).toBe('ALL_IN');
-    expect(callingPlayer?.bet.round).toBe(15); // All they had
-    expect(callingPlayer?.bet.total).toBe(15);
+    expect(callingPlayer?.bet.amount).toBe(15); // All they had
+    expect(callingPlayer?.bet.volume).toBe(15);
     
     // Check that pot is updated
     expect(result.pot).toBe(35); // Initial 20 + all-in of 15
@@ -175,7 +175,7 @@ describe('Player Actions', () => {
   test('player raise with insufficient chips should go all-in', async () => {
     // Setup with player having only 40 chips but trying to raise to 60
     const player1 = createPlayer('player1', 40);
-    const player2 = createPlayer('player2', 80, { round: 20, total: 20 });
+    const player2 = createPlayer('player2', 80, { amount: 20, volume: 20 });
     const player3 = createPlayer('player3', 100);
     
     const initialState = {
@@ -199,8 +199,8 @@ describe('Player Actions', () => {
     const raisingPlayer = result.players.find(p => p.id === 'player1');
     expect(raisingPlayer?.chips).toBe(0);
     expect(raisingPlayer?.status).toBe('ALL_IN');
-    expect(raisingPlayer?.bet.round).toBe(40); // All they had
-    expect(raisingPlayer?.bet.total).toBe(40);
+    expect(raisingPlayer?.bet.amount).toBe(40); // All they had
+    expect(raisingPlayer?.bet.volume).toBe(40);
     
     // Check that pot is updated
     expect(result.pot).toBe(60); // Initial 20 + all-in of 40

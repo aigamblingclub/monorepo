@@ -6,7 +6,7 @@ import type { PlayerState, PokerState, Card } from "../src/schemas";
 
 describe('Phase Transitions', () => {
   // Helper function to create a test player
-  function createPlayer(id: string, chips: number, bet = { round: 0, total: 0 }): PlayerState {
+  function createPlayer(id: string, chips: number, bet = { amount: 0, volume: 0 }): PlayerState {
     return {
       ...PLAYER_DEFAULT_STATE,
       id,
@@ -113,8 +113,8 @@ describe('Phase Transitions', () => {
     
     // Check that player bets for the round are reset
     for (const player of result.players) {
-      expect(player.bet.round).toBe(0);
-      expect(player.bet.total).toBe(0); // In a real game this would maintain the total
+      expect(player.bet.amount).toBe(0);
+      expect(player.bet.volume).toBe(0); // In a real game this would maintain the total
     }
   });
 
@@ -259,9 +259,9 @@ describe('Phase Transitions', () => {
 
   test('nextPhase should reset player round bets but maintain total bets', async () => {
     // Setup with three players with existing bets
-    const player1 = createPlayer('player1', 80, { round: 20, total: 20 });
-    const player2 = createPlayer('player2', 80, { round: 20, total: 20 });
-    const player3 = createPlayer('player3', 80, { round: 20, total: 20 });
+    const player1 = createPlayer('player1', 80, { amount: 20, volume: 20 });
+    const player2 = createPlayer('player2', 80, { amount: 20, volume: 20 });
+    const player3 = createPlayer('player3', 80, { amount: 20, volume: 20 });
     
     // Create deck with known cards for testing
     const deck = [
@@ -296,8 +296,8 @@ describe('Phase Transitions', () => {
     
     // Check that player round bets are reset but total remains
     for (const player of result.players) {
-      expect(player.bet.round).toBe(0);
-      expect(player.bet.total).toBe(20); // Total bet should be maintained
+      expect(player.bet.amount).toBe(0);
+      expect(player.bet.volume).toBe(20); // Total bet should be maintained
     }
     
     // Pot should remain the same
