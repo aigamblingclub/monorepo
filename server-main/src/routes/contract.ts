@@ -96,15 +96,15 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
     }
 
     // Get on-chain nonce from the AI Gambling Club contract
-    const contractId = process.env.AGC_CONTRACT_ID;
-    if (!contractId) {
+    const contractAddress = process.env.AGC_CONTRACT_ID;
+    if (!contractAddress) {
       return res.status(500).json({ 
         success: false, 
         error: 'AGC_CONTRACT_ID not configured' 
       });
     }
     
-    const onChainNonce = await getOnChainNonce(contractId, nearImplicitAddress);
+    const onChainNonce = await getOnChainNonce(contractAddress, nearImplicitAddress);
 
     // Validate withdrawal request with all business logic
     const validation = await validateWithdrawalRequest(
