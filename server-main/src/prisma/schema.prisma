@@ -73,6 +73,7 @@ model Player {
   id              String    @id @default(uuid())
   playerId        String
   playerName      String
+  nonce           Int
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
