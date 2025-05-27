@@ -3,6 +3,14 @@ import { PrismaClient } from '@/prisma';
 
 const prisma = new PrismaClient();
 
+
+export const validateApiKeyServer = async (req: Request, res: Response, next: NextFunction) => {
+  if (!process.env.API_KEY_SERVER && req.headers['API-KEY'] !== process.env.API_KEY_SERVER) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  } 
+  return next();
+};
+
 export interface AuthenticatedRequest extends Request {
   apiKey?: {
     id: number;

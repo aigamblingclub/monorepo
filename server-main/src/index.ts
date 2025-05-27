@@ -7,6 +7,7 @@ import { apiLimiter, authLimiter, highFrequencyLimiter } from './middleware/rate
 import authRoutes from './routes/auth';
 import pokerRoutes from './routes/poker';
 import { updatePokerState } from './utils/poker-state';
+import { validateApiKeyServer } from './middleware/auth';
 
 // Load environment variables
 dotenv.config();
@@ -16,6 +17,9 @@ const port = process.env.PORT || 3000;
 
 // Security Middleware
 app.use(securityMiddleware);
+
+// Validate API_KEY_SERVER
+app.use(validateApiKeyServer);
 
 // Apply rate limiting
 app.use('/api', apiLimiter); // Apply general API rate limiting

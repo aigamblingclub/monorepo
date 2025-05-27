@@ -4,10 +4,6 @@ import { Router } from 'express';
 const router = Router();
 
 router.post('/start', async (req: any, res: any) => {
-  if (!process.env.API_KEY && req.headers['API-KEY'] !== process.env.API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  } 
-
   const response = await fetch(`${process.env.POKER_API_URL}/api`, {
     method: 'POST',
     headers: {
@@ -33,9 +29,6 @@ router.post('/start', async (req: any, res: any) => {
 });
 
 router.get('/current-state', async (req, res) => {
-  if (!process.env.API_KEY && req.headers['API-KEY'] !== process.env.API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
   if (!currentStatePoker) {
     return res.status(404).json({ error: 'No current state found yet.' });
   }
