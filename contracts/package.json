@@ -6,12 +6,12 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.js",
-    "deploy": "node scripts/deploy.js",
     "deploy:testnet": "node scripts/deploy-testnet.js",
     "deploy:mainnet": "node scripts/deploy-mainnet.js",
     "redeploy": "node scripts/redeploy.js",
     "interact": "node scripts/interact.js",
     "admin": "node scripts/admin.js",
+    "eth": "node scripts/genEthPk.js",
     "monitor": "node scripts/monitor.js",
     "test": "mocha test/**/*.test.js --timeout 60000"
   },
@@ -26,8 +26,10 @@
   "author": "AI Gambling Club",
   "license": "ISC",
   "dependencies": {
+    "ethers": "^6.14.3",
     "near-api-js": "^5.1.1",
-    "near-sdk-js": "^2.0.0"
+    "near-sdk-js": "^2.0.0",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "chai": "^4.3.7",

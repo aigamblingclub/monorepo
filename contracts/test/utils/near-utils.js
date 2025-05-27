@@ -1,4 +1,5 @@
-import { connect, keyStores, utils, providers } from 'near-api-js';
+import { connect, keyStores, utils, providers, KeyPair } from 'near-api-js';
+import { TextEncoder } from "util";
 import { readFileSync } from 'fs';
 import dotenv from 'dotenv';
 
@@ -6,36 +7,36 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * Initialize NEAR connection using private key from .env
+ * Initialize NEAR connection using private key
+ * @param {Object} credentials Optional credentials object
+ * @param {string} credentials.accountId Account ID to initialize
+ * @param {string} credentials.privateKey Private key for the account
  * @returns {Object} NEAR connection objects
  */
-export async function initNear() {
-  const {
-    NEAR_ACCOUNT_ID,
-    NEAR_PRIVATE_KEY,
-    NEAR_NETWORK,
-    NEAR_NODE_URL
-  } = process.env;
-
-  if (!NEAR_ACCOUNT_ID || !NEAR_PRIVATE_KEY) {
-    throw new Error('[ERROR][CONFIG] Missing NEAR credentials in .env file');
+export async function initNear(credentials = null) {
+  // Use provided credentials or fall back to env vars
+  const accountId = credentials?.accountId || process.env.NEAR_ACCOUNT_ID;
+  const privateKey = credentials?.privateKey || process.env.NEAR_PRIVATE_KEY;
+  
+  if (!accountId || !privateKey) {
+    throw new Error('[ERROR][CONFIG] Missing NEAR credentials');
   }
 
   const keyStore = new keyStores.InMemoryKeyStore();
-  const keyPair = utils.KeyPair.fromString(NEAR_PRIVATE_KEY);
+  const keyPair = utils.KeyPair.fromString(privateKey);
   
-  await keyStore.setKey(NEAR_NETWORK || 'testnet', NEAR_ACCOUNT_ID, keyPair);
+  await keyStore.setKey('testnet', accountId, keyPair);
 
   const config = {
     keyStore,
-    networkId: NEAR_NETWORK || 'testnet',
-    nodeUrl: NEAR_NODE_URL || 'https://rpc.testnet.near.org'
+    networkId: 'testnet',
+    nodeUrl: 'https://rpc.testnet.near.org'
   };
 
   const near = await connect(config);
-  const account = await near.account(NEAR_ACCOUNT_ID);
+  const account = await near.account(accountId);
   
-  return { near, account, accountId: NEAR_ACCOUNT_ID };
+  return { near, account, accountId };
 }
 
 /**
@@ -232,16 +233,93 @@ export async function callWriteMethod(account, contractId, methodName, args = {}
 }
 
 /**
- * Helper function to generate Ed25519 signature using NEAR's implementation
- * @param {string} message - The message to sign
- * @param {string} privateKey - The Ed25519 private key in NEAR format (ed25519:...)
- * @returns {string} The base64 encoded signature
+ * Signs a JavaScript object using a NEAR Ed25519 key pair.
+ * The object is first serialized to a JSON string, then encoded to UTF-8 bytes.
+ * These bytes are then signed directly using the Ed25519 algorithm.
+ * NO explicit hashing (like SHA-256) is performed before signing,
+ * as the standard Ed25519 sign/verify functions (like the one in near-sdk-js)
+ * typically expect the raw message.
+ *
+ * @param {object} messageObject - The JavaScript object to sign.
+ * @param {string} privateKeyString - The NEAR private key string (e.g., "ed25519:...")
+ * @returns {Uint8Array, Uint8Array} The signature bytes and the message bytes.
  */
-export function signMessage(message, privateKey) {
-  // Create a KeyPair from the private key
-  const keyPair = utils.KeyPair.fromString(privateKey);
+export function signMessage(messageObject, privateKeyString) {
+  // 1. Serialize the object to a JSON string
+  const messageString = JSON.stringify(messageObject);
+
+  // 2. Encode the JSON string to UTF-8 bytes (Uint8Array)
+  const messageBytes = new TextEncoder().encode(messageString);
+
+  // 3. Create KeyPair from the private key string
+  const keyPair = KeyPair.fromString(privateKeyString);
+
+  // 4. Sign the message bytes (no explicit pre-hashing)
+  const signature = keyPair.sign(messageBytes);
+
+  // 5. Return the signature bytes encoded as Uint8Array
+  // signature.signature is the Uint8Array
+  return {signature: signature.signature, messageBytes: messageBytes};
+}
+
+/**
+ * Get test USDC tokens from the fakes contract
+ * @param {Object} account NEAR account object
+ * @param {number} amountInUSD Amount in USD to mint (will be converted to proper decimals)
+ * @returns {Promise<string>} The amount of USDC minted
+ */
+export async function mintUSDCTokens(account, amountInUSD = 100) {
+  const usdcContractId = process.env.USDC_CONTRACT_ID || 'usdc.fakes.testnet';
   
-  // Sign the message using NEAR's Ed25519
-  const messageBuffer = Buffer.from(message);
-  return keyPair.sign(messageBuffer).signature.toString('base64');
+  try {
+    // Check current balance first
+    const currentBalance = await callViewMethod(
+      usdcContractId,
+      'ft_balance_of',
+      { account_id: account.accountId }
+    );
+    console.log(`Initial USDC balance: ${currentBalance}`);
+
+    // Convert USD amount to proper decimals (USDC uses 6 decimals)
+    const requiredAmount = BigInt(amountInUSD * 1_000_000);
+    
+    // Only mint if current balance is less than required amount
+    if (BigInt(currentBalance) < requiredAmount) {
+      // First register the account with storage deposit if needed
+      await callWriteMethod(
+        account,
+        usdcContractId,
+        'storage_deposit',
+        { account_id: account.accountId },
+        utils.format.parseNearAmount('0.1')
+      );
+
+      // Mint only the difference needed
+      const mintAmount = (requiredAmount - BigInt(currentBalance)).toString();
+      await callWriteMethod(
+        account,
+        usdcContractId,
+        'mint',
+        { 
+          account_id: account.accountId,
+          amount: mintAmount
+        }
+      );
+
+      // Verify the new balance
+      const newBalance = await callViewMethod(
+        usdcContractId,
+        'ft_balance_of',
+        { account_id: account.accountId }
+      );
+      console.log(`USDC balance after minting: ${newBalance}`);
+      return newBalance;
+    } else {
+      console.log(`Account already has sufficient USDC balance (${currentBalance}), skipping mint`);
+      return currentBalance;
+    }
+  } catch (error) {
+    console.error('[ERROR][USDC] Failed to get test USDC tokens:', error);
+    throw error;
+  }
 } 

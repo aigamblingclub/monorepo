@@ -47,28 +47,6 @@ ai-gambling-club-near/
    npm install
    ```
 
-### Getting Test USDC (Testnet)
-
-To test the contract on testnet, you'll need some test USDC. Follow these steps:
-
-1. Register your account with the test USDC contract (requires a small NEAR deposit for storage):
-   ```bash
-   near call usdc.fakes.testnet storage_deposit '{"account_id": "YOUR_ACCOUNT.testnet"}' --accountId YOUR_ACCOUNT.testnet --amount 0.1
-   ```
-
-2. Mint test USDC (1000 USDC in this example, adjust amount as needed):
-   ```bash
-   near call usdc.fakes.testnet mint '{"account_id": "YOUR_ACCOUNT.testnet", "amount": "1000000000"}' --accountId YOUR_ACCOUNT.testnet
-   ```
-   Note: USDC uses 6 decimal places, so "1000000000" = 1000 USDC
-
-3. Check your balance:
-   ```bash
-   near view usdc.fakes.testnet ft_balance_of '{"account_id": "YOUR_ACCOUNT.testnet"}'
-   ```
-
-You can repeat the mint command to get more test USDC as needed. Remember that these are test tokens with no real value!
-
 ### Generating Backend Signing Keys
 
 The contract uses Ed25519 signatures to verify game results. You'll need to generate a keypair for this:

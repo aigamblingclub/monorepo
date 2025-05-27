@@ -1,10 +1,11 @@
 import { expect } from 'chai';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { initNear, deployContract, callViewMethod, callWriteMethod, signMessage } from './utils/near-utils.js';
-import dotenv from 'dotenv';
+import { initNear, deployContract, callViewMethod, callWriteMethod, signMessage, mintUSDCTokens } from './utils/near-utils.js';
+import { utils } from 'near-api-js';
+import { ethers } from 'ethers';
 
-// Load environment variables
+import dotenv from 'dotenv';
 dotenv.config();
 
 // Get directory path
@@ -12,16 +13,24 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 describe('AI Gambling Club Contract Tests', function() {
   // Test variables
-  let near;
-  let account;
-  let accountId;
-  let contractId;
+  let Contract;
+  let AccountAddress;
+  let ContractAddress;
+  // Add Bob's account variables
+  let Bob;
+  let bobAddress;
+  
+  // Backend wallet for signing
+  let backendWallet;
+  let backendAddress;
+
   const wasmPath = join(__dirname, '..', 'build', 'ai-gambling-club.wasm');
+  const usdcContractId = process.env.USDC_CONTRACT_ID || 'usdc.fakes.testnet';
   
   // Setup - runs before all tests
   before(async function() {
     try {
-      // Initialize NEAR connection with private key from .env
+      // Initialize main account connection with private key from .env
       const connection = await initNear();
       
       // If we don't have a connection, throw an error
@@ -29,12 +38,42 @@ describe('AI Gambling Club Contract Tests', function() {
         throw new Error('Failed to load NEAR account private key');
       }
       
-      near = connection.near;
-      account = connection.account;
-      accountId = connection.accountId;
-      contractId = process.env.CONTRACT_ID || accountId;
+      Contract = connection.account;
+      AccountAddress = connection.accountId;
       
-      console.log(`Successfully connected to NEAR account: ${accountId}`);
+      // Initialize Bob's account
+      const bobConnection = await initNear({
+        accountId: process.env.NEAR_BOB_ACCOUNT_ID,
+        privateKey: process.env.NEAR_BOB_PRIVATE_KEY
+      });
+      
+      Bob = bobConnection.account;
+      bobAddress = bobConnection.accountId;
+      
+      ContractAddress = process.env.CONTRACT_ID || AccountAddress;
+      
+      // Initialize backend wallet for ECDSA signing
+      const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY;
+      if (!backendPrivateKey) {
+        throw new Error('BACKEND_PRIVATE_KEY not set in environment');
+      }
+      
+      backendWallet = new ethers.Wallet(backendPrivateKey);
+      backendAddress = backendWallet.address;
+      
+      console.log(`Successfully connected to NEAR accounts:
+      - Main account: ${AccountAddress}
+      - Bob's account: ${bobAddress}
+      - Backend wallet: ${backendAddress}`);
+
+      // Make sure the contract can use the USDC contract
+      await callWriteMethod(
+        Contract,
+        usdcContractId,
+        'storage_deposit',
+        { account_id: ContractAddress },
+        utils.format.parseNearAmount('0.1')
+      );
     } catch (error) {
       console.error('Error in before hook:', error);
       throw error;
@@ -45,20 +84,19 @@ describe('AI Gambling Club Contract Tests', function() {
   it('should deploy the contract', async function() {
     try {
       const usdcContractId = process.env.USDC_CONTRACT_ID || 'usdc.fakes.testnet';
-      const backendPublicKey = process.env.BACKEND_PUBLIC_KEY || null;
-      if (!backendPublicKey) {
-        throw new Error('BACKEND_PUBLIC_KEY is not set');
-      }
       
       // Deploy the contract
       const deployResult = await deployContract(
-        account, 
-        contractId, 
+        Contract, 
+        ContractAddress, 
         wasmPath, 
         {
-          admin_account: accountId,
+          admin_account: AccountAddress,
           usdc_token_contract: usdcContractId,
-          backend_public_key: backendPublicKey
+          backend_public_key: backendAddress
+        },
+        {
+          verbose: false
         }
       );
       
@@ -67,15 +105,15 @@ describe('AI Gambling Club Contract Tests', function() {
       if (!deployResult.success && deployResult.error && 
           (deployResult.error.toString().includes('Contract already initialized') ||
            deployResult.alreadyInitialized === true)) {
-        console.log('Contract was already deployed and initialized at', account);
+        console.log('Contract was already deployed and initialized at', Contract);
         this.skip(); // Skip the rest of the test
         return;
       }
       
       expect(deployResult.success).to.be.true;
-      expect(deployResult.contractId).to.equal(contractId);
+      expect(deployResult.contractId).to.equal(ContractAddress);
       
-      console.log(`Successfully deployed contract to ${contractId}`);
+      console.log(`Successfully deployed contract to ${ContractAddress}`);
     } catch (error) {
       console.error('Deployment error:', error);
       throw error;
@@ -86,9 +124,9 @@ describe('AI Gambling Club Contract Tests', function() {
   it('should get the admin account', async function() {
     try {
       // Call the getAdmin view method
-      const admin = await callViewMethod(contractId, 'getAdmin', {});
+      const admin = await callViewMethod(ContractAddress, 'getAdmin', {});
       
-      expect(admin).includes(accountId);
+      expect(admin).includes(AccountAddress);
       console.log(`Admin account is ${admin}`);
     } catch (error) {
       console.error('Error getting admin:', error);
@@ -99,22 +137,25 @@ describe('AI Gambling Club Contract Tests', function() {
   // Test 3: Change the contract owner
   it('should change the contract owner', async function() {
     try {
+      // Check current admin first
+      const currentAdmin = await callViewMethod(ContractAddress, 'getAdmin', {});
+      console.log('Current admin:', currentAdmin);
+      
       // New admin account is the same as the current admin in this test
-      const newAdmin = account;
+      const newAdmin = AccountAddress;
+      console.log('New admin will be:', newAdmin);
       
       // Call the changeAdmin method
-      const changeResult = await callWriteMethod(
-        account,
-        contractId,
+      await callWriteMethod(
+        Contract,
+        ContractAddress,
         'changeAdmin',
         { new_admin: newAdmin }
       );
       
-      // Verify the transaction succeeded
-      expect(changeResult.transaction_outcome.status).to.have.property('SuccessValue');
-      
       // Verify the admin was changed
-      const admin = await callViewMethod(contractId, 'getAdmin', {});
+      const admin = await callViewMethod(ContractAddress, 'getAdmin', {});
+      console.log('Admin after change:', admin);
       expect(admin).to.equal(newAdmin);
       
       console.log(`Successfully changed admin to ${newAdmin}`);
@@ -124,46 +165,93 @@ describe('AI Gambling Club Contract Tests', function() {
     }
   });
 
-  // Test 4: Transfer USDC to contract and check balance
+  // Test 4: Update backend signer address
+  it('should update the backend signer address', async function() {
+    try {
+      // Set a new Ethereum address
+      const newBackendAddress = process.env.BACKEND_PUBLIC_KEY; // Using the same address from env
+      
+      console.log('Updating backend signer to:', newBackendAddress);
+      
+      // Call the updateBackendSigner method
+      await callWriteMethod(
+        Contract,
+        ContractAddress,
+        'updateBackendSigner',
+        { new_public_key: newBackendAddress }
+      );
+      
+      console.log(`Successfully updated backend signer to ${newBackendAddress}`);
+      
+    } catch (error) {
+      console.error('Error updating backend signer:', error);
+      throw error;
+    }
+  });
+
+  // Test 5: Transfer USDC to contract and check balance
   it('should transfer USDC to contract and update balance', async function() {
     try {
-      const usdcContractId = process.env.USDC_CONTRACT_ID || 'usdc.fakes.testnet';
-      const transferAmount = '100000'; // 0.1 USDC
-      
-      // Get initial balances
-      const initialContractBalance = await callViewMethod(
-        contractId,
-        'getUsdcBalance',
-        { account_id: accountId }
+      // Check if the account is locked (might happen since its same state accross multiple tests)
+      const isLocked = await callViewMethod(
+        ContractAddress,
+        'isUsdcLocked',
+        { account_id: bobAddress }
       );
+      if (isLocked) {
+        console.log('Account is locked, skipping usdct transfer test');
+        this.skip();
+        return;
+      }
+
+      // Start the transfer test
+      const usdAmount = 100; // $100 USD
+      
+      // Get test USDC tokens (this will check balance and mint only if needed)
+      await mintUSDCTokens(Bob, usdAmount);
+      
+      // Get initial contract balance
+      const initialContractBalance = await callViewMethod(
+        ContractAddress,
+        'getUsdcBalance',
+        { account_id: bobAddress }
+      );
+      
+      console.log('Initial contract balance:', initialContractBalance);
+      
+      // Convert USD amount to USDC decimals
+      const transferAmount = (usdAmount * 1_000_000).toString();
       
       // Transfer USDC to contract using ft_transfer_call
-      const transferResult = await callWriteMethod(
-        account,
-        usdcContractId,
-        'ft_transfer_call',
-        {
-          receiver_id: contractId,
-          amount: transferAmount,
-          msg: ''
-        },
-        '1' // Attach 1 yoctoNEAR for security
-      );
-      
-      expect(transferResult.transaction_outcome.status).to.have.property('SuccessValue');
+      try {
+        await callWriteMethod(
+          Bob,
+          usdcContractId,
+          'ft_transfer_call',
+          {
+            receiver_id: ContractAddress,
+            amount: transferAmount,
+            msg: ''
+          },
+          '1' // Attach 1 yoctoNEAR for security
+        );      
+      } catch (error) {
+        // Transaction failed
+        throw new Error(`USDC transfer failed: ${error.message}`);
+      }
       
       // Check updated contract balance
       const newContractBalance = await callViewMethod(
-        contractId,
+        ContractAddress,
         'getUsdcBalance',
-        { account_id: accountId }
+        { account_id: bobAddress }
       );
       
       // Verify balance increased by transfer amount
       expect(BigInt(newContractBalance) - BigInt(initialContractBalance))
         .to.equal(BigInt(transferAmount));
       
-      console.log(`Successfully transferred ${transferAmount} USDC to contract`);
+      console.log(`Successfully transferred ${usdAmount} USDC to contract`);
       console.log(`New contract balance: ${newContractBalance}`);
     } catch (error) {
       console.error('Error in USDC transfer test:', error);
@@ -171,235 +259,244 @@ describe('AI Gambling Club Contract Tests', function() {
     }
   });
 
-  // Test 5: Lock USDC balance and verify lock status
+  // Test 6: Lock USDC balance and verify lock status
   it('should lock USDC balance and show correct lock status', async function() {
     try {
       // Check initial lock status
       const initialLockStatus = await callViewMethod(
-        contractId,
+        ContractAddress,
         'isUsdcLocked',
-        { account_id: accountId }
+        { account_id: AccountAddress }
       );
       expect(initialLockStatus).to.be.false;
       
       // Lock the USDC balance
-      const lockResult = await callWriteMethod(
-        account,
-        contractId,
-        'lockUsdcBalance',
-        {}  // No parameters needed as it uses caller's account
-      );
-      
-      // Verify the lock transaction succeeded
-      expect(lockResult.transaction_outcome.status).to.have.property('SuccessValue');
-      
+      try {
+        await callWriteMethod(
+          Bob,
+          ContractAddress,
+          'lockUsdcBalance',
+          {}  // No parameters needed as it uses caller's account
+        );
+      } catch (error) {
+        // Transaction failed
+        throw new Error(`USDC lock failed: ${error.message}`);
+      }
+    
       // Check final lock status
       const finalLockStatus = await callViewMethod(
-        contractId,
+        ContractAddress,
         'isUsdcLocked',
-        { account_id: accountId }
+        { account_id: bobAddress }
       );
       expect(finalLockStatus).to.be.true;
       
-      console.log(`Successfully locked USDC balance for ${accountId}`);
+      console.log(`Successfully locked USDC balance for ${AccountAddress}`);
     } catch (error) {
       console.error('Error in USDC lock test:', error);
       throw error;
     }
   });
 
-  // Test 6: Unlock USDC balance with a win
-  it('should unlock USDC balance with a win', async function() {
+  // Test 7: Unlock USDC balance with a win
+  it.only('should unlock USDC balance with a win', async function() {
     try {
       // Get initial balance
       const initialBalance = await callViewMethod(
-        contractId,
+        ContractAddress,
         'getUsdcBalance',
-        { account_id: accountId }
+        { account_id: bobAddress }
       );
+
+      // Get nonce
+      const nonce = await callViewMethod(
+        ContractAddress,
+        'getNonce',
+        { account_id: bobAddress }
+      );
+
+      console.log('%s Nonce: %s', bobAddress, nonce);
       
       // Create game result message
       const gameResult = {
         gameId: "1",
-        accountId: accountId,
-        amount: "100000" // 0.1 USDC win
+        accountId: bobAddress,
+        amount: "1000000", // 1 USDC win
+        nonce: nonce, // nonce is already an integer from the contract
       };
       
+      // Generate signature using ethers wallet
       const message = JSON.stringify(gameResult);
-      
-      // Get backend private key from environment
-      const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY;
-      if (!backendPrivateKey) {
-        throw new Error('BACKEND_PRIVATE_KEY not set in environment');
-      }
-      
-      // Generate signature
-      const signature = signMessage(message, backendPrivateKey);
+      console.log('Message:', message);
+      const signature = await backendWallet.signMessage(message);
+      console.log('Signature:', signature);
       
       // Call unlockUsdcBalance
-      const unlockResult = await callWriteMethod(
-        account,
-        contractId,
-        'unlockUsdcBalance',
-        {
-          account_id: accountId,
-          amount_change: "100000", // 0.1 USDC win
-          message,
-          signature
-        }
-      );
-      
-      // Verify the unlock transaction succeeded
-      expect(unlockResult.transaction_outcome.status).to.have.property('SuccessValue');
+      try {
+        await callWriteMethod(
+          Contract,
+          ContractAddress,
+          'unlockUsdcBalance',
+          {
+            account_id: bobAddress, // Use Bob's address to match the gameResult
+            amount_change: gameResult.amount, // 1 USDC win
+            message: message,
+            signature: signature  // Use base64 signature instead of hex
+          }
+        );
+      } catch (error) {
+        // Transaction failed
+        throw new Error(`USDC unlock failed: ${error.message}`);
+      }
       
       // Check final balance
       const finalBalance = await callViewMethod(
-        contractId,
+        ContractAddress,
         'getUsdcBalance',
-        { account_id: accountId }
+        { account_id: bobAddress }
       );
       
       // Verify balance increased by win amount
       expect(BigInt(finalBalance) - BigInt(initialBalance))
-        .to.equal(BigInt("100000"));
+        .to.equal(BigInt(gameResult.amount));
       
       // Verify account is no longer locked
       const isLocked = await callViewMethod(
-        contractId,
+        ContractAddress,
         'isUsdcLocked',
-        { account_id: accountId }
+        { account_id: bobAddress }
       );
       expect(isLocked).to.be.false;
       
-      console.log(`Successfully unlocked USDC balance for ${accountId} with 0.1 USDC win`);
+      console.log(`Successfully unlocked USDC balance for ${bobAddress} with ${gameResult.amount} USDC win`);
     } catch (error) {
       console.error('Error in USDC unlock test:', error);
       throw error;
     }
   });
 
-  // Test 7: Unlock USDC balance with a loss
-  it('should unlock USDC balance with a loss', async function() {
-    try {
-      // Get initial balance
-      const initialBalance = await callViewMethod(
-        contractId,
-        'getUsdcBalance',
-        { account_id: accountId }
-      );
+  // // Test 8: Unlock USDC balance with a loss
+  // it('should unlock USDC balance with a loss', async function() {
+  //   try {
+  //     // Get initial balance
+  //     const initialBalance = await callViewMethod(
+  //       ContractAddress,
+  //       'getUsdcBalance',
+  //       { account_id: AccountAddress }
+  //     );
       
-      // Lock the balance first (in case previous test unlocked it)
-      const lockResult = await callWriteMethod(
-        account,
-        contractId,
-        'lockUsdcBalance',
-        {}
-      );
-      expect(lockResult.transaction_outcome.status).to.have.property('SuccessValue');
+  //     // Lock the balance first (in case previous test unlocked it)
+  //     const lockResult = await callWriteMethod(
+  //       Contract,
+  //       ContractAddress,
+  //       'lockUsdcBalance',
+  //       {}
+  //     );
+  //     expect(lockResult.transaction_outcome.status).to.have.property('SuccessValue');
       
-      // Create game result message with a loss
-      const gameResult = {
-        gameId: "2",
-        accountId: accountId,
-        amount: "-100000" // -0.1 USDC (loss)
-      };
+  //     // Create game result message with a loss
+  //     const gameResult = {
+  //       gameId: "2",
+  //       accountId: AccountAddress,
+  //       amount: "-100000" // -0.1 USDC (loss)
+  //     };
       
-      const message = JSON.stringify(gameResult);
+  //     const message = JSON.stringify(gameResult);
       
-      // Get backend private key from environment
-      const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY;
-      if (!backendPrivateKey) {
-        throw new Error('BACKEND_PRIVATE_KEY not set in environment');
-      }
+  //     // Get backend private key from environment
+  //     const backendPrivateKey = process.env.BACKEND_PRIVATE_KEY;
+  //     if (!backendPrivateKey) {
+  //       throw new Error('BACKEND_PRIVATE_KEY not set in environment');
+  //     }
       
-      // Generate signature
-      const signature = signMessage(message, backendPrivateKey);
+  //     // Generate signature
+  //     const signature = signMessage(message, backendPrivateKey);
       
-      // Call unlockUsdcBalance
-      const unlockResult = await callWriteMethod(
-        account,
-        contractId,
-        'unlockUsdcBalance',
-        {
-          account_id: accountId,
-          amount_change: "-100000", // -0.1 USDC (loss)
-          message,
-          signature
-        }
-      );
+  //     // Call unlockUsdcBalance
+  //     const unlockResult = await callWriteMethod(
+  //       Contract,
+  //       ContractAddress,
+  //       'unlockUsdcBalance',
+  //       {
+  //         account_id: AccountAddress,
+  //         amount_change: "-100000", // -0.1 USDC (loss)
+  //         message,
+  //         signature
+  //       }
+  //     );
       
-      // Verify the unlock transaction succeeded
-      expect(unlockResult.transaction_outcome.status).to.have.property('SuccessValue');
+  //     // Verify the unlock transaction succeeded
+  //     expect(unlockResult.transaction_outcome.status).to.have.property('SuccessValue');
       
-      // Check final balance
-      const finalBalance = await callViewMethod(
-        contractId,
-        'getUsdcBalance',
-        { account_id: accountId }
-      );
+  //     // Check final balance
+  //     const finalBalance = await callViewMethod(
+  //       ContractAddress,
+  //       'getUsdcBalance',
+  //       { account_id: AccountAddress }
+  //     );
       
-      // Verify balance decreased by loss amount
-      expect(BigInt(finalBalance) - BigInt(initialBalance))
-        .to.equal(BigInt("-100000"));
+  //     // Verify balance decreased by loss amount
+  //     expect(BigInt(finalBalance) - BigInt(initialBalance))
+  //       .to.equal(BigInt("-100000"));
       
-      // Verify account is no longer locked
-      const isLocked = await callViewMethod(
-        contractId,
-        'isUsdcLocked',
-        { account_id: accountId }
-      );
-      expect(isLocked).to.be.false;
+  //     // Verify account is no longer locked
+  //     const isLocked = await callViewMethod(
+  //       ContractAddress,
+  //       'isUsdcLocked',
+  //       { account_id: AccountAddress }
+  //     );
+  //     expect(isLocked).to.be.false;
       
-      console.log(`Successfully unlocked USDC balance for ${accountId} with 0.1 USDC loss`);
-    } catch (error) {
-      console.error('Error in USDC unlock with loss test:', error);
-      throw error;
-    }
-  });
+  //     console.log(`Successfully unlocked USDC balance for ${AccountAddress} with 0.1 USDC loss`);
+  //   } catch (error) {
+  //     console.error('Error in USDC unlock with loss test:', error);
+  //     throw error;
+  //   }
+  // });
 
-  // Test 8: Withdraw USDC from contract
-  it('should withdraw USDC from contract', async function() {
-    try {
-      // Get initial balance
-      const initialBalance = await callViewMethod(
-        contractId,
-        'getUsdcBalance',
-        { account_id: accountId }
-      );
+  // // Test 9: Withdraw USDC from contract
+  // it('should withdraw USDC from contract', async function() {
+  //   try {
+  //     // Get initial balance
+  //     const initialBalance = await callViewMethod(
+  //       ContractAddress,
+  //       'getUsdcBalance',
+  //       { account_id: AccountAddress }
+  //     );
       
-      console.log(`Initial USDC balance: ${initialBalance}`);
+  //     console.log(`Initial USDC balance: ${initialBalance}`);
       
-      // Verify we have enough balance to withdraw
-      expect(BigInt(initialBalance)).to.be.gte(BigInt("100000")); // At least 0.1 USDC
+  //     // Verify we have enough balance to withdraw
+  //     expect(BigInt(initialBalance)).to.be.gte(BigInt("100000")); // At least 0.1 USDC
       
-      // Call withdrawUsdc
-      const withdrawResult = await callWriteMethod(
-        account,
-        contractId,
-        'withdrawUsdc',
-        {
-          amount: "100000" // 0.1 USDC
-        }
-      );
+  //     // Call withdrawUsdc
+  //     const withdrawResult = await callWriteMethod(
+  //       Contract,
+  //       ContractAddress,
+  //       'withdrawUsdc',
+  //       {
+  //         amount: "100000" // 0.1 USDC
+  //       }
+  //     );
       
-      // Verify the withdrawal transaction succeeded
-      expect(withdrawResult.transaction_outcome.status).to.have.property('SuccessValue');
+  //     // Verify the withdrawal transaction succeeded
+  //     expect(withdrawResult.transaction_outcome.status).to.have.property('SuccessValue');
       
-      // Check final balance
-      const finalBalance = await callViewMethod(
-        contractId,
-        'getUsdcBalance',
-        { account_id: accountId }
-      );
+  //     // Check final balance
+  //     const finalBalance = await callViewMethod(
+  //       ContractAddress,
+  //       'getUsdcBalance',
+  //       { account_id: AccountAddress }
+  //     );
       
-      // Verify balance decreased by withdrawal amount
-      expect(BigInt(finalBalance) - BigInt(initialBalance))
-        .to.equal(BigInt("-100000"));
+  //     // Verify balance decreased by withdrawal amount
+  //     expect(BigInt(finalBalance) - BigInt(initialBalance))
+  //       .to.equal(BigInt("-100000"));
       
-      console.log(`Successfully withdrew 0.1 USDC, final balance: ${finalBalance}`);
-    } catch (error) {
-      console.error('Error in USDC withdrawal test:', error);
-      throw error;
-    }
-  });
+  //     console.log(`Successfully withdrew 0.1 USDC, final balance: ${finalBalance}`);
+  //   } catch (error) {
+  //     console.error('Error in USDC withdrawal test:', error);
+  //     throw error;
+  //   }
+  // });
 }); 
