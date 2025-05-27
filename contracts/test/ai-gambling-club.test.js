@@ -345,7 +345,6 @@ describe('AI Gambling Club Contract Tests', function() {
       
       // Create game result message
       const gameResult = {
-        gameId: "1",
         accountId: bobAddress,
         amount: "1000000", // 1 USDC win
         nonce: initialNonce, // nonce is already an integer from the contract
@@ -461,7 +460,6 @@ describe('AI Gambling Club Contract Tests', function() {
       
       // Create game result message with a loss
       const gameResult = {
-        gameId: "2",
         accountId: bobAddress,
         amount: "-1000000", // 1 USDC loss (negative amount)
         nonce: initialNonce, // nonce is already an integer from the contract
@@ -530,49 +528,198 @@ describe('AI Gambling Club Contract Tests', function() {
     }
   });
 
-  // // Test 9: Withdraw USDC from contract
-  // it('should withdraw USDC from contract', async function() {
-  //   try {
-  //     // Get initial balance
-  //     const initialBalance = await callViewMethod(
-  //       ContractAddress,
-  //       'getUsdcBalance',
-  //       { account_id: AccountAddress }
-  //     );
+  // Test 9: Fail to sabotage the message
+  it('should fail to forge the signature message', async function() {
+    // Check if account is locked, if not, lock it first
+    const isInitiallyLocked = await callViewMethod(
+      ContractAddress,
+      'isUsdcLocked',
+      { account_id: bobAddress }
+    );
+    
+    if (!isInitiallyLocked) {
+      console.log('Account not locked, locking it first...');
+      await callWriteMethod(
+        Bob,
+        ContractAddress,
+        'lockUsdcBalance',
+        {}
+      );
       
-  //     console.log(`Initial USDC balance: ${initialBalance}`);
+      // Verify it's now locked
+      const isNowLocked = await callViewMethod(
+        ContractAddress,
+        'isUsdcLocked',
+        { account_id: bobAddress }
+      );
+      expect(isNowLocked).to.be.true;
+      console.log('Account successfully locked');
+    }
+
+    // Get initial balance
+    const initialBalance = await callViewMethod(
+      ContractAddress,
+      'getUsdcBalance',
+      { account_id: bobAddress }
+    );
+
+    console.log('%s Initial Balance: %s', bobAddress, initialBalance);
+
+    // Get initial nonce
+    const initialNonce = await callViewMethod(
+      ContractAddress,
+      'getNonce',
+      { account_id: bobAddress }
+    );
+
+    console.log('%s Initial Nonce: %s', bobAddress, initialNonce);
+    
+    // Create game result message with a loss
+    const gameResult = {
+      accountId: bobAddress,
+      amount: "-1000000", // 1 USDC loss (negative amount)
+      nonce: initialNonce, // nonce is already an integer from the contract
+    };
+    
+    // Generate signature using ethers wallet
+    const message = JSON.stringify(gameResult);
+    console.log('Message:', message);
+    const signature = await backendWallet.signMessage(message);
+    console.log('Signature:', signature);
+
+    // Sabotage the value to withdraw
+    gameResult.amount = "50000000"; // 50 USDC
+    const sabotagedMessage = JSON.stringify(gameResult);
+    
+    // Call unlockUsdcBalance
+    try {
+      await callWriteMethod(
+        Contract,
+        ContractAddress,
+        'unlockUsdcBalance',
+        {
+          message: sabotagedMessage, // We sabotaged the message
+          signature: signature       // But we still use the correct signature
+        }
+      );
+      throw new Error(`It should have failed, but it didn't`);
+    } catch (error) {      
+      expect(error.message).to.include('Signature verification failed');
+    }
+  });
+
+  // Test 10: Withdraw USDC from contract
+  it('should withdraw USDC from contract', async function() {
+    try {
+      // First, clear any pending withdrawal status (admin function for emergency)
+      try {
+        await callWriteMethod(
+          Contract,
+          ContractAddress,
+          'clearPendingWithdrawal',
+          { account_id: bobAddress }
+        );
+        console.log('Cleared any pending withdrawal status');
+      } catch (error) {
+        // Ignore if method doesn't exist or fails
+        console.log('No pending withdrawal to clear or method failed');
+      }
+
+      // Check if account is locked, if yes, unlock it first
+      const isInitiallyLocked = await callViewMethod(
+        ContractAddress,
+        'isUsdcLocked',
+        { account_id: bobAddress }
+      );
       
-  //     // Verify we have enough balance to withdraw
-  //     expect(BigInt(initialBalance)).to.be.gte(BigInt("100000")); // At least 0.1 USDC
+      if (isInitiallyLocked) {
+        console.log('Account locked, unlocking it first...');
+
+        const initialNonce = await callViewMethod(
+          ContractAddress,
+          'getNonce',
+          { account_id: bobAddress }
+        );
+        
+        const gameResult = {
+          accountId: bobAddress,
+          amount: "1000000", // 1 USDC win
+          nonce: initialNonce, // nonce is already an integer from the contract
+        };
+        
+        const message = JSON.stringify(gameResult);
+        const signature = await backendWallet.signMessage(message);
+
+        await callWriteMethod(
+          Contract,
+          ContractAddress,
+          'unlockUsdcBalance',
+          {
+            message: message,
+            signature: signature
+          }
+        );
+        console.log('Account unlocked successfully');
+      }
+
+      // Get initial balance
+      const initialBalance = await callViewMethod(
+        ContractAddress,
+        'getUsdcBalance',
+        { account_id: bobAddress }
+      );
+      console.log(`Initial USDC balance on the AGC contract state: ${initialBalance}`);
+
+      // Get initial balance on the USDC contract
+      const initialBalanceOnUsdcContract = await callViewMethod(
+        usdcContractId,
+        'ft_balance_of',
+        { account_id: bobAddress }
+      );
+      console.log(`Initial USDC balance on Bob's account: ${initialBalanceOnUsdcContract}`);
       
-  //     // Call withdrawUsdc
-  //     const withdrawResult = await callWriteMethod(
-  //       Contract,
-  //       ContractAddress,
-  //       'withdrawUsdc',
-  //       {
-  //         amount: "100000" // 0.1 USDC
-  //       }
-  //     );
+      // Call withdrawUsdc
+      await callWriteMethod(
+        Bob,
+        ContractAddress,
+        'withdrawUsdc',
+        {
+          amount: "1000000" // 1 USDC
+        }
+      );
       
-  //     // Verify the withdrawal transaction succeeded
-  //     expect(withdrawResult.transaction_outcome.status).to.have.property('SuccessValue');
+      // Wait a bit for the callback to complete
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
-  //     // Check final balance
-  //     const finalBalance = await callViewMethod(
-  //       ContractAddress,
-  //       'getUsdcBalance',
-  //       { account_id: AccountAddress }
-  //     );
+      // Check final balance
+      const finalBalance = await callViewMethod(
+        ContractAddress,
+        'getUsdcBalance',
+        { account_id: bobAddress }
+      );
+      console.log(`Final USDC balance on the AGC contract state: ${finalBalance}`);
+
+      // Get final balance on the USDC contract
+      const finalBalanceOnUsdcContract = await callViewMethod(
+        usdcContractId,
+        'ft_balance_of',
+        { account_id: bobAddress }
+      );
+      console.log(`Final USDC balance on Bob's account: ${finalBalanceOnUsdcContract}`);
       
-  //     // Verify balance decreased by withdrawal amount
-  //     expect(BigInt(finalBalance) - BigInt(initialBalance))
-  //       .to.equal(BigInt("-100000"));
-      
-  //     console.log(`Successfully withdrew 0.1 USDC, final balance: ${finalBalance}`);
-  //   } catch (error) {
-  //     console.error('Error in USDC withdrawal test:', error);
-  //     throw error;
-  //   }
-  // });
+      // Verify balance decreased by withdrawal amount on contract
+      expect(BigInt(finalBalance) - BigInt(initialBalance))
+        .to.equal(BigInt("-1000000"));
+
+      // Verify balance increased by withdrawal amount on user's USDC account
+      expect(BigInt(finalBalanceOnUsdcContract) - BigInt(initialBalanceOnUsdcContract))
+        .to.equal(BigInt("1000000"));
+
+      console.log('Withdrawal test completed successfully!');
+
+    } catch (error) {
+      console.error('Error in USDC withdrawal test:', error);
+      throw error;
+    }
+  });
 }); 
