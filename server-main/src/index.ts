@@ -5,6 +5,8 @@ import { swaggerSpec } from './config/swagger.config';
 import { securityMiddleware } from './middleware/security';
 import { apiLimiter, authLimiter, highFrequencyLimiter } from './middleware/rateLimiter';
 import authRoutes from './routes/auth';
+import pokerRoutes from './routes/poker';
+import { updatePokerState } from './utils/poker-state';
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +39,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/game', pokerRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
@@ -48,3 +51,6 @@ app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
   console.log(`API Documentation available at http://localhost:${port}/api-docs`);
 });
+
+// Update poker state every 2 seconds
+updatePokerState(2000);
