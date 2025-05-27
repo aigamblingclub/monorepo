@@ -5,9 +5,9 @@
     "packages/*"
   ],
   "scripts": {
-    "poker-server-dev": "bun run --watch packages/server-poker/src/index.ts",
-    "poker-server-build": "bun run --cwd packages/server-poker build",
-    "poker-server-start": "bun run --cwd packages/server-poker start",
+    "poker-dev": "bun run --watch packages/server-poker/src/index.ts",
+    "poker-build": "bun run --cwd packages/poker-state-machine build && bun run --cwd packages/server-poker build",
+    "poker-start": "bun run --cwd packages/server-poker start",
     "poker-test": "bun test packages/poker-state-machine/test",
     "server-dev": "pnpm --dir server-main dev",
     "server-build": "pnpm --dir server-main build",
