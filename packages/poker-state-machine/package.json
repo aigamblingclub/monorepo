@@ -3,6 +3,9 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun --minify --sourcemap"
+  },
   "dependencies": {
     "effect": "^3.13.10"
   }
