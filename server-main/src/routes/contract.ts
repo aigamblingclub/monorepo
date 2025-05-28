@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import { 
-  validateWithdrawalRequest, 
+  validateUnlockRequest, 
   signGameResult, 
   GameResult 
 } from '@/utils/contract';
@@ -11,7 +11,7 @@ const router = Router();
 
 interface SignMessageRequest {
   nearImplicitAddress: string;
-  withdrawAmount: number;
+  unlockUsdcBalance: number;
 }
 
 interface SignMessageResponse {
@@ -25,7 +25,7 @@ interface SignMessageResponse {
  * @swagger
  * /api/contract/sign-message:
  *   post:
- *     summary: Sign a withdrawal message for the AI Gambling Club contract
+ *     summary: Sign a message to unlock USDC balance for the AI Gambling Club contract
  *     tags: [Contract]
  *     security:
  *       - ApiKeyAuth: []
@@ -37,14 +37,14 @@ interface SignMessageResponse {
  *             type: object
  *             required:
  *               - nearImplicitAddress
- *               - withdrawAmount
+ *               - unlockUsdcBalance
  *             properties:
  *               nearImplicitAddress:
  *                 type: string
  *                 description: NEAR wallet implicit address
- *               withdrawAmount:
+ *               unlockUsdcBalance:
  *                 type: number
- *                 description: Amount to withdraw in USDC (with 6 decimals)
+ *                 description: Amount to unlock in USDC (with 6 decimals)
  *     responses:
  *       200:
  *         description: Message signed successfully
@@ -77,21 +77,21 @@ interface SignMessageResponse {
  */
 router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, res) => {
   try {
-    const { nearImplicitAddress, withdrawAmount }: SignMessageRequest = req.body;
+    const { nearImplicitAddress, unlockUsdcBalance }: SignMessageRequest = req.body;
 
     // Validate required fields
-    if (!nearImplicitAddress || withdrawAmount === undefined) {
+    if (!nearImplicitAddress || unlockUsdcBalance === undefined) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields: nearImplicitAddress, withdrawAmount' 
+        error: 'Missing required fields: nearImplicitAddress, unlockUsdcBalance' 
       });
     }
 
-    // Validate withdraw amount
-    if (withdrawAmount <= 0) {
+    // Validate unlock amount
+    if (unlockUsdcBalance <= 0) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Withdraw amount must be greater than 0' 
+        error: 'Unlock USDC balance amount must be greater than 0' 
       });
     }
 
@@ -106,10 +106,10 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
     
     const onChainNonce = await getOnChainNonce(contractAddress, nearImplicitAddress);
 
-    // Validate withdrawal request with all business logic
-    const validation = await validateWithdrawalRequest(
+    // Validate unlock request with all business logic
+    const validation = await validateUnlockRequest(
       nearImplicitAddress, 
-      withdrawAmount, 
+      unlockUsdcBalance, 
       onChainNonce
     );
 
@@ -124,7 +124,7 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
     // Create game result structure
     const gameResult: GameResult = {
       accountId: nearImplicitAddress,
-      amount: `-${withdrawAmount}`, // Negative for withdrawal
+      amount: `-${unlockUsdcBalance}`, // Negative for unlock/withdrawal
       nonce: validation.currentNonce || 0
     };
 
