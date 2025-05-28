@@ -2,9 +2,161 @@ import { Router } from 'express';
 import { PrismaClient } from '@/prisma';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
+import { authenticate, AUTH_MESSAGE, generateChallenge } from '../utils/near-auth';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+// Store challenges temporarily (in production, use Redis or similar)
+const challenges = new Map<string, { challenge: Buffer, timestamp: number }>();
+
+// Clean up old challenges every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of challenges.entries()) {
+        if (now - value.timestamp > 5 * 60 * 1000) { // 5 minutes
+            challenges.delete(key);
+        }
+    }
+}, 5 * 60 * 1000);
+
+/**
+ * @swagger
+ * /api/auth/near/challenge:
+ *   get:
+ *     summary: Get a new challenge for NEAR wallet authentication
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: accountId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: NEAR account ID
+ *     responses:
+ *       200:
+ *         description: Challenge generated successfully
+ *       400:
+ *         description: Account ID is required
+ */
+router.get('/near/challenge', (req, res) => {
+    const challenge = generateChallenge();
+    const accountId = req.query.accountId as string;
+    
+    if (!accountId) {
+        return res.status(400).json({ error: 'Account ID is required' });
+    }
+
+    challenges.set(accountId, {
+        challenge,
+        timestamp: Date.now()
+    });
+
+    res.json({
+        challenge: challenge.toString('base64'),
+        message: AUTH_MESSAGE
+    });
+});
+
+/**
+ * @swagger
+ * /api/auth/near/verify:
+ *   post:
+ *     summary: Verify NEAR wallet signature
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - signature
+ *               - accountId
+ *               - publicKey
+ *             properties:
+ *               signature:
+ *                 type: string
+ *               accountId:
+ *                 type: string
+ *               publicKey:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Signature verified successfully
+ *       400:
+ *         description: Missing required fields or invalid challenge
+ *       401:
+ *         description: Invalid signature
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/near/verify', async (req, res) => {
+    try {
+        const { signature, accountId, publicKey } = req.body;
+
+        if (!signature || !accountId || !publicKey) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Get the stored challenge
+        const storedChallenge = challenges.get(accountId);
+        if (!storedChallenge) {
+            return res.status(400).json({ error: 'No challenge found. Please request a new challenge.' });
+        }
+
+        // Remove the used challenge
+        challenges.delete(accountId);
+
+        const isValid = await authenticate({
+            accountId,
+            publicKey,
+            signature,
+            message: AUTH_MESSAGE,
+            recipient: req.headers.origin || 'http://localhost:3000',
+            nonce: storedChallenge.challenge
+        });
+
+        if (!isValid) {
+            return res.status(401).json({ error: 'Invalid signature' });
+        }
+
+        // Find or create user
+        const user = await prisma.user.upsert({
+            where: {
+                nearImplicitAddress: accountId,
+            },
+            update: {
+                lastActiveAt: new Date(),
+            },
+            create: {
+                nearImplicitAddress: accountId,
+                nearNamedAddress: accountId, // You might want to handle this differently
+                lastActiveAt: new Date(),
+            },
+        });
+
+        // Generate a new API key for the user
+        const keyValue = crypto.randomBytes(32).toString('hex');
+        const apiKey = await prisma.apiKey.create({
+            data: {
+                keyValue,
+                userId: user.id,
+                isActive: true,
+            },
+        });
+
+        return res.json({
+            success: true,
+            user,
+            apiKey: { ...apiKey, keyValue },
+            message: 'Authentication successful'
+        });
+    } catch (error) {
+        console.error('Authentication error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 /**
  * @swagger
