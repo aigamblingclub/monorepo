@@ -43,11 +43,14 @@ describe('Phase Transitions', () => {
       lastMove: null,
       deck,
       community,
-      pot: 0,
+      phase: {
+        street: phase,
+        actionCount: 0,
+        volume: 0,
+      },
       round: {
-        phase,
         roundNumber: 1,
-        roundPot: 0,
+        volume: 0,
         currentBet: 0,
         foldedPlayers: [],
         allInPlayers: [],
@@ -88,7 +91,7 @@ describe('Phase Transitions', () => {
     const result = await Effect.runPromise(nextPhase(initialState));
     
     // Check that phase is updated
-    expect(result.round.phase).toBe('FLOP');
+    expect(result.phase.street).toBe('FLOP');
     
     // Check that 3 community cards are dealt
     expect(result.community).toHaveLength(3);
@@ -146,7 +149,7 @@ describe('Phase Transitions', () => {
     const result = await Effect.runPromise(nextPhase(initialState));
     
     // Check that phase is updated
-    expect(result.round.phase).toBe('TURN');
+    expect(result.phase.street).toBe('TURN');
     
     // Check that 4 community cards are dealt (3 from flop + 1 turn)
     expect(result.community).toHaveLength(4);
@@ -195,7 +198,7 @@ describe('Phase Transitions', () => {
     const result = await Effect.runPromise(nextPhase(initialState));
     
     // Check that phase is updated
-    expect(result.round.phase).toBe('RIVER');
+    expect(result.phase.street).toBe('RIVER');
     
     // Check that 5 community cards are dealt (4 from flop/turn + 1 river)
     expect(result.community).toHaveLength(5);
@@ -253,7 +256,7 @@ describe('Phase Transitions', () => {
     
     // The key thing is that nextPhase should call showdown when at RIVER
     // We verify the input state is correct for the showdown call
-    expect(initialState.round.phase).toBe('RIVER');
+    expect(initialState.phase.street).toBe('RIVER');
     expect(initialState.community).toHaveLength(5);
   });
 
@@ -277,11 +280,9 @@ describe('Phase Transitions', () => {
     
     const initialState = {
       ...createTestState([player1, player2, player3], 'PRE_FLOP', [], deck),
-      pot: 60, // 20 from each player
       round: {
-        phase: 'PRE_FLOP' as const,
         roundNumber: 1,
-        roundPot: 60,
+        volume: 60,
         currentBet: 20,
         foldedPlayers: [],
         allInPlayers: [],
@@ -301,6 +302,6 @@ describe('Phase Transitions', () => {
     }
     
     // Pot should remain the same
-    expect(result.pot).toBe(60);
+    expect(result.round.volume).toBe(60);
   });
 }); 
