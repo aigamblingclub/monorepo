@@ -216,5 +216,8 @@ export function useNearWallet() {
     callMethod,
     viewMethod,
     getBalance,
+    accountId: walletState.accountId,
+    isConnected: walletState.accountId !== null,
+    isConnecting: walletState.isConnecting,
   }), [walletState, signIn, signOut, callMethod, viewMethod]);
 } 

@@ -4,6 +4,7 @@ import React, { useEffect, useState, ReactNode } from 'react';
 import { PokerTable } from '../components/PokerTable';
 import { PokerState } from '../types/poker';
 import { WalletProvider } from "@/providers/WalletProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
 import { WalletButton } from "@/components/WalletButton";
 import { CONTRACT_ID } from "@/utils/constants";
 import { BettingPanel } from "@/components/BettingPanel";
@@ -14,17 +15,19 @@ import { MoveHistoryPanel } from "@/components/MoveHistoryPanel";
 function PageLayout({ children }: { children: ReactNode }) {
   return (
     <WalletProvider>
-      <div className="bg-black">
-        <header className="w-full flex justify-between items-start">
-          <div style={{ width: '150px' }}></div>
-          <div className="flex flex-col justify-center items-center">
-            <h1 className="title">AI Gambling Club</h1>
-            <h2 className="subtitle">Poker Texas Hold&apos;em</h2>
-          </div>
-          <WalletButton />
-        </header>
-        {children}
-      </div>
+      <AuthProvider>
+        <div className="bg-black">
+          <header className="w-full flex justify-between items-start">
+            <div style={{ width: '150px' }}></div>
+            <div className="flex flex-col justify-center items-center">
+              <h1 className="title">AI Gambling Club</h1>
+              <h2 className="subtitle">Poker Texas Hold&apos;em</h2>
+            </div>
+            <WalletButton />
+          </header>
+          {children}
+        </div>
+      </AuthProvider>
     </WalletProvider>
   );
 }
