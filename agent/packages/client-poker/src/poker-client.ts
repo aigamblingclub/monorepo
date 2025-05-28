@@ -242,7 +242,7 @@ export class PokerClient implements Client {
                 }));
 
                 // Update pot and bet
-                this.gameState.pot = view.pot;
+                this.gameState.phase.volume = view.round.volume;
                 this.gameState.round.currentBet = view.round.currentBet;
 
                 // Update opponents
@@ -251,7 +251,8 @@ export class PokerClient implements Client {
                         const player = this.gameState!.players.find(p => p.id === id);
                         if (player) {
                             player.chips = opponent.chips;
-                            player.bet.total = opponent.bet.total;
+                            player.bet.amount = opponent.bet.amount;
+                            player.bet.volume = opponent.bet.volume;
                             player.status = opponent.status;
                         }
                     });
@@ -567,9 +568,9 @@ export class PokerClient implements Client {
                 if (player.status === "FOLDED")
                     return `${player.playerName} FOLDED${handInfo}`;
                 if (player.status === "ALL_IN")
-                    return `${player.playerName} ALL_IN with ${player.bet.total} chips${handInfo}`;
-                if (player.bet.total > 0)
-                    return `${player.playerName} bet ${player.bet.total} chips${handInfo}`;
+                    return `${player.playerName} ALL_IN with ${player.bet.volume} chips${handInfo}`;
+                if (player.bet.volume > 0)
+                    return `${player.playerName} bet ${player.bet.volume} chips${handInfo}`;
                 return `${player.playerName} waiting${handInfo}`;
             })
         );
@@ -580,7 +581,7 @@ export class PokerClient implements Client {
             const outcome: PokerContent["outcome"] = {
                 won: winner === this.playerId,
                 chipsWon: player.chips,
-                finalPot: gameState.pot,
+                finalPot: gameState.round.volume,
                 finalCommunityCards: gameState.communityCards,
                 finalPlayerCards: player.hand,
                 roundEndState: gameState.tableStatus,
@@ -604,7 +605,7 @@ export class PokerClient implements Client {
 
         try {
             // Criar uma descrição semântica da situação atual
-            const currentSituation = `Poker game in ${currentState.tableStatus} phase with pot ${currentState.pot}.
+            const currentSituation = `Poker game in ${currentState.tableStatus} phase with pot ${currentState.round.volume}.
                 ${currentState.communityCards.length} community cards showing: ${currentState.communityCards.map(c => `${c.rank}${c.suit}`).join(' ')}.
                 ${currentState.players.filter(p => p.status === "PLAYING").length} active players.
                 Current bet is ${currentState.round.currentBet}.
@@ -665,7 +666,7 @@ export class PokerClient implements Client {
                 game: {
                     id: this.gameId,
                     phase: gameState.tableStatus,
-                    pot: gameState.pot,
+                    pot: gameState.round.volume,
                     currentBet: gameState.round.currentBet,
                     roundHistory: gameState.roundHistory,
                     players: gameState.players.map(p => ({
@@ -728,7 +729,7 @@ export class PokerClient implements Client {
                     roundId: this.roundId,
                     pokerAction: decision,
                     gameState: {
-                        pot: gameState.pot,
+                        pot: gameState.round.volume,
                         currentBet: gameState.round.currentBet,
                         playerCards: gameState.players.find(p => p.id === this.playerId)?.hand,
                         communityCards: gameState.communityCards,
@@ -742,9 +743,9 @@ export class PokerClient implements Client {
                             status: p.status
                         })),
                         round: {
-                            phase: gameState.round.phase,
+                            phase: gameState.phase.street,
                             roundNumber: gameState.round.roundNumber,
-                            roundPot: gameState.round.roundPot,
+                            roundPot: gameState.round.volume,
                             currentBet: gameState.round.currentBet,
                             foldedPlayers: gameState.round.foldedPlayers,
                             allInPlayers: gameState.round.allInPlayers
@@ -948,7 +949,7 @@ export class PokerClient implements Client {
                             ? "FOLDED"
                             : opp.status === "ALL_IN"
                             ? "ALL_IN"
-                            : `bet: ${opp.bet.total}`
+                            : `bet: ${opp.bet.volume}`
                     })`
             )
             .join(", ");
@@ -956,9 +957,9 @@ export class PokerClient implements Client {
         const baseGameContext = [
             `Current game state:`,
             `- Your chips: ${player.chips}`,
-            `- Pot: ${gameState.pot}`,
+            `- Pot: ${gameState.round.volume}`,
             `- Current bet: ${gameState.round.currentBet}`,
-            `- Round phase: ${gameState.round.phase}`,
+            `- Round phase: ${gameState.phase.street}`,
             `- Round number: ${gameState.round.roundNumber}`,
             `- Your position: ${
                 gameState.currentPlayerIndex === gameState.players.findIndex((p) => p.id === this.playerId)
@@ -1086,7 +1087,7 @@ export class PokerClient implements Client {
         const outcome = {
             won: currentChips > myInitialChips,
             chipsWon: currentChips - myInitialChips,
-            finalPot: gameState.pot,
+            finalPot: gameState.round.volume,
             finalCommunityCards: gameState.communityCards,
             finalPlayerCards: content.gameState.playerCards,
             roundEndState: gameState.tableStatus,

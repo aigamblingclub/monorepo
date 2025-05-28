@@ -1,4 +1,4 @@
-import { TableStatus, RoundPhase, Card, PlayerStatus, DecisionContext } from "./schemas";
+import { TableStatus, Card, PlayerStatus, DecisionContext } from "./schemas";
 
 export enum PlayerAction {
     FOLD = "FOLD",
@@ -13,15 +13,17 @@ export interface PokerDecision {
     decisionContext?: DecisionContext;
 }
 
-// export type Card = {
-//     readonly rank: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
-//     readonly suit: "spades" | "diamonds" | "clubs" | "hearts";
-// };
+export type RoundPhase = "PRE_FLOP" | "FLOP" | "TURN" | "RIVER" | "SHOWDOWN";
+
+export interface Phase {
+    street: RoundPhase;
+    actionCount: number;
+    volume: number;
+}
 
 export interface RoundState {
-    phase: RoundPhase;
     roundNumber: number;
-    roundPot: number;
+    volume: number;
     currentBet: number;
     foldedPlayers: string[];
     allInPlayers: string[];
@@ -34,8 +36,8 @@ export interface PlayerState {
     chips: number;
     hand?: readonly Card[];
     bet: {
-        round: number;
-        total: number;
+        amount: number;
+        volume: number;
     };
 }
 
@@ -49,10 +51,10 @@ export interface WinnerInfo {
 export interface GameState {
     players: PlayerState[];
     tableStatus: TableStatus;
-    pot: number;
     currentPlayerIndex: number;
     dealerId: string;
     winner: string | null;
+    phase: Phase;
     round: RoundState;
     communityCards: readonly Card[];
     config: {
