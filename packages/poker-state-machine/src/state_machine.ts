@@ -7,11 +7,14 @@ export const POKER_ROOM_DEFAULT_STATE: PokerState = {
   lastMove: null,
   deck: [],
   community: [],
-  pot: 0,
+  phase: {
+    street: "PRE_FLOP",
+    actionCount: 0,
+    volume: 0,
+  },
   round: {
-    phase: "PRE_FLOP",
     roundNumber: 1,
-    roundPot: 0,
+    volume: 0,
     currentBet: 0,
     foldedPlayers: [],
     allInPlayers: [],

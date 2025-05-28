@@ -107,7 +107,7 @@ export const collectBlinds: StateTransition = state => {
     };
 }
 
-export const startRound: StateTransition = (state: PokerState) => {
+export const startRound: StateTransition = (state: PokerState): PokerState => {
     // First deal cards
     const dealtState = dealCards(state);
     
@@ -143,19 +143,27 @@ export function playerBet(state: PokerState, playerId: string, amount: number): 
         }
         
         return {
-            ...state,
-            pot: state.pot + player.chips,
-            round: {
-                ...state.round,
-                currentBet: Math.max(state.round.currentBet, bet.amount)
-            },
-            players: state.players.map(p => p.id !== playerId ? p : {
-                ...p,
-                bet,
-                chips: 0,
-                status: 'ALL_IN'
-            })
-        }
+          ...state,
+          phase: {
+            ...state.phase,
+            volume: state.phase.volume + player.chips,
+          },
+          round: {
+            ...state.round,
+            currentBet: Math.max(state.round.currentBet, bet.amount),
+            volume: state.round.volume + player.chips,
+          },
+          players: state.players.map((p) =>
+            p.id !== playerId
+              ? p
+              : {
+                  ...p,
+                  bet,
+                  chips: 0,
+                  status: "ALL_IN",
+                }
+          ),
+        };
     }
     
     // Normal betting logic
@@ -169,10 +177,14 @@ export function playerBet(state: PokerState, playerId: string, amount: number): 
 
     return {
         ...state,
-        pot: state.pot + diff,
+        phase: {
+            ...state.phase,
+            volume: state.phase.volume + diff,
+        },
         round: {
             ...state.round,
-            currentBet: Math.max(state.round.currentBet, bet.amount)
+            currentBet: Math.max(state.round.currentBet, bet.amount),
+            volume: state.round.volume + diff,
         },
         players: state.players.map(p => p.id !== playerId ? p : {
             ...p,
@@ -231,6 +243,10 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
 
     const nState = {
         ...nextState,
+        phase: {
+            ...nextState.phase,
+            actionCount: nextState.phase.actionCount + 1,
+        },
         players: nextState.players.map(p => ({
             ...p,
             playedThisPhase: p.id === playerId ? true : p.playedThisPhase
@@ -238,36 +254,6 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
     }
     
     return transition(nState);
-}
-
-const isLastToAct = (state: PokerState): boolean => {
-    // For heads-up (2 players)
-    if (state.players.length === 2) {
-        const bbIndex = state.players.findIndex(p => p.id === bigBlind(state).id)
-
-        // Pre-flop special case: BB needs to have their action if they haven't acted beyond their blind
-        if (state.round.phase === 'PRE_FLOP') {
-            const bbPlayer = state.players[bbIndex]
-            if (bbPlayer.bet.amount === BIG_BLIND && !bbPlayer.playedThisPhase) {
-                return false
-            }
-        }
-
-        // For all phases:
-        // 1. All active players must have acted this phase
-        // 2. All active players must have matched the current bet
-        return state.players.every(p => 
-            p.status !== 'PLAYING' || // not playing (folded/all-in)
-            (p.playedThisPhase && p.bet.amount === state.round.currentBet) // has acted and matched bet
-        )
-    }
-    
-    // For 3+ players
-    const playingPlayers = state.players.filter(p => p.status === 'PLAYING')
-    const currentPlayerBet = state.players[state.currentPlayerIndex]?.bet.amount ?? 0
-    const isLastPosition = state.currentPlayerIndex >= state.players.findLastIndex(p => p.status === 'PLAYING')
-    
-    return isLastPosition && currentPlayerBet === state.round.currentBet
 }
 
 // TEST: test-case for allowing blinds to raise (especially big blind, which's already called)
@@ -293,7 +279,7 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
         const bbPlayer = state.players[bbIndex]
         const sbPlayer = state.players[sbIndex]
 
-        if (state.round.phase === 'PRE_FLOP') {
+        if (state.phase.street === 'PRE_FLOP') {
             // No pre-flop:
             // 1. BB precisa ter agido além do blind inicial
             // 2. Apostas precisam estar iguais
@@ -331,8 +317,8 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
         // Se é início da fase, determina quem age primeiro
         if (state.currentPlayerIndex < 0) {
             // Pre-flop: SB age primeiro
-            if (state.round.phase === 'PRE_FLOP') {
-                return Effect.succeed({
+            if (state.phase.street === 'PRE_FLOP') {
+                return Effect.succeed<PokerState>({
                     ...state,
                     currentPlayerIndex: sbIndex
                 })
@@ -340,7 +326,7 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
             // Post-flop: BB age primeiro se estiver jogando
             else {
                 const firstToAct = state.players[bbIndex].status === 'PLAYING' ? bbIndex : sbIndex
-                return Effect.succeed({
+                return Effect.succeed<PokerState>({
                     ...state,
                     currentPlayerIndex: firstToAct
                 })
@@ -360,7 +346,7 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
             
             if (nextPlayer.status === 'PLAYING' && 
                 (!nextPlayer.playedThisPhase || nextPlayer.bet.amount < state.round.currentBet)) {
-                return Effect.succeed({
+                return Effect.succeed<PokerState>({
                     ...state,
                     currentPlayerIndex: nextPlayerIndex
                 })
@@ -375,7 +361,7 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
 
         if (nextToAct) {
             const nextIndex = state.players.findIndex(p => p.id === nextToAct.id)
-            return Effect.succeed({
+            return Effect.succeed<PokerState>({
                 ...state,
                 currentPlayerIndex: nextIndex
             })
@@ -398,7 +384,7 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
 
     if (nextToAct) {
         const nextIndex = state.players.findIndex(p => p.id === nextToAct.id)
-        return Effect.succeed({
+        return Effect.succeed<PokerState>({
             ...state,
             currentPlayerIndex: nextIndex
         })
@@ -431,10 +417,14 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
         ...state,
         deck,
         community,
+        phase: {
+            street: phaseMap[community.length] ?? state.phase.street,
+            actionCount: 0,
+            volume: 0
+        },
         round: {
             ...state.round,
             currentBet: 0,
-            phase: phaseMap[community.length] ?? state.round.phase
         },
         players: state.players.map(p => ({
             ...p,
@@ -460,13 +450,13 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
 
         // Se BB ainda está jogando, ele age primeiro
         if (state.players[bbIndex].status === 'PLAYING') {
-            return Effect.succeed({
+            return Effect.succeed<PokerState>({
                 ...nextState,
                 currentPlayerIndex: bbIndex
             })
         }
         // Se BB não está jogando, SB age
-        return Effect.succeed({
+        return Effect.succeed<PokerState>({
             ...nextState,
             currentPlayerIndex: sbIndex
         })
@@ -476,7 +466,7 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
     const dealerIndex = state.players.findIndex(p => p.id === state.dealerId)
     const firstToAct = (dealerIndex + 1) % state.players.length
     
-    return Effect.succeed({
+    return Effect.succeed<PokerState>({
         ...nextState,
         currentPlayerIndex: firstToAct
     })
@@ -536,22 +526,26 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
     // Se só tem um jogador ativo, ele ganha o pote
     if (inPlayers.length === 1) {
         const winner = inPlayers[0]
-        return Effect.succeed({
+        return Effect.succeed<PokerState>({
             ...state,
             tableStatus: "ROUND_OVER",
-            pot: 0,
+            phase: {
+                street: 'SHOWDOWN',
+                actionCount: 0,
+                volume: 0,
+            },
             round: {
                 ...state.round,
-                phase: 'SHOWDOWN',
                 foldedPlayers: [],
                 allInPlayers: [],
-                currentBet: 0
+                currentBet: 0,
+                volume: 0,
             },
             lastMove: null,
             winner: winner.id,
             players: state.players.map((p) => ({
                 ...p,
-                chips: p.id === winner.id ? p.chips + state.pot : p.chips,
+                chips: p.id === winner.id ? p.chips + state.round.volume : p.chips,
                 bet: {
                     volume: 0,
                     amount: 0,
@@ -622,13 +616,17 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
         }
     }
     console.log('rewards', rewards)
-    return Effect.succeed({
+    return Effect.succeed<PokerState>({
         ...state,
         tableStatus: "ROUND_OVER",
-        pot: 0,
+        phase: {
+            street: 'SHOWDOWN',
+            actionCount: 0,
+            volume: 0,
+        },
         round: {
             ...state.round,
-            phase: 'SHOWDOWN',
+            volume: 0,
             foldedPlayers: [],
             allInPlayers: [],
             currentBet: 0
@@ -679,9 +677,9 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
     })) as PlayerState[];
 
     // Prepare initial state for the new round
-    const initialState = {
+    const initialState: PokerState = {
         ...state,
-        status: 'PLAYING' as const,
+        tableStatus: 'PLAYING',
         players: resetPlayers,
         lastMove: null,
         dealerId: nextDealer.id,
@@ -689,10 +687,14 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
         deck: [],  // Will be set by startRound
         community: [],
         winner: null,
+        phase: {
+            street: 'PRE_FLOP',
+            actionCount: 0,
+            volume: 0,
+        },
         round: {
-            phase: 'PRE_FLOP' as const,
             roundNumber: state.round.roundNumber + 1,
-            roundPot: 0,
+            volume: 0,
             currentBet: 0,
             foldedPlayers: [],
             allInPlayers: []
@@ -700,11 +702,11 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
     };
 
     // Start the round which will deal cards, rotate blinds and collect blinds
-    return Effect.succeed(startRound(initialState));
+    return Effect.succeed<PokerState>(startRound(initialState));
 }
 
-export function endGame(state: PokerState): Effect.Effect<PokerState, ProcessEventError, never> {
-    return Effect.succeed({
+export function endGame(state: PokerState): Effect.Effect<PokerState, never, never> {
+    return Effect.succeed<PokerState>({
         ...state,
         tableStatus: 'GAME_OVER',
         lastMove: null
