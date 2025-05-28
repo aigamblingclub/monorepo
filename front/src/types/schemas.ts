@@ -106,10 +106,11 @@ export const PhaseSchema = Schema.Struct({
 export type Phase = typeof PhaseSchema.Type;
 
 export const RoundStateSchema = Schema.Struct({
+  // Round Number in the game (1, 2, 3, ...)
   roundNumber: Schema.Number,
-  // Round-specific pot (will be added to main pot at end of round)
-  roundPot: Schema.Number,
-  // Round-specific bet
+  // Round Volume (pot)
+  volume: Schema.Number,
+  // Round Bet (current bet)
   currentBet: Schema.Number,
   // Players who have folded this round
   foldedPlayers: Schema.Array(Schema.String),
@@ -170,8 +171,6 @@ export const PokerStateSchema = Schema.Struct({
   currentPlayerIndex: Schema.Number,
   deck: Schema.Array(CardSchema),
   community: Schema.Array(CardSchema),
-  // Total pot across all rounds
-  pot: Schema.Number,
   phase: PhaseSchema,
   round: RoundStateSchema,
   dealerId: Schema.String,
@@ -256,7 +255,6 @@ export const PlayerViewSchema = Schema.Struct({
   bigBlindId: Schema.Option(Schema.String),
   smallBlindId: Schema.Option(Schema.String),
   community: Schema.Array(CardSchema),
-  pot: Schema.Number,
   phase: PhaseSchema,
   round: RoundStateSchema,
   player: PlayerStateSchema,
