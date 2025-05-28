@@ -18,6 +18,7 @@
     "agent-build": "cp packages/poker-state-machine/src/schemas.ts agent/packages/client-poker/src/schemas.ts && npx pnpm --dir agent install && YOUTUBE_DL_SKIP_PYTHON_CHECK=1 npx pnpm --dir agent build",
     "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug",
     "agent-start": "npx pnpm --dir agent start",
-    "agent": "pnpm agent-build && pnpm --dir agent start"
+    "agent": "pnpm agent-build && pnpm --dir agent start",
+    "build-all": "pnpm poker-build && pnpm server-build && pnpm agent-build && pnpm front-build"
   }
 }

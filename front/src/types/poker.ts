@@ -5,7 +5,7 @@ export type {
   TableStatus,
   PokerState,
   Suite as CardSuit,
-  RoundPhase,
+  StreetSchema,
   RoundState,
   Move,
   PlayerView,
@@ -15,10 +15,10 @@ export type {
   TableAction,
   CardValue,
   Position,
-} from './schemas';
+} from "./schemas";
 
 // Import for local use
-import { Suite, type CardValue as CV, type RoundPhase } from './schemas';
+import { Street, Suite, type CardValue as CV } from "./schemas";
 
 type CardSuit = Suite;
 
@@ -43,14 +43,20 @@ export const getCardSuitSymbol = (suit: CardSuit): string => {
 };
 
 // Utility function to get the phase name in a more readable format
-export const getPhaseLabel = (phase: RoundPhase): string => {
+export const getPhaseLabel = (phase: Street): string => {
   switch (phase) {
-    case 'PRE_FLOP': return 'Pre-Flop';
-    case 'FLOP': return 'Flop';
-    case 'TURN': return 'Turn';
-    case 'RIVER': return 'River';
-    case 'SHOWDOWN': return 'Showdown';
-    default: return 'Unknown';
+    case "PRE_FLOP":
+      return "Pre-Flop";
+    case "FLOP":
+      return "Flop";
+    case "TURN":
+      return "Turn";
+    case "RIVER":
+      return "River";
+    case "SHOWDOWN":
+      return "Showdown";
+    default:
+      return "Unknown";
   }
 };
 
