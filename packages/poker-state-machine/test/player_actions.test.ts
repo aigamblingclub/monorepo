@@ -24,12 +24,15 @@ describe('Player Actions', () => {
       players,
       deck: [],
       community: [],
-      pot: 0,
       lastMove: null,
+      phase: {
+        street: "PRE_FLOP",
+        actionCount: 0,
+        volume: 0,
+      },
       round: {
-        phase: "PRE_FLOP",
         roundNumber: 1,
-        roundPot: 0,
+        volume: 0,
         currentBet: 0,
         foldedPlayers: [],
         allInPlayers: [],
@@ -77,11 +80,14 @@ describe('Player Actions', () => {
     
     const initialState = {
       ...createTestState([player1, player2, player3], 0),
-      pot: 20,
+      phase: {
+        street: "PRE_FLOP" as const,
+        actionCount: 0,
+        volume: 20,
+      },
       round: {
-        phase: "PRE_FLOP" as const,
         roundNumber: 1,
-        roundPot: 0,
+        volume: 20,
         currentBet: 20,
         foldedPlayers: [],
         allInPlayers: [],
@@ -99,7 +105,7 @@ describe('Player Actions', () => {
     expect(callingPlayer?.bet.volume).toBe(20);
     
     // Check that pot is updated
-    expect(result.pot).toBe(40); // Initial 20 + call of 20
+    expect(result.round.volume).toBe(40); // Initial 20 + call of 20
   });
 
   test('player raise action should update pot, current bet, and player chips', async () => {
@@ -110,11 +116,9 @@ describe('Player Actions', () => {
     
     const initialState = {
       ...createTestState([player1, player2, player3], 0),
-      pot: 20,
       round: {
-        phase: "PRE_FLOP" as const,
         roundNumber: 1,
-        roundPot: 0,
+        volume: 20,
         currentBet: 20,
         foldedPlayers: [],
         allInPlayers: [],
@@ -132,7 +136,7 @@ describe('Player Actions', () => {
     expect(raisingPlayer?.bet.volume).toBe(50);
     
     // Check that pot is updated
-    expect(result.pot).toBe(70); // Initial 20 + raise of 50
+    expect(result.round.volume).toBe(70); // Initial 20 + raise of 50
     
     // Check that current bet is updated
     expect(result.round.currentBet).toBe(50);
@@ -146,11 +150,14 @@ describe('Player Actions', () => {
     
     const initialState = {
       ...createTestState([player1, player2, player3], 0),
-      pot: 20,
+      phase: {
+        street: "PRE_FLOP" as const,
+        actionCount: 0,
+        volume: 20,
+      },
       round: {
-        phase: "PRE_FLOP" as const,
         roundNumber: 1,
-        roundPot: 0,
+        volume: 20,
         currentBet: 20,
         foldedPlayers: [],
         allInPlayers: [],
@@ -169,7 +176,7 @@ describe('Player Actions', () => {
     expect(callingPlayer?.bet.volume).toBe(15);
     
     // Check that pot is updated
-    expect(result.pot).toBe(35); // Initial 20 + all-in of 15
+    expect(result.round.volume).toBe(35); // Initial 20 + all-in of 15
   });
 
   test('player raise with insufficient chips should go all-in', async () => {
@@ -180,11 +187,14 @@ describe('Player Actions', () => {
     
     const initialState = {
       ...createTestState([player1, player2, player3], 0),
-      pot: 20,
+      phase: {
+        street: "PRE_FLOP" as const,
+        actionCount: 0,
+        volume: 20,
+      },
       round: {
-        phase: "PRE_FLOP" as const,
         roundNumber: 1,
-        roundPot: 0,
+        volume: 20,
         currentBet: 20,
         foldedPlayers: [],
         allInPlayers: [],
@@ -203,7 +213,7 @@ describe('Player Actions', () => {
     expect(raisingPlayer?.bet.volume).toBe(40);
     
     // Check that pot is updated
-    expect(result.pot).toBe(60); // Initial 20 + all-in of 40
+    expect(result.round.volume).toBe(60); // Initial 20 + all-in of 40
     
     // Check that current bet is updated to player's all-in amount
     expect(result.round.currentBet).toBe(40);
