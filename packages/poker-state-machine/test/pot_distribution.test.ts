@@ -32,7 +32,7 @@ describe('Pot Distribution', () => {
   // Helper function to create a basic poker state for testing
   function createTestState(
     players: PlayerState[],
-    pot: number = 0,
+    volume: number = 0,
     community: Card[] = [
       createCard(2, 'hearts'),
       createCard(3, 'hearts'),
@@ -48,11 +48,14 @@ describe('Pot Distribution', () => {
       lastMove: null,
       deck: [],
       community,
-      pot,
+      phase: {
+        street: "RIVER",
+        actionCount: 0,
+        volume,
+      },
       round: {
-        phase: "RIVER",
         roundNumber: 1,
-        roundPot: 0,
+        volume,
         currentBet: 0,
         foldedPlayers: players.filter(p => p.status === 'FOLDED').map(p => p.id),
         allInPlayers: players.filter(p => p.status === 'ALL_IN').map(p => p.id),
@@ -85,7 +88,7 @@ describe('Pot Distribution', () => {
       
       // Check that the winner is player3
       expect(result.winner).toBe('player3');
-      
+      console.log('result', result);
       // Check that player3 receives the pot
       const winningPlayer = result.players.find(p => p.id === 'player3');
       expect(winningPlayer?.chips).toBe(140); // 80 + pot of 60
@@ -132,7 +135,7 @@ describe('Pot Distribution', () => {
       // Basic structure checks
       expect(result.tableStatus).toBe('ROUND_OVER');
       expect(result.winner).toBeDefined();
-      expect(result.pot).toBe(40); // Pot shouldn't change
+      expect(result.round.volume).toBe(40); // Pot shouldn't change
       
       // The winner should have more chips than before
       const winner = result.winner ? result.players.find(p => p.id === result.winner) : null;
