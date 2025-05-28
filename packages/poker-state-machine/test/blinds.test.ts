@@ -23,12 +23,15 @@ describe('Blinds functionality', () => {
       players,
       deck: [],
       community: [],
-      pot: 0,
       lastMove: null,
+      phase: {
+        street: "PRE_FLOP",
+        actionCount: 0,
+        volume: 0,
+      },
       round: {
-        phase: "PRE_FLOP",
         roundNumber: 1,
-        roundPot: 0,
+        volume: 0,
         currentBet: 0,
         foldedPlayers: [],
         allInPlayers: [],
@@ -57,7 +60,7 @@ describe('Blinds functionality', () => {
     const afterBlindsState = collectBlinds(initialState);
     
     // Check total pot
-    expect(afterBlindsState.pot).toBe(SMALL_BLIND + BIG_BLIND);
+    expect(afterBlindsState.round.volume).toBe(SMALL_BLIND + BIG_BLIND);
     
     // Check small blind player
     const smallBlindPlayer = afterBlindsState.players.find(p => p.id === 'player2');
@@ -94,7 +97,7 @@ describe('Blinds functionality', () => {
     const afterBlindsState = collectBlinds(initialState);
     
     // Check total pot
-    expect(afterBlindsState.pot).toBe(SMALL_BLIND + BIG_BLIND);
+    expect(afterBlindsState.round.volume).toBe(SMALL_BLIND + BIG_BLIND);
     
     // Check dealer is small blind
     const smallBlindPlayer = afterBlindsState.players.find(p => p.id === 'player1');
@@ -127,7 +130,7 @@ describe('Blinds functionality', () => {
     expect(smallBlindPlayer?.status).toBe('ALL_IN');
     
     // Pot should have 5 (partial small blind) + BIG_BLIND
-    expect(afterBlindsState.pot).toBe(5 + BIG_BLIND);
+    expect(afterBlindsState.round.volume).toBe(5 + BIG_BLIND);
     
     // Test with player with insufficient chips for big blind
     const player4 = createPlayer('player4', 100);
@@ -146,6 +149,6 @@ describe('Blinds functionality', () => {
     expect(bigBlindPlayer?.status).toBe('ALL_IN');
     
     // Pot should have SMALL_BLIND + 15 (partial big blind)
-    expect(afterBlindsState2.pot).toBe(SMALL_BLIND + 15);
+    expect(afterBlindsState2.round.volume).toBe(SMALL_BLIND + 15);
   });
 }); 
