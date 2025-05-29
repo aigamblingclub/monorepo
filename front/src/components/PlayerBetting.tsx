@@ -27,12 +27,12 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
   }, [playerId, betAmount, onPlaceBet]);
 
   return (
-    <div className="player-betting border border-theme-primary rounded-border-radius-element p-3 bg-surface-tertiary">
+    <div className="h-full w-full transition-all duration-300 ease-in-out shadow-[0_0_calc(var(--shadow-strength)*0.5)_var(--theme-primary)] hover:shadow-[0_0_var(--shadow-strength)_var(--theme-accent)] hover:border-theme-accent border border-theme-primary rounded-border-radius-element p-3 bg-surface-tertiary">
       <div className="flex justify-between items-center mb-2">
         <h4 className="text-theme-highlight text-shadow-yellow">{playerName}</h4>
       </div>
 
-      <div className="stats text-sm mb-3">
+      <div className="text-sm mb-3">
         <div className="text-theme-primary text-shadow-green">
           Total Pool: ${formatChips(totalContractBet)}
         </div>
@@ -49,11 +49,11 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
           value={betAmount}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBetAmount(e.target.value)}
           placeholder="Enter bet amount"
-          className="flex-1 px-2 py-1 rounded-border-radius-element bg-surface-primary border border-theme-primary text-theme-primary placeholder-theme-secondary"
+          className="w-[100px] px-2 py-1 rounded-border-radius-element bg-surface-primary border border-theme-primary text-theme-primary placeholder-theme-secondary"
         />
         <button
           onClick={handleBet}
-          className="px-3 py-1 bg-theme-primary text-surface-primary rounded-border-radius-element hover:bg-theme-highlight transition-colors"
+          className="px-3 py-1 border border-theme-primary bg-theme-primary text-surface-primary rounded-border-radius-element hover:bg-theme-highlight transition-colors"
         >
           Bet
         </button>

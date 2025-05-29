@@ -66,8 +66,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     <div className="h-full bg-black flex flex-row">
       {/* Main poker table */}
       <div className="flex-grow flex justify-center items-start">
-        <div className="poker-table-container">
-          <div className="table-surface">
+        <div className="relative w-[60vw] h-[60vh] max-w-[1000px] max-h-[600px] flex justify-center items-start">
+          <div className="w-[90%] h-[90%] bg-[var(--surface-primary)] border border-[var(--border-width)] border-[var(--theme-primary)] shadow-[0_0_var(--shadow-strength)_var(--theme-primary),inset_0_0_var(--shadow-inner-strength)_var(--theme-primary)] rounded-[var(--border-radius-table)] relative overflow-hidden flex justify-center items-center">
             {/* Players */}
             {gameState?.players?.map((player: PlayerState, index: number) => {
               const playerBet = playerBets.find(
@@ -94,9 +94,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             })}
 
             {/* Center area */}
-            <div className="center-area">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-[300px]">
               {/* Game status */}
-              <div className="game-status">
+              <div className="text-base text-[var(--theme-accent)] [text-shadow:0_0_5px_var(--theme-accent),0_0_10px_var(--theme-accent)] mb-2.5 border-2 border-[var(--theme-accent)] p-1.5 rounded-none bg-black/50">
                 {gameState.tableStatus === "PLAYING" &&
                   !ready &&
                   "Waiting for players..."}
@@ -130,8 +130,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               {ready && !showProgressBar && (
                 <>
                   {/* Pot and current bet */}
-                  <div className="pot">
-                    <div>POT: ${formatChips(gameState.round.volume)}</div>
+                  <div className="text-base text-[var(--theme-highlight)] [text-shadow:0_0_5px_var(--theme-highlight)] mb-4 border border-[var(--theme-highlight)] p-2 rounded-md bg-black/50">
+                    <div>POT: ${formatChips(gameState.pot)}</div>
                     {gameState.round?.currentBet > 0 && (
                       <div className="current-bet">
                         Current Bet: ${formatChips(gameState.round.currentBet)}
@@ -139,7 +139,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                     )}
                   </div>
                   {/* Community cards */}
-                  <div className="river">
+                  <div className="flex justify-center gap-1.5">
                     {gameState?.community?.map((card: CardType, index: number) => (
                       <Card
                         key={`${card.rank}-${card.suit}-${index}`}

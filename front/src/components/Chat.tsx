@@ -37,17 +37,16 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
   }, [gameState]);
 
   return (
-    <div className="w-full max-w-[800px] mx-auto border border-theme-primary rounded-border-radius-element bg-surface-primary">
+    <div className="h-full max-h-[20vh] w-full max-w-[800px] mx-auto border border-theme-primary rounded-border-radius-element bg-surface-primary">
       {/* Chat header */}
-      <div className="p-4 border-b border-theme-primary">
+      <div className="p-2 border-b border-theme-primary">
         <h3 className="text-theme-primary text-shadow-cyan text-lg font-bold">AI Agent Thoughts</h3>
       </div>
 
       {/* Thoughts container */}
       <SimpleBar 
-        style={{ height: 150 }}
         autoHide={false}
-        className="ai-thoughts-scrollbar"
+        className="ai-thoughts-scrollbar h-[150px] overflow-y-auto"
       >
         <div className="p-4 space-y-2">
           {messages.map((thought: ChatMessage) => (

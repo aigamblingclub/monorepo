@@ -134,32 +134,6 @@ body {
 }
 
 /* Neon Poker Table Styles */
-.poker-table-container {
-  position: relative;
-  width: 60vw;
-  height: 60vh;
-  max-width: 1000px;
-  max-height: 600px;
-  display: flex;
-  justify-content: center;
-  align-items: start;
-}
-
-.table-surface {
-  width: 90%;
-  height: 90%;
-  background-color: var(--surface-primary);
-  border: var(--border-width) solid var(--theme-primary);
-  box-shadow: 0 0 var(--shadow-strength) var(--theme-primary),
-              inset 0 0 var(--shadow-inner-strength) var(--theme-primary);
-  border-radius: var(--border-radius-table);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
 .player {
   position: absolute;
   width: 120px;
@@ -180,99 +154,7 @@ body {
 .player-7 { top: 50%; left: 2.5%; transform: translate(0%, -50%); }
 .player-8 { top: 50%; right: 2.5%; transform: translate(0%, -50%); }
 
-.center-area {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  width: 300px;
-}
-
 /* Base styles for game status and pot */
-.game-status {
-  font-size: 1em;
-  color: var(--theme-accent);
-  text-shadow: 0 0 5px var(--theme-accent), 0 0 10px var(--theme-accent);
-  margin-bottom: 10px;
-  border: 2px solid var(--theme-accent);
-  padding: 5px;
-  border-radius: 0px;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.pot {
-  font-size: 1em;
-  color: var(--theme-highlight);
-  text-shadow: 0 0 5px var(--theme-highlight);
-  margin-bottom: 15px;
-  border: 1px solid var(--theme-highlight);
-  padding: 8px;
-  border-radius: 5px;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.river {
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-}
-
-.card {
-  width: 45px;
-  height: 65px;
-  border: var(--border-width) solid var(--theme-secondary);
-  box-shadow: 0 0 calc(var(--shadow-strength) * 0.7) var(--theme-secondary),
-              inset 0 0 calc(var(--shadow-strength) * 0.7) var(--theme-secondary);
-  border-radius: var(--border-radius-card);
-  background-color: var(--surface-tertiary);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px;
-  font-size: 1.1em;
-  font-weight: bold;
-}
-
-.card-value {
-  color: var(--theme-secondary);
-  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
-}
-
-.card-suit {
-  font-size: 1.3em;
-  color: var(--theme-secondary);
-  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
-}
-
-.suit-hearts, .suit-diamonds {
-  color: var(--theme-alert);
-  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-alert);
-}
-.suit-clubs, .suit-spades {
-  color: var(--theme-secondary);
-  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
-}
-
-/* Title and Subtitle styles */
-.title {
-  color: var(--theme-primary);
-  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-primary);
-  font-size: 2.25rem;
-  font-weight: bold;
-  margin: 0.25rem 0;
-  display: block;
-}
-
-.subtitle {
-  color: var(--theme-highlight);
-  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-highlight);
-  font-size: 1.25rem;
-  margin: 0 0 2rem 0;
-  display: block;
-}
-
 /* Neon text color utilities (manual override) */
 .text-neon-green {
   color: var(--theme-primary) !important;
@@ -290,32 +172,7 @@ body {
   color: var(--theme-alert) !important;
 }
 
-/* Wallet Button Styles */
-.wallet-button {
-  padding: 0.5rem 1rem;
-  font-family: "Courier New", monospace;
-  font-weight: 600;
-  font-size: 0.875rem;
-  border-width: var(--border-width);
-  border-radius: var(--border-radius-element);
-  border-color: var(--theme-primary);
-  transition: all 0.3s ease;
-  cursor: pointer;
-  background-color: var(--surface-secondary);
-  color: var(--theme-primary);
-  box-shadow: 0 0 var(--shadow-strength) var(--theme-primary),
-              inset 0 0 var(--shadow-inner-strength) var(--theme-primary);
-  text-shadow: 0 0 var(--text-shadow-strength) var(--theme-primary);
-}
-
 /* Player Betting Styles */
-.betting-panel-container {
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  box-shadow: 0 0 var(--shadow-strength) var(--theme-primary),
-              inset 0 0 var(--shadow-inner-strength) var(--theme-primary);
-}
-
 .player-betting-container {
   transition: all 0.3s ease;
   box-shadow: 0 0 calc(var(--shadow-strength) * 0.5) var(--theme-primary);
