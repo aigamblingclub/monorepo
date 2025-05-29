@@ -9,16 +9,11 @@ interface UsePlayerBettingProps {
   contractId: string;
 }
 
-// Interface genérica para resposta da API
-interface ApiResponse {
-  [key: string]: unknown;
-}
-
 export const usePlayerBetting = ({
   contractId,
 }: UsePlayerBettingProps) => {
   // Use the Near Wallet hook directly
-  const { accountId, selector, viewMethod, getBalance } = useNearWallet();
+  const { accountId, selector, viewMethod, getUsdcContractBalance, getNearBalance, callWriteMethod } = useNearWallet();
   
   const [playerBets, setPlayerBets] = useState<PlayerBet[]>([]);
   const [userBalance, setUserBalance] = useState<number>(0);
@@ -28,24 +23,6 @@ export const usePlayerBetting = ({
 
   // Check if user is logged in - using accountId from useNearWallet
   const isConnected = !!accountId;
-
-  // Immediate check on mount to see if we're already connected
-  useEffect(() => {
-    if (!initialized && accountId) {
-      console.log("✅ User is signed in with NEAR account:", accountId);
-      
-      const useMockData = !contractId || contractId === 'dev-placeholder';
-      if (useMockData) {
-        console.log("Using mock data for development");
-        setPlayerBets([
-          { playerId: "player1", totalContractBet: 500, userContractBet: 100 },
-          { playerId: "player2", totalContractBet: 1200, userContractBet: 250 },
-        ]);
-        setUserBalance(1000);
-        setInitialized(true);
-      }
-    }
-  }, [accountId, initialized, contractId]);
 
   // Fetch player bets and user balance
   const fetchData = useCallback(async () => {
@@ -60,58 +37,48 @@ export const usePlayerBetting = ({
       console.log("📡 Fetching data from NEAR contract...");
 
       // Call contract to get player bets
-      try {
-        // Use viewMethod from useNearWallet
-        const rawResponse = await viewMethod('getPlayerBets', {})
-          .catch(() => null);
+      // try {
+      //   // Use viewMethod from useNearWallet
+      //   const rawResponse = await viewMethod('getPlayerBets', {})
+      //     .catch(() => null);
           
-        console.log("Raw response:", rawResponse);
-        
-        // Tratar resposta de forma segura
-        const mockPlayerBets: PlayerBet[] = [
-          { playerId: "player1", totalContractBet: 500, userContractBet: 100 },
-          { playerId: "player2", totalContractBet: 1200, userContractBet: 250 },
-        ];
-        
-        if (rawResponse && typeof rawResponse === 'object') {
-          // Tentar interpretar a resposta
-          const response = rawResponse as unknown as ApiResponse;
-          if (response.bets && Array.isArray(response.bets)) {
-            console.log("📊 Received player bets:", response.bets);
-            setPlayerBets(response.bets as PlayerBet[]);
-          } else {
-            // Usar dados de demonstração
-            console.log("🔄 Using mock player bets data - contract returned invalid data");
-            setPlayerBets(mockPlayerBets);
-          }
-        } else {
-          // Usar dados de demonstração
-          console.log("🔄 Using mock player bets data - no valid response");
-          setPlayerBets(mockPlayerBets);
-        }
-      } catch (viewError) {
-        console.error("❌ Error getting player bets, using mock data:", viewError);
-        setPlayerBets([]);
-      }
+      //   console.log("Raw response:", rawResponse);
+      // } catch (viewError) {
+      //   console.error("❌ Error getting player bets, using mock data:", viewError);
+      //   setPlayerBets([]);
+      // }
       
-      // Get user balance from NEAR account
+      // Get user balance in USDC from contract
       try {
-        const balance = await getBalance();
-        console.log("💰 Raw balance response:", balance);
-        
-        if (balance) {
-          // Convert from yoctoNEAR to NEAR and format to 6 decimal places
-          const balanceInNear = Number((parseFloat(balance) / Math.pow(10, 24)).toFixed(6));
-          console.log("💰 Real balance (in NEAR):", balanceInNear);
-          
-          setUserBalance(balanceInNear);
-        } else {
-          setUserBalance(0);
-        }
+        const nearBalance = await getNearBalance();
+        console.log("💰 Near balance:", nearBalance);
+        const usdcBalanceRaw = await getUsdcContractBalance();
+        console.log("💵 USDC balance (raw):", usdcBalanceRaw);
+        // USDC normalmente tem 6 casas decimais, mas pode vir como string
+        const usdcBalance = Number(usdcBalanceRaw) / 1e6;
+        setUserBalance(usdcBalance);
       } catch (balanceError) {
-        console.error("❌ Error getting real balance:", balanceError);
+        console.error("❌ Error getting USDC contract balance:", balanceError);
         setUserBalance(0);
       }
+
+      // ---
+      // NEAR balance (not used)
+      // try {
+      //   const balance = await getBalance();
+      //   console.log("💰 Raw balance response:", balance);
+      //   if (balance) {
+      //     // Convert from yoctoNEAR to NEAR and format to 6 decimal places
+      //     const balanceInNear = Number((parseFloat(balance) / Math.pow(10, 24)).toFixed(6));
+      //     setUserBalance(balanceInNear);
+      //   } else {
+      //     setUserBalance(0);
+      //   }
+      // } catch (balanceError) {
+      //   console.error("❌ Error getting real balance:", balanceError);
+      //   setUserBalance(0);
+      // }
+      // ---
       
     } catch (err) {
       console.error('❌ Error fetching betting data:', err);
@@ -122,7 +89,7 @@ export const usePlayerBetting = ({
       setLoading(false);
       setInitialized(true);
     }
-  }, [accountId, selector, viewMethod, getBalance]);
+  }, [accountId, selector, viewMethod, getUsdcContractBalance]);
 
   // Place a bet on a player
   const placeBet = useCallback(async (playerId: string, amount: number) => {
@@ -137,11 +104,8 @@ export const usePlayerBetting = ({
       setError(null);
       console.log(`💸 Placing bet of ${amount} on player ${playerId}`);
       
-      // Get wallet from selector
-      const wallet = await selector.wallet();
-      
       try {
-        // Call contract method to place bet
+        // Call contract method to place bet using the new callWriteMethod
         const amountInYocto = parseNearAmount(amount.toString());
         
         console.log("📝 Calling contract with:", {
@@ -151,22 +115,15 @@ export const usePlayerBetting = ({
           yoctoAmount: amountInYocto
         });
         
-        await wallet.signAndSendTransaction({
-          actions: [
-            {
-              type: 'FunctionCall',
-              params: {
-                methodName: 'placeBet',
-                args: {
-                  player_id: playerId,
-                  amount: amount.toString(),
-                },
-                gas: '30000000000000',
-                deposit: amountInYocto || '0',
-              }
-            }
-          ]
-        });
+        await callWriteMethod(
+          contractId,
+          'placeBet',
+          {
+            player_id: playerId,
+            amount: amount.toString(),
+          },
+          amountInYocto || '0'
+        );
         
         console.log("✅ Bet placed successfully");
       } catch (contractError) {
@@ -209,7 +166,7 @@ export const usePlayerBetting = ({
     } finally {
       setLoading(false);
     }
-  }, [accountId, selector, contractId, fetchData]);
+  }, [accountId, selector, contractId, fetchData, callWriteMethod]);
 
   // Load data only when necessary
   useEffect(() => {
