@@ -6,7 +6,6 @@ import { PokerState } from '../types/poker';
 import { WalletProvider } from "@/providers/WalletProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { WalletButton } from "@/components/WalletButton";
-import { CONTRACT_ID } from "@/utils/constants";
 import { BettingPanel } from "@/components/BettingPanel";
 import { usePlayerBetting } from "@/hooks/usePlayerBetting";
 import { Chat } from "@/components/Chat";
@@ -17,11 +16,11 @@ function PageLayout({ children }: { children: ReactNode }) {
     <WalletProvider>
       <AuthProvider>
         <div className="bg-black">
-          <header className="w-full flex justify-between items-start">
+          <header className="w-full flex justify-between items-start px-4 pt-2">
             <div style={{ width: '150px' }}></div>
             <div className="flex flex-col justify-center items-center">
-              <h1 className="title">AI Gambling Club</h1>
-              <h2 className="subtitle">Poker Texas Hold&apos;em</h2>
+              <h1 className="text-[var(--theme-primary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)] text-4xl font-bold my-1 block">AI Gambling Club</h1>
+              <h2 className="text-[var(--theme-highlight)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-highlight)] text-xl mb-8 block">Poker Texas Hold&apos;em</h2>
             </div>
             <WalletButton />
           </header>
@@ -37,6 +36,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  console.log("🔍 NEXT_PUBLIC_CONTRACT_ID:", process.env.NEXT_PUBLIC_CONTRACT_ID);
+
   // Use the betting hook at the page level
   const {
     playerBets,
@@ -46,7 +47,7 @@ export default function Home() {
     placeBet,
     isConnected
   } = usePlayerBetting({
-    contractId: CONTRACT_ID
+    contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
   });
 
   useEffect(() => {
@@ -68,9 +69,9 @@ export default function Home() {
         console.error(err);
       }
     };
-
-    const interval = setInterval(getState, 1000);
-    return () => clearInterval(interval);
+    getState()
+    // const interval = setInterval(getState, 1000);
+    // return () => clearInterval(interval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
@@ -102,39 +103,44 @@ export default function Home() {
   return (
     <PageLayout>
       <div className="h-full flex flex-col">
-        <div className="flex-grow flex flex-row">
-          <div className="w-[300px] p-4">
+        <div className="flex flex-row">
+          <div className="w-[300px] px-4">
             <MoveHistoryPanel gameState={gameState} />
           </div>
-          <div className="flex-grow">
+          <div className="flex flex-col">
             <PokerTable gameState={gameState} playerBets={playerBets} />
+            <div className="w-full max-h-64 mt-4 px-4 pb-4">
+              <Chat gameState={gameState} />
+            </div>
           </div>
-          <div className="w-[300px] p-4">
-            <BettingPanel
-              players={gameState?.players?.length > 0 ? [...gameState.players] : []}
-              playerBets={playerBets}
-              onPlaceBet={placeBet}
-              userBalance={userBalance}
-              isLoggedIn={isConnected}
-            />
-            {bettingError && (
-              <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
-                <p className="text-theme-alert text-shadow-red text-sm">
-                  {bettingError}
-                </p>
-              </div>
-            )}
-            {bettingLoading && (
-              <div className="mt-4 text-center">
-                <p className="text-theme-secondary text-shadow-cyan text-sm">
-                  Loading...
-                </p>
-              </div>
-            )}
+
+          <div className="w-[300px] px-4">
+            <div className="">
+              <BettingPanel
+                players={
+                  gameState?.players?.length > 0 ? [...gameState.players] : []
+                }
+                playerBets={playerBets}
+                onPlaceBet={placeBet}
+                userBalance={userBalance}
+                isLoggedIn={isConnected}
+              />
+              {bettingError && (
+                <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
+                  <p className="text-theme-alert text-shadow-red text-sm">
+                    {bettingError}
+                  </p>
+                </div>
+              )}
+              {bettingLoading && (
+                <div className="mt-4 text-center">
+                  <p className="text-theme-secondary text-shadow-cyan text-sm">
+                    Loading...
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="h-64 mt-4 px-4 pb-4">
-          <Chat gameState={gameState} />
         </div>
       </div>
     </PageLayout>
