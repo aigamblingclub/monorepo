@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { useNearWallet } from './useNearWallet';
 import { AuthState } from '@/types/auth';
@@ -11,7 +13,7 @@ export function useNearAuth() {
     apiKey: null,
   });
 
-  const { signIn, signOut: nearSignOut, accountId, isConnected } = useNearWallet();
+  const { signIn, signOut: nearSignOut, accountId, isConnected, selector } = useNearWallet();
 
   // Efeito para fazer login automático quando a wallet conectar
   useEffect(() => {
@@ -24,9 +26,13 @@ export function useNearAuth() {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      // 1. Get challenge from backend
+      if (!selector) {
+        throw new Error('Wallet selector not initialized');
+      }
+      console.log("🔍  accountId:", accountId);
+      // 1. Get challenge from Next.js API
       const challengeResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/near/challenge?accountId=${accountId}`
+        `/api/auth/near?accountId=${accountId}`
       );
       
       if (!challengeResponse.ok) {
@@ -36,28 +42,38 @@ export function useNearAuth() {
       const { challenge, message } = await challengeResponse.json();
 
       // 2. Sign message with wallet
-      const wallet = await window.selector.wallet();
-      const signature = await wallet.signMessage({
+      const wallet = await selector.wallet();
+      const accounts = await wallet.getAccounts();
+      
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts found');
+      }
+      console.log("🔍  window.location.origin:", window.location.origin);
+      const signatureObj = await wallet.signMessage({
         message,
         recipient: window.location.origin,
         nonce: Buffer.from(challenge, 'base64')
       });
 
-      // 3. Verify signature with backend
-      const verifyResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/near/verify`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            signature,
-            accountId,
-            publicKey: wallet.publicKey,
-          }),
-        }
-      );
+      console.log("body to api", {
+        signatureObj,
+        accountId,
+        publicKey: signatureObj?.publicKey,
+      });
+
+      // 3. Verify signature with Next.js API
+      const verifyResponse = await fetch(`/api/auth/near`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          origin: window.location.origin, // send to server
+        },
+        body: JSON.stringify({
+          signature: signatureObj?.signature,
+          accountId,
+          publicKey: signatureObj?.publicKey,
+        }),
+      });
 
       if (!verifyResponse.ok) {
         throw new Error('Failed to verify signature');
@@ -89,7 +105,6 @@ export function useNearAuth() {
   };
 
   const login = async () => {
-    console.log('login', isConnected)
     if (!isConnected) {
       await signIn();
       return true;
