@@ -6,7 +6,7 @@ import type { PlayerState, PokerState, Card } from "../src/schemas";
 
 describe('Phase Transitions', () => {
   // Helper function to create a test player
-  function createPlayer(id: string, chips: number, bet = { round: 0, total: 0 }): PlayerState {
+  function createPlayer(id: string, chips: number, bet = { amount: 0, volume: 0 }): PlayerState {
     return {
       ...PLAYER_DEFAULT_STATE,
       id,
@@ -43,11 +43,14 @@ describe('Phase Transitions', () => {
       lastMove: null,
       deck,
       community,
-      pot: 0,
+      phase: {
+        street: phase,
+        actionCount: 0,
+        volume: 0,
+      },
       round: {
-        phase,
         roundNumber: 1,
-        roundPot: 0,
+        volume: 0,
         currentBet: 0,
         foldedPlayers: [],
         allInPlayers: [],
@@ -88,7 +91,7 @@ describe('Phase Transitions', () => {
     const result = await Effect.runPromise(nextPhase(initialState));
     
     // Check that phase is updated
-    expect(result.round.phase).toBe('FLOP');
+    expect(result.phase.street).toBe('FLOP');
     
     // Check that 3 community cards are dealt
     expect(result.community).toHaveLength(3);
@@ -113,8 +116,8 @@ describe('Phase Transitions', () => {
     
     // Check that player bets for the round are reset
     for (const player of result.players) {
-      expect(player.bet.round).toBe(0);
-      expect(player.bet.total).toBe(0); // In a real game this would maintain the total
+      expect(player.bet.amount).toBe(0);
+      expect(player.bet.volume).toBe(0); // In a real game this would maintain the total
     }
   });
 
@@ -146,7 +149,7 @@ describe('Phase Transitions', () => {
     const result = await Effect.runPromise(nextPhase(initialState));
     
     // Check that phase is updated
-    expect(result.round.phase).toBe('TURN');
+    expect(result.phase.street).toBe('TURN');
     
     // Check that 4 community cards are dealt (3 from flop + 1 turn)
     expect(result.community).toHaveLength(4);
@@ -195,7 +198,7 @@ describe('Phase Transitions', () => {
     const result = await Effect.runPromise(nextPhase(initialState));
     
     // Check that phase is updated
-    expect(result.round.phase).toBe('RIVER');
+    expect(result.phase.street).toBe('RIVER');
     
     // Check that 5 community cards are dealt (4 from flop/turn + 1 river)
     expect(result.community).toHaveLength(5);
@@ -253,15 +256,15 @@ describe('Phase Transitions', () => {
     
     // The key thing is that nextPhase should call showdown when at RIVER
     // We verify the input state is correct for the showdown call
-    expect(initialState.round.phase).toBe('RIVER');
+    expect(initialState.phase.street).toBe('RIVER');
     expect(initialState.community).toHaveLength(5);
   });
 
   test('nextPhase should reset player round bets but maintain total bets', async () => {
     // Setup with three players with existing bets
-    const player1 = createPlayer('player1', 80, { round: 20, total: 20 });
-    const player2 = createPlayer('player2', 80, { round: 20, total: 20 });
-    const player3 = createPlayer('player3', 80, { round: 20, total: 20 });
+    const player1 = createPlayer('player1', 80, { amount: 20, volume: 20 });
+    const player2 = createPlayer('player2', 80, { amount: 20, volume: 20 });
+    const player3 = createPlayer('player3', 80, { amount: 20, volume: 20 });
     
     // Create deck with known cards for testing
     const deck = [
@@ -277,11 +280,9 @@ describe('Phase Transitions', () => {
     
     const initialState = {
       ...createTestState([player1, player2, player3], 'PRE_FLOP', [], deck),
-      pot: 60, // 20 from each player
       round: {
-        phase: 'PRE_FLOP' as const,
         roundNumber: 1,
-        roundPot: 60,
+        volume: 60,
         currentBet: 20,
         foldedPlayers: [],
         allInPlayers: [],
@@ -296,11 +297,11 @@ describe('Phase Transitions', () => {
     
     // Check that player round bets are reset but total remains
     for (const player of result.players) {
-      expect(player.bet.round).toBe(0);
-      expect(player.bet.total).toBe(20); // Total bet should be maintained
+      expect(player.bet.amount).toBe(0);
+      expect(player.bet.volume).toBe(20); // Total bet should be maintained
     }
     
     // Pot should remain the same
-    expect(result.pot).toBe(60);
+    expect(result.round.volume).toBe(60);
   });
 }); 
