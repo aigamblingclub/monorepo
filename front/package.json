@@ -31,6 +31,7 @@
     "@near-wallet-selector/wallet-connect": "^9.0.1",
     "@near-wallet-selector/welldone-wallet": "^9.0.1",
     "@near-wallet-selector/xdefi": "^9.0.1",
+    "@tailwindcss/postcss": "^4.1.8",
     "effect": "^3.15.4",
     "near-api-js": "^5.1.1",
     "next": "15.3.2",
@@ -39,14 +40,15 @@
     "simplebar-react": "^3.3.1"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "autoprefixer": "^10.4.14",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
-    "@eslint/eslintrc": "^3"
+    "postcss": "^8.5.4",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5"
   }
 }
