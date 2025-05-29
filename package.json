@@ -13,7 +13,7 @@
     "server-build": "pnpm --dir server-main build",
     "server-start": "pnpm --dir server-main start -p 5000",
     "front-poker-schema": "cp packages/poker-state-machine/src/schemas.ts front/src/types/schemas.ts",
-    "front-dev": "bun run front-poker-schema && bun run --cwd front dev -p 4000",
+    "front-dev": "pnpm run front-poker-schema && pnpm run --cwd front dev -p 4000",
     "front-build": "bun run front-poker-schema && bun run --cwd front build",
     "agent-build": "cp packages/poker-state-machine/src/schemas.ts agent/packages/client-poker/src/schemas.ts && npx pnpm --dir agent install && YOUTUBE_DL_SKIP_PYTHON_CHECK=1 npx pnpm --dir agent build",
     "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug",
