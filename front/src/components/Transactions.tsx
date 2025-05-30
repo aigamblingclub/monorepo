@@ -68,7 +68,7 @@ export function Transactions() {
   };
 
   return (
-    <div className="p-4 border mb-4">
+    <div className="mb-4">
       <TransactionInput
         id="deposit"
         value={depositAmount}

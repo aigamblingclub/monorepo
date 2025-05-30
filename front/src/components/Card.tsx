@@ -9,7 +9,7 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({ card, className = '' }) => {
   if (!card) {
     return (
-      <div className={`w-[45px] h-[65px] border-[var(--border-width)] border-[var(--theme-secondary)] shadow-[0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary),inset_0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary)] rounded-[var(--border-radius-card)] bg-[var(--surface-tertiary)] flex flex-col justify-between items-center p-1.5 text-lg font-bold ${className}`}>
+      <div className={`w-[45px] h-[65px] border border-[var(--border-width)] border-[var(--theme-secondary)] shadow-[0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary),inset_0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary)] rounded-[var(--border-radius-card)] bg-[var(--surface-tertiary)] flex flex-col justify-between items-center p-1.5 text-lg font-bold ${className}`}>
         <span className="text-[var(--theme-secondary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-secondary)]"></span>
         <span className="text-[1.3em] text-[var(--theme-secondary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-secondary)]"></span>
       </div>
@@ -19,7 +19,7 @@ export const Card: React.FC<CardProps> = ({ card, className = '' }) => {
   const cardValue = getCardLabel(card.rank);
   const cardSuit = getCardSuitSymbol(card.suit);
   return (
-    <div className={`w-[45px] h-[65px] border-[var(--border-width)] border-[var(--theme-secondary)] shadow-[0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary),inset_0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary)] rounded-[var(--border-radius-card)] bg-[var(--surface-tertiary)] flex flex-col justify-between items-center p-1.5 text-lg font-bold ${className}`}>
+    <div className={`w-[45px] h-[65px] border border-[var(--border-width)] border-[var(--theme-secondary)] shadow-[0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary),inset_0_0_calc(var(--shadow-strength)*0.7)_var(--theme-secondary)] rounded-[var(--border-radius-card)] bg-[var(--surface-tertiary)] flex flex-col justify-between items-center p-1.5 text-lg font-bold ${className}`}>
       <span className={`text-[var(--theme-secondary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-secondary)] ${isRed ? 'text-[var(--theme-alert)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-alert)]' : ''}`}>{cardValue}</span>
       <span className={`text-[1.3em] text-[var(--theme-secondary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-secondary)] ${isRed ? 'text-[var(--theme-alert)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-alert)]' : ''}`}>{cardSuit}</span>
     </div>
