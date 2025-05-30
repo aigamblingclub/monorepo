@@ -1,85 +1,76 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PlayerBet } from '../components/BettingPanel';
-import { parseNearAmount } from 'near-api-js/lib/utils/format';
 import { useNearWallet } from './useNearWallet';
+import { useAuth } from '@/providers/AuthProvider';
 
-interface UsePlayerBettingProps {
-  isConnected?: boolean;
-  accountId?: string | null;
-  contractId: string;
+interface BetResponse {
+  playerId: string;
+  totalContractBet: number;
+  userContractBet: number;
 }
 
-export const usePlayerBetting = ({
-  contractId,
-}: UsePlayerBettingProps) => {
-  // Use the Near Wallet hook directly
-  const { accountId, selector, viewMethod, getUsdcContractBalance, getNearBalance, callWriteMethod } = useNearWallet();
-  
+interface AllBetsResponse {
+  playerBets: BetResponse[];
+  userTotalBets: number;
+  totalBetsByPlayer: Record<string, number>;
+  totalBets: number;
+}
+
+export const usePlayerBetting = () => {
+  const { accountId } = useNearWallet();
+  const { user, apiKey } = useAuth();
   const [playerBets, setPlayerBets] = useState<PlayerBet[]>([]);
   const [userBalance, setUserBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
 
-  // Check if user is logged in - using accountId from useNearWallet
   const isConnected = !!accountId;
 
-  // Fetch player bets and user balance
+  useEffect(() => {
+    if (user && apiKey) {
+      const getBalance = async () => {
+        const data = await fetch('/api/balance', {
+          headers: {
+            "x-api-key": apiKey || "",
+          },
+        });
+
+        const balanceData = await data.json();
+        setUserBalance(balanceData.balance);
+      }
+      getBalance();
+    }
+  }, [user, apiKey]);
+
   const fetchData = useCallback(async () => {
-    if (!accountId || !selector) {
-      console.log("⚠️ Not fully connected to NEAR wallet", { accountId, hasSelector: !!selector });
+    if (!accountId || !apiKey) {
+      console.log("⚠️ Not fully connected", { accountId, hasApiKey: !!apiKey });
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      console.log("📡 Fetching data from NEAR contract...");
+      console.log("📡 Fetching betting data...");
 
-      // Call contract to get player bets
-      // try {
-      //   // Use viewMethod from useNearWallet
-      //   const rawResponse = await viewMethod('getPlayerBets', {})
-      //     .catch(() => null);
-          
-      //   console.log("Raw response:", rawResponse);
-      // } catch (viewError) {
-      //   console.error("❌ Error getting player bets, using mock data:", viewError);
-      //   setPlayerBets([]);
-      // }
-      
-      // Get user balance in USDC from contract
-      try {
-        const nearBalance = await getNearBalance();
-        console.log("💰 Near balance:", nearBalance);
-        const usdcBalanceRaw = await getUsdcContractBalance();
-        console.log("💵 USDC balance (raw):", usdcBalanceRaw);
-        // USDC normalmente tem 6 casas decimais, mas pode vir como string
-        const usdcBalance = Number(usdcBalanceRaw) / 1e6;
-        setUserBalance(usdcBalance);
-      } catch (balanceError) {
-        console.error("❌ Error getting USDC contract balance:", balanceError);
-        setUserBalance(0);
+      // Fetch all bets data
+      const response = await fetch('/api/bet/all', {
+        headers: {
+          "x-api-key": apiKey,
+        }
+      });
+      console.log("🔍 response fetching betting data", response);
+      if (!response.ok) {
+        throw new Error('Failed to fetch betting data');
       }
 
-      // ---
-      // NEAR balance (not used)
-      // try {
-      //   const balance = await getBalance();
-      //   console.log("💰 Raw balance response:", balance);
-      //   if (balance) {
-      //     // Convert from yoctoNEAR to NEAR and format to 6 decimal places
-      //     const balanceInNear = Number((parseFloat(balance) / Math.pow(10, 24)).toFixed(6));
-      //     setUserBalance(balanceInNear);
-      //   } else {
-      //     setUserBalance(0);
-      //   }
-      // } catch (balanceError) {
-      //   console.error("❌ Error getting real balance:", balanceError);
-      //   setUserBalance(0);
-      // }
-      // ---
-      
+      const data: AllBetsResponse = await response.json();
+      console.log("🔍 data fetching betting data", data);
+      // Update state with fetched data
+      setPlayerBets(data.playerBets);
+      setUserBalance(data.userTotalBets);
+
     } catch (err) {
       console.error('❌ Error fetching betting data:', err);
       setError('Failed to load betting data');
@@ -89,13 +80,12 @@ export const usePlayerBetting = ({
       setLoading(false);
       setInitialized(true);
     }
-  }, [accountId, selector, viewMethod, getUsdcContractBalance]);
+  }, [accountId, apiKey]);
 
-  // Place a bet on a player
   const placeBet = useCallback(async (playerId: string, amount: number) => {
-    if (!accountId || !selector) {
-      console.error("❌ Cannot place bet: not connected to NEAR wallet");
-      setError('Wallet not connected');
+    if (!accountId || !apiKey) {
+      console.error("❌ Cannot place bet: not connected");
+      setError('Not connected');
       return false;
     }
 
@@ -104,57 +94,22 @@ export const usePlayerBetting = ({
       setError(null);
       console.log(`💸 Placing bet of ${amount} on player ${playerId}`);
       
-      try {
-        // Call contract method to place bet using the new callWriteMethod
-        const amountInYocto = parseNearAmount(amount.toString());
-        
-        console.log("📝 Calling contract with:", {
-          contractId,
+      const response = await fetch('/api/bet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          "x-api-key": apiKey,
+        },
+        body: JSON.stringify({
           playerId,
           amount,
-          yoctoAmount: amountInYocto
-        });
-        
-        await callWriteMethod(
-          contractId,
-          'placeBet',
-          {
-            player_id: playerId,
-            amount: amount.toString(),
-          },
-          amountInYocto || '0'
-        );
-        
-        console.log("✅ Bet placed successfully");
-      } catch (contractError) {
-        console.error("❌ Contract error, updating UI with mock data for development:", contractError);
-        
-        // For development: update the UI as if the bet was placed
-        setPlayerBets(prev => {
-          const updatedBets = [...prev];
-          const existingBetIndex = updatedBets.findIndex(bet => bet.playerId === playerId);
-          
-          if (existingBetIndex >= 0) {
-            updatedBets[existingBetIndex] = {
-              ...updatedBets[existingBetIndex],
-              totalContractBet: updatedBets[existingBetIndex].totalContractBet + amount,
-              userContractBet: updatedBets[existingBetIndex].userContractBet + amount
-            };
-          } else {
-            updatedBets.push({
-              playerId,
-              totalContractBet: amount,
-              userContractBet: amount
-            });
-          }
-          
-          return updatedBets;
-        });
-        
-        // Reduce balance for UI
-        setUserBalance(prev => prev - amount);
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to place bet');
       }
-      
+
       // Refresh data after bet is placed
       await fetchData();
       
@@ -166,16 +121,14 @@ export const usePlayerBetting = ({
     } finally {
       setLoading(false);
     }
-  }, [accountId, selector, contractId, fetchData, callWriteMethod]);
+  }, [accountId, apiKey, fetchData]);
 
-  // Load data only when necessary
   useEffect(() => {
-    if (accountId && selector && !loading && !initialized) {
+    if (accountId && apiKey && !loading && !initialized) {
       fetchData();
     }
-  }, [accountId, selector, loading, initialized, fetchData]);
+  }, [accountId, apiKey, loading, initialized, fetchData]);
 
-  // Memoize the return value
   return useMemo(() => ({
     playerBets,
     userBalance,

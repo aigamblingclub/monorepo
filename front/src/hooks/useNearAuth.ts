@@ -79,8 +79,8 @@ export function useNearAuth() {
         throw new Error('Failed to verify signature');
       }
 
-      const { user, apiKey } = await verifyResponse.json();
-
+      const { user, balance, apiKey } = await verifyResponse.json();
+      console.log("🔍{ user, apiKey }", balance, user, apiKey);
       // Store API key in localStorage
       localStorage.setItem('apiKey', apiKey.keyValue);
 
