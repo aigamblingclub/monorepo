@@ -144,8 +144,8 @@ function processState(state: PokerState, minPlayers: number): Effect.Effect<Opti
     return Effect.succeed(Option.none())
 }
 
-const createTableId = (tableId: string) => {
-  return String(Number(tableId) + 1)
+const createTableId = (): string => {
+  return String(crypto.randomUUID())
 }
 
 export const makePokerRoom = (minPlayers: number, logLevel: LogLevel.LogLevel): Effect.Effect<PokerGameService, never, never> => Effect.gen(function* (_adapter) {
@@ -153,7 +153,7 @@ export const makePokerRoom = (minPlayers: number, logLevel: LogLevel.LogLevel): 
       yield *
       Ref.make({
         ...POKER_ROOM_DEFAULT_STATE,
-        tableId: createTableId(POKER_ROOM_DEFAULT_STATE.tableId),
+        tableId: createTableId(),
       }); // TODO: get from adapter (db)
     const stateUpdateQueue = yield* Queue.unbounded<PokerState>()
     const stateStream = Stream.fromQueue(stateUpdateQueue).pipe(

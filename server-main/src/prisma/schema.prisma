@@ -20,7 +20,7 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @default(now())
   apiKeys             ApiKey[]
-  userBalances        UserBalance[]
+  userBalance         UserBalance?
   userBets            UserBet[]
 
   @@index([nearImplicitAddress], name: "idx_near_account")
@@ -42,7 +42,7 @@ model ApiKey {
 model UserBalance {
   id        Int      @id @default(autoincrement())
   user      User     @relation(fields: [userId], references: [id])
-  userId    Int     
+  userId    Int      @unique
   onchainBalance   Int
   virtualBalance   Int
   pendingUnlock   Boolean @default(false)
@@ -84,20 +84,6 @@ model Player {
   moves           Moves[]
   playerHands     PlayerHand[]
   userBets        UserBet[]
-}
-
-model Player_Table {
-  id        Int      @id @default(autoincrement())
-  player    Player   @relation(fields: [playerId], references: [playerId])
-  playerId  String
-  table     Table    @relation(fields: [tableId], references: [tableId])
-  tableId   String
-  status    String    // Non Necessary, use Move.
-  volume    Int // Round Volume(pot) + PlayerBet Volume
-  initialBalance  Int
-  currentBalance  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 /// Game Flow
@@ -181,6 +167,14 @@ model PlayerHand {
   updatedAt DateTime @updatedAt
 }
 
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+  DRAW
+  // REFUNDED
+  // CANCELLED
+}
 /// Betting System
 model UserBet {
   id        Int      @id @default(autoincrement())
@@ -190,9 +184,10 @@ model UserBet {
   tableId   String
   player    Player   @relation(fields: [playerId], references: [playerId])
   playerId  String
-  round     Round    @relation(fields: [roundId], references: [id])
-  roundId   Int
+  round     Round?   @relation(fields: [roundId], references: [id])
+  roundId   Int?
   amount    Int
+  status    BetStatus @default(PENDING)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -204,4 +199,20 @@ model RawState {
   data      Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Player_Table {
+  id        Int      @id @default(autoincrement())
+  player    Player   @relation(fields: [playerId], references: [playerId])
+  playerId  String
+  table     Table    @relation(fields: [tableId], references: [tableId])
+  tableId   String
+  status    String    // Non Necessary, use Move.
+  volume    Int // ? total volume of the table by player (sum of all bets in all rounds)
+  initialBalance  Int // ? initial balance (chips) of the player
+  currentBalance  Int // ? current balance (chips) of the player
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, tableId])
 }

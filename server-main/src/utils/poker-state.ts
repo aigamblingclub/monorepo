@@ -114,6 +114,27 @@ export const saveCurrentStateToDatabase = async (state: PokerState) => {
         updatedAt: new Date(),
       },
     });
+    await prisma.player_Table.upsert({
+      where: {
+        playerId_tableId: {
+          playerId: player.id,
+          tableId: state.tableId
+        }
+      },
+      update: {
+        status: 'active',
+        volume: player.bet.total,
+        currentBalance: player.chips,
+      },
+      create: {
+        playerId: player.id,
+        tableId: state.tableId,
+        status: 'active',
+        volume: 0,
+        initialBalance: player.chips,
+        currentBalance: player.chips,
+      },
+    });
   }
   // TODO add info to all other tables, rounds, phases, moves, playerHands;
 };
