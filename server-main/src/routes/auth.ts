@@ -3,6 +3,7 @@ import { PrismaClient } from '@/prisma';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
 import { authenticate, AUTH_MESSAGE, generateChallenge } from '../utils/near-auth';
+import { getUserBalance } from '@/utils/balance';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -153,9 +154,17 @@ router.post('/near/verify', async (req, res) => {
                 isActive: true,
             },
         });
+        let balance 
+        try {
+            balance = await getUserBalance(user.id);
+        } catch (error) {
+            console.error('Error getting user balance:', error);
+            balance = { virtualBalance: 0 };
+        }
         
         return res.json({
             success: true,
+            balance: balance.virtualBalance,
             user,
             apiKey: { ...apiKey, keyValue },
             message: 'Authentication successful'

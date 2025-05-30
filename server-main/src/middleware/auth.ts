@@ -16,6 +16,9 @@ export interface AuthenticatedRequest extends Request {
     id: number;
     userId: number;
   };
+  user?: {
+    id: number;
+  };
 }
 
 export const validateApiKey = async (
@@ -23,6 +26,8 @@ export const validateApiKey = async (
   res: Response,
   next: NextFunction,
 ) => {
+  console.log("🔍 req.headers:", req.headers);
+  console.log("🔍 req.body:", req.body);
   const apiKey = req.headers['x-api-key'] as string;
 
   if (!apiKey) {
@@ -54,8 +59,14 @@ export const validateApiKey = async (
       },
     });
 
-    // Attach API key info to request
+    // Attach API key and user info to request
     req.apiKey = validApiKey;
+    req.user = { id: validApiKey.userId };
+    
+    // Preserve the body
+    const body = req.body;
+    req.body = body;
+    
     return next();
   } catch (error) {
     console.error('Error validating API key:', error);
