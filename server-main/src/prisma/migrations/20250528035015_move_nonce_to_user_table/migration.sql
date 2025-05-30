@@ -1,4 +1,11 @@
--- Add nonce column to User table
-ALTER TABLE "User" ADD COLUMN "nonce" INTEGER NOT NULL DEFAULT 0;
--- Remove nonce column from Player table
-ALTER TABLE "Player" DROP COLUMN "nonce"; 
+/*
+  Warnings:
+
+  - You are about to drop the column `nonce` on the `Player` table. All the data in the column will be lost.
+
+*/
+-- AlterTable
+ALTER TABLE "Player" DROP COLUMN "nonce";
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "nonce" INTEGER NOT NULL DEFAULT 0;

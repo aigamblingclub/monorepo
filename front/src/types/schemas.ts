@@ -55,6 +55,12 @@ export const PositionSchema = Schema.Union(
 );
 export type Position = typeof PositionSchema.Type;
 
+export const BetSchema = Schema.Struct({
+  amount: Schema.Number,
+  volume: Schema.Number,
+});
+export type Bet = typeof BetSchema.Type;
+
 export const PlayerStateSchema = Schema.Struct({
   id: Schema.String,
   playerName: Schema.String,
@@ -63,10 +69,7 @@ export const PlayerStateSchema = Schema.Struct({
   position: PositionSchema,
   hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
   chips: Schema.Number,
-  bet: Schema.Struct({
-    round: Schema.Number,
-    total: Schema.Number,
-  }),
+  bet: BetSchema,
 });
 export type PlayerState = typeof PlayerStateSchema.Type;
 
@@ -86,21 +89,28 @@ export const TableStatusSchema = Schema.Union(
 );
 export type TableStatus = typeof TableStatusSchema.Type;
 
-export const RoundPhaseSchema = Schema.Union(
+export const StreetSchema = Schema.Union(
   Schema.Literal("PRE_FLOP"),
   Schema.Literal("FLOP"),
   Schema.Literal("TURN"),
   Schema.Literal("RIVER"),
   Schema.Literal("SHOWDOWN")
 );
-export type RoundPhase = typeof RoundPhaseSchema.Type;
+export type Street = typeof StreetSchema.Type;
+
+export const PhaseSchema = Schema.Struct({
+  street: StreetSchema,
+  actionCount: Schema.Number,
+  volume: Schema.Number,
+});
+export type Phase = typeof PhaseSchema.Type;
 
 export const RoundStateSchema = Schema.Struct({
-  phase: RoundPhaseSchema,
+  // Round Number in the game (1, 2, 3, ...)
   roundNumber: Schema.Number,
-  // Round-specific pot (will be added to main pot at end of round)
-  roundPot: Schema.Number,
-  // Round-specific bet
+  // Round Volume (pot)
+  volume: Schema.Number,
+  // Round Bet (current bet)
   currentBet: Schema.Number,
   // Players who have folded this round
   foldedPlayers: Schema.Array(Schema.String),
@@ -146,6 +156,13 @@ export const MoveEventSchema = Schema.Struct({
 });
 export type MoveEvent = typeof MoveEventSchema.Type;
 
+/**
+ * # Poker State
+ * 
+ * One Game (table) has multiple rounds.
+ * One round has multiple phases/streets.
+ * One phase/street has multiple actions.
+ */
 export const PokerStateSchema = Schema.Struct({
   tableId: Schema.String,
   tableStatus: TableStatusSchema,
@@ -154,9 +171,7 @@ export const PokerStateSchema = Schema.Struct({
   currentPlayerIndex: Schema.Number,
   deck: Schema.Array(CardSchema),
   community: Schema.Array(CardSchema),
-  // Total pot across all rounds
-  pot: Schema.Number,
-  // Current round state
+  phase: PhaseSchema,
   round: RoundStateSchema,
   dealerId: Schema.String,
   winner: Schema.Union(Schema.String, Schema.Null),
@@ -240,17 +255,14 @@ export const PlayerViewSchema = Schema.Struct({
   bigBlindId: Schema.Option(Schema.String),
   smallBlindId: Schema.Option(Schema.String),
   community: Schema.Array(CardSchema),
-  pot: Schema.Number,
+  phase: PhaseSchema,
   round: RoundStateSchema,
   player: PlayerStateSchema,
   opponents: Schema.Array(
     Schema.Struct({
       status: PlayerStatusSchema,
       chips: Schema.Number,
-      bet: Schema.Struct({
-        round: Schema.Number,
-        total: Schema.Number,
-      }),
+      bet: BetSchema,
       hand: Schema.Array(CardSchema),
     })
   ),
