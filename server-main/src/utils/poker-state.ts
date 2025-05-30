@@ -110,7 +110,6 @@ export const saveCurrentStateToDatabase = async (state: PokerState) => {
       create: {
         playerId: player.id,
         playerName: player.playerName,
-        nonce: 0,
         updatedAt: new Date(),
       },
     });
@@ -123,7 +122,7 @@ export const saveCurrentStateToDatabase = async (state: PokerState) => {
       },
       update: {
         status: 'active',
-        volume: player.bet.total,
+        volume: player.bet.volume, // ? TODO: sum of all bets in all rounds
         currentBalance: player.chips,
       },
       create: {
