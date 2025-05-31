@@ -23,16 +23,15 @@ interface CreateBetResponse {
 
 interface BetResponse {
   playerId: string;
-  totalBet: number;
-  userBet: number;
+  totalBet: number; // total bet amount of the player in the table
+  totalUserBet: number; // total bet amount of the user in the table in the playerId
 }
 
 interface AllBetsResponse {
   success: boolean;
   playerBets: BetResponse[];
-  userTotalBets: number;
-  totalBetsByPlayer: Record<string, number>;
-  totalBets: number;
+  totalBetsByPlayer: Record<string, number>; // total bets in the table by playerId
+  totalBets: number; // total bet of the table
   error?: string;
 }
 
@@ -280,52 +279,71 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
       });
     }
 
-    // Get all bets for the table
-    const allBets = await prisma.userBet.findMany({
+    // Get all bets for the table with aggregations
+    const [allBets, totalBetsResult, betsByPlayerResult] = await Promise.all([
+      // Get all bets for the table
+      prisma.userBet.findMany({
+        where: {
+          tableId: table.tableId
+        }
+      }),
+      // Get total bets for the table
+      prisma.userBet.aggregate({
+        where: {
+          tableId: table.tableId
+        },
+        _sum: {
+          amount: true
+        }
+      }),
+      // Get total bets by player
+      prisma.userBet.groupBy({
+        by: ['playerId'],
+        where: {
+          tableId: table.tableId
+        },
+        _sum: {
+          amount: true
+        }
+      })
+    ]);
+
+    // Get user's bets by player
+    const userBetsByPlayer = await prisma.userBet.groupBy({
+      by: ['playerId'],
       where: {
-        tableId: table.tableId
+        tableId: table.tableId,
+        userId
+      },
+      _sum: {
+        amount: true
       }
     });
 
-    // Calculate totals and organize data
-    const totalBets = allBets.reduce((sum, bet) => sum + bet.amount, 0);
-    const userTotalBets = allBets
-      .filter(bet => bet.userId === userId)
-      .reduce((sum, bet) => sum + bet.amount, 0);
-
-    // Group bets by player
-    const betsByPlayer = allBets.reduce((acc, bet) => {
-      if (!acc[bet.playerId]) {
-        acc[bet.playerId] = 0;
-      }
-      acc[bet.playerId] += bet.amount;
+    // Convert user bets to a map for easier lookup
+    const userBetsMap = userBetsByPlayer.reduce((acc, bet) => {
+      acc[bet.playerId] = bet._sum.amount || 0;
       return acc;
     }, {} as Record<string, number>);
 
-    // Get user's bets by player
-    const userBetsByPlayer = allBets
-      .filter(bet => bet.userId === userId)
-      .reduce((acc, bet) => {
-        if (!acc[bet.playerId]) {
-          acc[bet.playerId] = 0;
-        }
-        acc[bet.playerId] += bet.amount;
-        return acc;
-      }, {} as Record<string, number>);
+    // Convert bets by player to the required format
+    const totalBetsByPlayer = betsByPlayerResult.reduce((acc, bet) => {
+      acc[bet.playerId] = bet._sum.amount || 0;
+      return acc;
+    }, {} as Record<string, number>);
 
     // Format response according to BetResponse interface
-    const playerBets: BetResponse[] = Object.entries(betsByPlayer).map(([playerId, totalBet]) => ({
-      playerId,
-      totalBet,
-      userBet: userBetsByPlayer[playerId] || 0
+    const playerBets: BetResponse[] = betsByPlayerResult.map(bet => ({
+      playerId: bet.playerId,
+      totalBet: bet._sum.amount || 0,
+      totalUserBet: userBetsMap[bet.playerId] || 0
     }));
 
     const response: AllBetsResponse = {
       success: true,
       playerBets,
-      userTotalBets,
-      totalBetsByPlayer: betsByPlayer,
-      totalBets
+      totalBetsByPlayer,
+      totalBets: totalBetsResult._sum.amount || 0
     };
 
     return res.json(response);

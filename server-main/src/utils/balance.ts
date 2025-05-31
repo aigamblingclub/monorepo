@@ -61,7 +61,7 @@ export async function getUserBalance(userId: number) {
        console.log('🔍 onchainBalance:', onchainBalance);
        if (userBalance?.virtualBalance !== onchainBalance) {
          await prisma.userBalance.upsert({
-           where: { id: userBalance?.id },
+           where: { userId },
            update: { virtualBalance: onchainBalance },
            create: { userId, onchainBalance, virtualBalance: onchainBalance },
          });
