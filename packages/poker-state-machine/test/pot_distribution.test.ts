@@ -10,7 +10,7 @@ describe('Pot Distribution', () => {
   function createPlayer(
     id: string, 
     chips: number, 
-    bet = { round: 0, total: 0 },
+    bet = { amount: 0, volume: 0 },
     status: 'PLAYING' | 'FOLDED' | 'ALL_IN' = 'PLAYING',
     hand: [Card, Card] | [] = []
   ): PlayerState {
@@ -32,7 +32,7 @@ describe('Pot Distribution', () => {
   // Helper function to create a basic poker state for testing
   function createTestState(
     players: PlayerState[],
-    pot: number = 0,
+    volume: number = 0,
     community: Card[] = [
       createCard(2, 'hearts'),
       createCard(3, 'hearts'),
@@ -48,11 +48,14 @@ describe('Pot Distribution', () => {
       lastMove: null,
       deck: [],
       community,
-      pot,
+      phase: {
+        street: "RIVER",
+        actionCount: 0,
+        volume,
+      },
       round: {
-        phase: "RIVER",
         roundNumber: 1,
-        roundPot: 0,
+        volume,
         currentBet: 0,
         foldedPlayers: players.filter(p => p.status === 'FOLDED').map(p => p.id),
         allInPlayers: players.filter(p => p.status === 'ALL_IN').map(p => p.id),
@@ -71,9 +74,9 @@ describe('Pot Distribution', () => {
 
   test('showdown should award pot to last remaining player if others folded', async () => {
     // Create three players, two folded
-    const player1 = createPlayer('player1', 80, { round: 0, total: 20 }, 'FOLDED');
-    const player2 = createPlayer('player2', 80, { round: 0, total: 20 }, 'FOLDED');
-    const player3 = createPlayer('player3', 80, { round: 0, total: 20 }, 'PLAYING');
+    const player1 = createPlayer('player1', 80, { amount: 0, volume: 20 }, 'FOLDED');
+    const player2 = createPlayer('player2', 80, { amount: 0, volume: 20 }, 'FOLDED');
+    const player3 = createPlayer('player3', 80, { amount: 0, volume: 20 }, 'PLAYING');
     
     const initialState = createTestState([player1, player2, player3], 60);
     
@@ -85,7 +88,7 @@ describe('Pot Distribution', () => {
       
       // Check that the winner is player3
       expect(result.winner).toBe('player3');
-      
+      console.log('result', result);
       // Check that player3 receives the pot
       const winningPlayer = result.players.find(p => p.id === 'player3');
       expect(winningPlayer?.chips).toBe(140); // 80 + pot of 60
@@ -111,7 +114,7 @@ describe('Pot Distribution', () => {
     const player1 = createPlayer(
       'player1', 
       80, 
-      { round: 0, total: 20 }, 
+      { amount: 0, volume: 20 }, 
       'PLAYING',
       [createCard(1, 'spades'), createCard(13, 'spades')] // Ace-King
     );
@@ -119,7 +122,7 @@ describe('Pot Distribution', () => {
     const player2 = createPlayer(
       'player2', 
       80, 
-      { round: 0, total: 20 }, 
+      { amount: 0, volume: 20 }, 
       'PLAYING',
       [createCard(10, 'clubs'), createCard(10, 'diamonds')] // Pair of 10s
     );
@@ -132,7 +135,7 @@ describe('Pot Distribution', () => {
       // Basic structure checks
       expect(result.tableStatus).toBe('ROUND_OVER');
       expect(result.winner).toBeDefined();
-      expect(result.pot).toBe(40); // Pot shouldn't change
+      expect(result.round.volume).toBe(40); // Pot shouldn't change
       
       // The winner should have more chips than before
       const winner = result.winner ? result.players.find(p => p.id === result.winner) : null;
@@ -148,9 +151,9 @@ describe('Pot Distribution', () => {
   test('showdown should handle all-in players and create side pots', async () => {
     // This tests side pot creation with all-in players
     // Player1 is all-in with 10, Player2 is all-in with 30, Player3 has called 30
-    const player1 = createPlayer('player1', 0, { round: 0, total: 10 }, 'ALL_IN');
-    const player2 = createPlayer('player2', 0, { round: 0, total: 30 }, 'ALL_IN');
-    const player3 = createPlayer('player3', 70, { round: 0, total: 30 }, 'PLAYING');
+    const player1 = createPlayer('player1', 0, { amount: 0, volume: 10 }, 'ALL_IN');
+    const player2 = createPlayer('player2', 0, { amount: 0, volume: 30 }, 'ALL_IN');
+    const player3 = createPlayer('player3', 70, { amount: 0, volume: 30 }, 'PLAYING');
     
     // Total pot is 70 (10 + 30 + 30)
     const initialState = createTestState([player1, player2, player3], 70);
@@ -167,8 +170,8 @@ describe('Pot Distribution', () => {
       
       // Each player should have their bet totals reset
       for (const player of result.players) {
-        expect(player.bet.round).toBe(0);
-        expect(player.bet.total).toBe(0);
+        expect(player.bet.amount).toBe(0);
+        expect(player.bet.volume).toBe(0);
       }
     } catch (error) {
       // console.log('Error in showdown function (expected for complex pot distribution):', error);

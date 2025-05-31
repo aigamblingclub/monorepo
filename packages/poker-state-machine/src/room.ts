@@ -34,19 +34,19 @@ function computeNextState(
         case 'table': {
           const playerPlaying = state.players.find(p => p.id === event.playerId)
           if (playerPlaying) {
-              return Effect.succeed({...state})
+              return Effect.succeed<PokerState>({...state})
           }
           if (state.tableStatus === "PLAYING") {
             return Effect.fail<ProcessEventError>({ type: "table_locked" });
           }
           switch (event.action) {
             case "join":
-              return Effect.succeed({
+              return Effect.succeed<PokerState>({
                 ...addPlayer(state, event.playerId, event.playerName),
                 lastMove: null,
               });
             case "leave":
-              return Effect.succeed({
+              return Effect.succeed<PokerState>({
                 ...removePlayer(state, event.playerId),
                 lastMove: null,
               });
@@ -71,7 +71,7 @@ function computeNextState(
         case 'start': {
             // console.log('computeNextState', { event })
             const next = startRound(state)
-            return Effect.succeed({...next})
+            return Effect.succeed<PokerState>({...next})
             // TODO: sanity check for status?
             // return Effect.succeed(startRound(state))
         }
@@ -94,7 +94,7 @@ function computeNextState(
         }
         case 'auto_restart': {
             // Reset the game state to initial values, but with the same players and tableId
-            return Effect.succeed({
+            return Effect.succeed<PokerState>({
                 ...POKER_ROOM_DEFAULT_STATE,
                 tableId: state.tableId, // TODO: get a new tableId from the adapter
                 tableStatus: "WAITING",
@@ -105,7 +105,7 @@ function computeNextState(
                     chips: state.config.startingChips,
                     position: p.position,
                     playedThisPhase: false,
-                    bet: { round: 0, total: 0 }
+                    bet: { amount: 0, volume: 0 }
                 })),
                 config: state.config,
             })
@@ -193,7 +193,7 @@ export const makePokerRoom = (minPlayers: number, logLevel: LogLevel.LogLevel): 
         Stream.mapEffect(state => pipe(
             processState(state, minPlayers),
             Effect.flatMap(Option.match({
-                onNone: () => Effect.succeed(state),
+                onNone: () => Effect.succeed<PokerState>(state),
                 onSome: event => {
                     const next = processEvent(event)
                     return next

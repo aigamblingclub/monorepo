@@ -108,16 +108,16 @@ export const Player: React.FC<PlayerProps> = ({
           </span>
         </div>
         <div className="flex justify-between items-center mb-1">
-          {bet.total > 0 && (
+          {bet.volume > 0 && (
             <span className="text-neon-yellow text-shadow-yellow">
-              Bet Total: ${formatChips(bet.total)}
+              Bet Total: ${formatChips(bet.volume)}
             </span>
           )}
         </div>
         <div className="flex justify-between items-center mb-1">
-          {bet.round > 0 && (
+          {bet.amount > 0 && (
             <span className="text-neon-yellow text-shadow-yellow ml-2">
-              Bet Round: ${formatChips(bet.round)}
+              Bet Round: ${formatChips(bet.amount)}
             </span>
           )}
         </div>

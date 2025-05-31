@@ -16,6 +16,7 @@ model User {
   id                  Int       @id @default(autoincrement())
   nearImplicitAddress String    @unique
   nearNamedAddress    String    @unique
+  nonce               Int       @default(0)
   lastActiveAt        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @default(now())
@@ -76,7 +77,6 @@ model Player {
   id              Int    @id @default(autoincrement())
   playerId        String   @unique
   playerName      String
-  nonce           Int
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

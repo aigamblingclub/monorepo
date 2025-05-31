@@ -109,7 +109,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
                 {gameState.tableStatus === "PLAYING" && (
                   <>
-                    <div>Phase: {getPhaseLabel(gameState.round.phase)}</div>
+                    <div>Phase: {getPhaseLabel(gameState.phase.street)}</div>
                     <div>Round: {gameState.round.roundNumber}</div>
                   </>
                 )}
@@ -135,11 +135,6 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                     {gameState.round?.currentBet > 0 && (
                       <div className="current-bet">
                         Current Bet: ${formatChips(gameState.round.currentBet)}
-                      </div>
-                    )}
-                    {gameState.round?.roundPot > 0 && (
-                      <div className="round-pot">
-                        Round Pot: ${formatChips(gameState.round.roundPot)}
                       </div>
                     )}
                   </div>

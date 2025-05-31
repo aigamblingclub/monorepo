@@ -31,13 +31,13 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({ gameState })
 
     switch (playerMove.type) {
       case "fold":
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.round.phase} - ${playerName} - folded`;
+        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - folded`;
       case "call":
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.round.phase} - ${playerName} - called`;
+        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - called`;
       case "all_in":
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.round.phase} - ${playerName} - went all in`;
+        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - went all in`;
       case "raise":
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.round.phase} - ${playerName} - raised to ${playerMove.amount}`;
+        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - raised to ${playerMove.amount}`;
       default:
         return "Unknown move";
     }

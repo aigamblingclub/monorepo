@@ -7,11 +7,14 @@ export const POKER_ROOM_DEFAULT_STATE: PokerState = {
   lastMove: null,
   deck: [],
   community: [],
-  pot: 0,
+  phase: {
+    street: "PRE_FLOP",
+    actionCount: 0,
+    volume: 0,
+  },
   round: {
-    phase: "PRE_FLOP",
     roundNumber: 1,
-    roundPot: 0,
+    volume: 0,
     currentBet: 0,
     foldedPlayers: [],
     allInPlayers: [],
@@ -33,6 +36,6 @@ export const PLAYER_DEFAULT_STATE: Omit<PlayerState, "id"> = {
   chips: 1000,
   position: "BB", // will be set by the game-state-machine
   playedThisPhase: false,
-  bet: { round: 0, total: 0 },
+  bet: { amount: 0, volume: 0 },
   playerName: "",
 };

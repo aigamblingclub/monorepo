@@ -78,40 +78,25 @@ export async function checkUserGameStatus(userId: number): Promise<{ canWithdraw
 }
 
 /**
- * Get user's current nonce from Player table
+ * Get user's current nonce from User table
  */
 export async function getUserNonce(nearImplicitAddress: string): Promise<number> {
-  const player = await prisma.player.findFirst({
-    where: { playerId: nearImplicitAddress },
+  const user = await prisma.user.findUnique({
+    where: { nearImplicitAddress },
     select: { nonce: true }
   });
 
-  return player?.nonce || 0;
+  return user?.nonce || 0;
 }
 
 /**
- * Update user's nonce in Player table
+ * Update user's nonce in User table
  */
 export async function updateUserNonce(nearImplicitAddress: string, newNonce: number): Promise<void> {
-  // First try to find existing player
-  const existingPlayer = await prisma.player.findFirst({
-    where: { playerId: nearImplicitAddress }
+  await prisma.user.update({
+    where: { nearImplicitAddress },
+    data: { nonce: newNonce }
   });
-
-  if (existingPlayer) {
-    await prisma.player.update({
-      where: { id: existingPlayer.id },
-      data: { nonce: newNonce }
-    });
-  } else {
-    await prisma.player.create({
-      data: {
-        playerId: nearImplicitAddress,
-        playerName: nearImplicitAddress,
-        nonce: newNonce
-      }
-    });
-  }
 }
 
 /**
@@ -156,11 +141,11 @@ export async function updateUserBalances(userId: number, onchainBalance: number,
 }
 
 /**
- * Validate withdrawal request with all business logic
+ * Validate unlock request with all business logic
  */
-export async function validateWithdrawalRequest(
+export async function validateUnlockRequest(
   nearImplicitAddress: string, 
-  withdrawAmount: number,
+  unlockUsdcBalance: number,
   onChainNonce: number
 ): Promise<ContractValidationResult> {
   try {
@@ -198,10 +183,10 @@ export async function validateWithdrawalRequest(
 
     // 4. Check virtual balance
     const virtualBalance = await getUserVirtualBalance(user.id);
-    if (withdrawAmount > virtualBalance) {
+    if (unlockUsdcBalance > virtualBalance) {
       return { 
         isValid: false, 
-        error: `Insufficient virtual balance. Requested: ${withdrawAmount}, Available: ${virtualBalance}` 
+        error: `Insufficient virtual balance. Requested: ${unlockUsdcBalance}, Available: ${virtualBalance}` 
       };
     }
 
