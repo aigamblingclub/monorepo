@@ -1,5 +1,5 @@
 {
-  "name": "aigamingclub-backend",
+  "name": "aigamblingclub-backend",
   "version": "1.0.0",
   "description": "Backend server for AI Gaming Club",
   "main": "src/index.ts",

@@ -1,10 +1,14 @@
 import { PrismaClient } from '@/prisma';
+import { PokerState } from '@/types/schemas';
 
 const prisma = new PrismaClient();
 
-export let currentStatePoker = null;
+export let currentStatePoker: PokerState | null = null;
 
 export const updatePokerState = async (interval: number) => {
+  if (!currentStatePoker) {
+    currentStatePoker = await getCurrentStatePoker();
+  }
   setInterval(async () => {
     if (!process.env.POKER_API_URL) {
       console.log('POKER_API_URL is not set');
@@ -15,13 +19,11 @@ export const updatePokerState = async (interval: number) => {
     // Only update the state if the data is different
     if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
       console.log('Current state from poker server', currentState);
-      currentStatePoker = currentState;
-      await prisma.rawState.create({
-        data: { data: JSON.stringify(currentState), status: 'active', updatedAt: new Date() },
-      });
+      currentStatePoker = currentState; 
+      await saveCurrentStateToDatabase(currentState);
     }
   }, interval || 2000);
-}
+};
 
 const getCurrentStatePoker = async () => {
   try {
@@ -48,7 +50,7 @@ const getCurrentStatePoker = async () => {
     }
 
     const data = await response.json();
-    
+
     // Handle array response format
     if (Array.isArray(data) && data.length > 0) {
       const firstItem = data[0];
@@ -65,4 +67,53 @@ const getCurrentStatePoker = async () => {
     console.error('Error fetching current state from poker server', error);
     return null;
   }
+};
+
+// save the current state to the database
+export const saveCurrentStateToDatabase = async (state: PokerState) => {
+  await prisma.rawState.create({
+    data: { data: JSON.stringify(state), status: 'active', updatedAt: new Date() },
+  });
+
+  // save to table
+  await prisma.table.upsert({
+    where: { tableId: state.tableId },
+    update: {
+      tableId: state.tableId,
+      tableStatus: state.tableStatus,
+      config: state.config,
+      winners: state.winner ? [state.winner] : [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    create: {
+      tableId: state.tableId,
+      tableStatus: state.tableStatus,
+      volume: 0, // TODO: sum of all bets, query?
+      totalBets: 0, // TODO: sum of all bets, query?
+      config: state.config,
+    },
+  });
+
+  // save to players
+  for (const player of state.players) {
+    const currentPlayer = currentStatePoker?.players.find(p => p.id === player.id);
+    if (currentPlayer?.playerName === player.playerName) {
+      continue;
+    }
+    await prisma.player.upsert({
+      where: { playerId: player.id },
+      update: {
+        playerName: player.playerName,
+        updatedAt: new Date(),
+      },
+      create: {
+        playerId: player.id,
+        playerName: player.playerName,
+        nonce: 0,
+        updatedAt: new Date(),
+      },
+    });
+  }
+  // TODO add info to all other tables, rounds, phases, moves, playerHands;
 };

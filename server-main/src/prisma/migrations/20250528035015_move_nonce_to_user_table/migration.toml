@@ -1,0 +1,4 @@
+# This is an empty migration.
+
+migration_name = "20250528035015_move_nonce_to_user_table"
+migration_hash = "20250528035015_move_nonce_to_user_table" 

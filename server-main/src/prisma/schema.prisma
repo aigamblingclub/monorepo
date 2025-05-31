@@ -59,6 +59,9 @@ model Table {
   tableStatus String   // WAITING, PLAYING, ROUND_OVER, GAME_OVER
   volume      Int // Sum of all rounds volume
   config      Json
+  winners     String[] // Player IDs
+  totalBets   Int // Sum of all bets
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -71,8 +74,8 @@ model Table {
 }
 
 model Player {
-  id              String    @id @default(uuid())
-  playerId        String
+  id              Int    @id @default(autoincrement())
+  playerId        String   @unique
   playerName      String
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -85,7 +88,7 @@ model Player {
 
 model Player_Table {
   id        Int      @id @default(autoincrement())
-  player    Player   @relation(fields: [playerId], references: [id])
+  player    Player   @relation(fields: [playerId], references: [playerId])
   playerId  String
   table     Table    @relation(fields: [tableId], references: [tableId])
   tableId   String
@@ -151,7 +154,7 @@ model Moves {
   roundId   Int
   phase     Phase    @relation(fields: [phaseId], references: [id])
   phaseId   Int
-  player    Player   @relation(fields: [playerId], references: [id])
+  player    Player   @relation(fields: [playerId], references: [playerId])
   playerId  String
   playerTurn Int
   move      String
@@ -168,7 +171,7 @@ model PlayerHand {
   tableId   Int
   round     Round    @relation(fields: [roundId], references: [id])
   roundId   Int
-  player    Player   @relation(fields: [playerId], references: [id])
+  player    Player   @relation(fields: [playerId], references: [playerId])
   playerId  String
   firstCardRank Int
   firstCardSuit String
@@ -185,7 +188,7 @@ model UserBet {
   userId    Int
   table     Table    @relation(fields: [tableId], references: [tableId])
   tableId   String
-  player    Player   @relation(fields: [playerId], references: [id])
+  player    Player   @relation(fields: [playerId], references: [playerId])
   playerId  String
   round     Round    @relation(fields: [roundId], references: [id])
   roundId   Int
