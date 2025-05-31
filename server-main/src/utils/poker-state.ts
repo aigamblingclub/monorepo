@@ -15,7 +15,6 @@ export const updatePokerState = async (interval: number) => {
       },
     });
     currentStatePoker = raw ? JSON.parse(raw.data as string) : null;
-    console.log('🔍 currentStatePoker:', currentStatePoker);
   }
   setInterval(async () => {
     if (!process.env.POKER_API_URL) {

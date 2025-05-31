@@ -82,12 +82,9 @@ interface ExtendedAuthenticatedRequest extends AuthenticatedRequest {
  */
 router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) => {
   try {
-    console.log('🔍 req.body:', req.body);
     const { playerId, amount }: CreateBetRequest = req.body;
     const userId = req.user?.id;
-    console.log('🔍 userId:', userId);
-    console.log('🔍 playerId:', playerId);
-    console.log('🔍 amount:', amount);
+
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -117,7 +114,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
         createdAt: 'desc'
       }
     });
-    console.log('🔍 currentTable:', currentTable);
+
     if (!currentTable) {
       throw new Error('Table not found');
     }
@@ -131,7 +128,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
     const currentPlayerTable = await prisma.player_Table.findFirst({
       where: { playerId: playerId, tableId: currentTable.tableId },
     });
-    console.log('🔍 currentPlayerTable:', currentPlayerTable);
+
     if (!currentPlayerTable) {
       return res.status(400).json({
         success: false,

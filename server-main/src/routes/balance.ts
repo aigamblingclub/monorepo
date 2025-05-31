@@ -48,31 +48,29 @@ interface GetBalanceResponse {
  */
 router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) => {
   try {
-    console.log("🔍 req.user:", req.user);
     const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: 'User not authenticated'
-        });
-      }
-
-     const { virtualBalance } = await getUserBalance(userId);
-      console.log("🔍 virtualBalance:", virtualBalance);
-      const response: GetBalanceResponse = {
-        success: true,
-        balance: virtualBalance
-      };
-
-      return res.json(response);
-
-    } catch (error) {
-      console.error('Get virtual balance error:', error);
-      return res.status(500).json({
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Internal server error'
+        error: 'User not authenticated',
       });
     }
+
+    const { virtualBalance } = await getUserBalance(userId);
+
+    const response: GetBalanceResponse = {
+      success: true,
+      balance: virtualBalance,
+    };
+
+    return res.json(response);
+  } catch (error) {
+    console.error('Get virtual balance error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Internal server error',
+    });
+  }
 });
 
-export default router; 
+export default router;

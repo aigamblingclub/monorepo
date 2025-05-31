@@ -29,7 +29,7 @@ export function useNearAuth() {
       if (!selector) {
         throw new Error('Wallet selector not initialized');
       }
-      console.log("🔍  accountId:", accountId);
+
       // 1. Get challenge from Next.js API
       const challengeResponse = await fetch(
         `/api/auth/near?accountId=${accountId}`
@@ -48,17 +48,11 @@ export function useNearAuth() {
       if (!accounts || accounts.length === 0) {
         throw new Error('No accounts found');
       }
-      console.log("🔍  window.location.origin:", window.location.origin);
+
       const signatureObj = await wallet.signMessage({
         message,
         recipient: window.location.origin,
         nonce: Buffer.from(challenge, 'base64')
-      });
-
-      console.log("body to api", {
-        signatureObj,
-        accountId,
-        publicKey: signatureObj?.publicKey,
       });
 
       // 3. Verify signature with Next.js API
@@ -79,8 +73,8 @@ export function useNearAuth() {
         throw new Error('Failed to verify signature');
       }
 
-      const { user, balance, apiKey } = await verifyResponse.json();
-      console.log("🔍{ user, apiKey }", balance, user, apiKey);
+      const { user, apiKey } = await verifyResponse.json();
+
       // Store API key in localStorage
       localStorage.setItem('apiKey', apiKey.keyValue);
 

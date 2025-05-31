@@ -109,14 +109,6 @@ router.post('/near/verify', async (req, res) => {
         // Remove the used challenge
         challenges.delete(accountId);
 
-        console.log({
-            accountId,
-            publicKey,
-            signature,
-            message: AUTH_MESSAGE,
-            recipient: 'http://localhost:4000',
-        })
-
         const isValid = await authenticate({
             accountId,
             publicKey,
@@ -125,7 +117,7 @@ router.post('/near/verify', async (req, res) => {
             recipient: 'http://localhost:4000',
             nonce: storedChallenge.challenge
         });
-        console.log('isValid', isValid);
+
         if (!isValid) {
             return res.status(401).json({ error: 'Invalid signature' });
         }
@@ -145,7 +137,7 @@ router.post('/near/verify', async (req, res) => {
                 nonce: 0,
             },
         });
-        console.log('user', user);
+
         // Generate a new API key for the user
         const keyValue = crypto.randomBytes(32).toString('hex');
         const apiKey = await prisma.apiKey.create({

@@ -14,8 +14,7 @@ export async function callViewMethod(contractId: string, methodName: string, arg
     url: nodeUrl
   };
   const provider = new providers.JsonRpcProvider(connectionConfig);
-  console.log("🔍 provider:", provider);
-  console.log('🔍 nodeUrl:', nodeUrl);
+
   try {
     const result = await provider.query({
       request_type: 'call_function',
@@ -58,7 +57,6 @@ export async function getOnChainNonce(contractId: string, accountId: string): Pr
 export async function getOnChainUsdcBalance(contractId: string, accountId: string): Promise<number> {
   try {
     const balance = await callViewMethod(contractId, 'getUsdcBalance', { account_id: accountId });
-    console.log("🔍 balance:", balance);
     return parseInt(balance);
   } catch (error) {
     console.error(`Error getting on-chain USDC balance for ${accountId}:`, error);

@@ -27,8 +27,7 @@ export async function getUserBalance(userId: number) {
          id: 'desc',
        },
      });
-     console.log('🔍 lastTable:', lastTable);
-     console.log('🔍 userId:', userId);
+
      const userBalance = await prisma.userBalance.findFirst({
        where: { userId },
        select: { id: true, virtualBalance: true },
@@ -46,7 +45,6 @@ export async function getUserBalance(userId: number) {
        });
        // virtual = onchain - bets[lost]
        if (bets.length > 0) {
-         console.log('🔍 bets:', bets);
          const lostBets = bets.filter(bet => bet.amount < 0);
          const virtualBalance = onchainBalance - lostBets.reduce((acc, bet) => acc + bet.amount, 0);
          await prisma.userBalance.update({
@@ -57,8 +55,7 @@ export async function getUserBalance(userId: number) {
            virtualBalance,
          };
        }
-       console.log('🔍 userBalance?.virtualBalance:', userBalance);
-       console.log('🔍 onchainBalance:', onchainBalance);
+
        if (userBalance?.virtualBalance !== onchainBalance) {
          await prisma.userBalance.upsert({
            where: { userId },
