@@ -142,6 +142,7 @@ router.post('/near/verify', async (req, res) => {
                 nearImplicitAddress: accountId,
                 nearNamedAddress: accountId, // You might want to handle this differently
                 lastActiveAt: new Date(),
+                nonce: 0,
             },
         });
         console.log('user', user);

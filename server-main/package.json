@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate --schema=./src/prisma/schema.prisma",
     "prisma:migrate:dev": "prisma migrate dev --schema=./src/prisma/schema.prisma",
     "prisma:migrate:deploy": "prisma migrate deploy --schema=./src/prisma/schema.prisma",
-    "prisma:studio": "prisma studio --schema=./src/prisma/schema.prisma"
+    "prisma:studio": "prisma studio --schema=./src/prisma/schema.prisma",
+    "prisma:reset": "prisma migrate reset --schema=./src/prisma/schema.prisma"
   },
   "engines": {
     "node": ">=18.0.0"
