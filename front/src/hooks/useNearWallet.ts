@@ -45,14 +45,14 @@ async function getViewAccount() {
   if (viewAccount) return viewAccount;
   if (!nearConnection) {
     nearConnection = await connect({
-      networkId: "testnet",
-      nodeUrl: "https://rpc.testnet.near.org",
-      walletUrl: "https://wallet.testnet.near.org",
+      networkId: "mainnet",
+      nodeUrl: "https://rpc.near.org",
+      walletUrl: "https://wallet.near.org",
       deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
     });
   }
-  // Use uma conta qualquer para view (não precisa ser logada)
-  viewAccount = await nearConnection.account("guest.testnet");
+  // Use system account for view calls in mainnet
+  viewAccount = await nearConnection.account("system");
   console.log("🔍 View account:", viewAccount);
   return viewAccount;
 }
@@ -211,26 +211,6 @@ export function useNearWallet() {
     });
   };
 
-  const viewMethod = async (methodName: string, args = {}) => {
-    const { selector } = walletState;
-    if (!selector) throw new Error("Wallet not initialized");
-    const wallet = await selector.wallet();
-    return wallet.signAndSendTransaction({
-      receiverId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
-      actions: [
-        {
-          type: "FunctionCall",
-          params: {
-            methodName,
-            args,
-            gas: "0",
-            deposit: "0",
-          },
-        },
-      ],
-    });
-  };
-
   const getNearBalance = async () => {
     const { selector } = walletState;
     if (!selector) throw new Error("Wallet not initialized");
@@ -296,12 +276,40 @@ export function useNearWallet() {
   };
 
   const getUsdcWalletBalance = async (accountId: string) => {
-    const usdcContract = process.env.NEXT_PUBLIC_USDC_CONTRACT_ID!;
-    const result = await callViewMethod(usdcContract, "ft_balance_of", {
-      account_id: accountId,
-    });
-    console.log("🔍 USDC wallet balance:", result);
-    return result;
+    const usdcContract = process.env.NEXT_PUBLIC_CONTRACT_USDC!;
+    try {
+      const response = await fetch("https://rpc.near.org", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "dontcare",
+          method: "query",
+          params: {
+            request_type: "call_function",
+            finality: "final",
+            account_id: usdcContract,
+            method_name: "ft_balance_of",
+            args_base64: Buffer.from(JSON.stringify({
+              account_id: accountId
+            })).toString("base64")
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.result && data.result.result) {
+        const result = JSON.parse(Buffer.from(data.result.result).toString());
+        return result;
+      }
+      return "0";
+    } catch (error) {
+      console.error("Error getting USDC balance:", error);
+      return "0";
+    }
   };
 
   return useMemo(
@@ -310,7 +318,6 @@ export function useNearWallet() {
       signIn,
       signOut,
       callMethod,
-      viewMethod,
       getNearBalance,
       getUsdcContractBalance,
       getUsdcWalletBalance,
@@ -319,6 +326,6 @@ export function useNearWallet() {
       isConnected: walletState.accountId !== null,
       isConnecting: walletState.isConnecting,
     }),
-    [walletState, signIn, signOut, callMethod, viewMethod]
+    [walletState, signIn, signOut, callMethod]
   );
 }
