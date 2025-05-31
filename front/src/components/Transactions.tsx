@@ -50,16 +50,49 @@ export function Transactions() {
       setIsLoadingWithdraw(true);
       setErrorWithdraw(null);
 
-      const transferAmount = (Number(withdrawAmount) * 1_000_000).toString();
+      // TODO: withdraw usdc from the contract
+      // const transferAmount = (Number(withdrawAmount) * 1_000_000).toString();
+      // await callMethod({
+      //   methodName: "withdrawUsdc",
+      //   args: {
+      //     amount: transferAmount,
+      //   },
+      //   deposit: "0",
+      //   receiverId: process.env.NEXT_PUBLIC_CONTRACT_ID,
+      // });
+
+      // TODO TEST
+      // Call the internal withdraw API route
+      const response = await fetch("/api/withdraw", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: withdrawAmount,
+          nearImplicitAddress: accountId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to withdraw");
+      }
+
+      const { signature, gameResult } = await response.json();
+
+      // Call the contract method to execute the withdrawal
       await callMethod({
         methodName: "withdrawUsdc",
         args: {
-          amount: transferAmount,
+          signature,
+          gameResult,
         },
         deposit: "0",
         receiverId: process.env.NEXT_PUBLIC_CONTRACT_ID,
       });
-      setWithdrawAmount('');
+
+      setWithdrawAmount("");
     } catch (err) {
       setErrorWithdraw(err instanceof Error ? err.message : 'Failed to withdraw');
     } finally {
@@ -68,7 +101,7 @@ export function Transactions() {
   };
 
   return (
-    <div className="p-4 border mb-4">
+    <div className="mb-4">
       <TransactionInput
         id="deposit"
         value={depositAmount}

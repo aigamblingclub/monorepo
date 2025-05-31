@@ -6,6 +6,8 @@ import { securityMiddleware } from './middleware/security';
 import { apiLimiter, authLimiter, highFrequencyLimiter } from './middleware/rateLimiter';
 import authRoutes from './routes/auth';
 import pokerRoutes from './routes/poker';
+import betRoutes from './routes/bet';
+import balanceRoutes from './routes/balance';
 import { updatePokerState } from './utils/poker-state';
 import { validateApiKeyServer } from './middleware/auth';
 
@@ -14,6 +16,9 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
 
 // Security Middleware
 app.use(securityMiddleware);
@@ -25,9 +30,8 @@ app.use(validateApiKeyServer);
 app.use('/api', apiLimiter); // Apply general API rate limiting
 app.use('/api/auth', authLimiter); // Apply stricter rate limiting to auth routes
 app.use('/api/game', highFrequencyLimiter); // Apply high-frequency rate limiting to game routes
-
-// Middleware
-app.use(express.json());
+app.use('/api/user', highFrequencyLimiter); // Apply high-frequency rate limiting to user routes
+app.use('/api/bet', highFrequencyLimiter); // Apply high-frequency rate limiting to bet routes
 
 // IP Check Middleware for /api-docs
 app.use('/api-docs', (req, res, next) => {
@@ -44,6 +48,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/game', pokerRoutes);
+app.use('/api/bet', betRoutes);
+app.use('/api/user/balance', balanceRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

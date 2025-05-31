@@ -3,6 +3,7 @@ import { PrismaClient } from '@/prisma';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
 import { authenticate, AUTH_MESSAGE, generateChallenge } from '../utils/near-auth';
+import { getUserBalance } from '@/utils/balance';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -108,14 +109,6 @@ router.post('/near/verify', async (req, res) => {
         // Remove the used challenge
         challenges.delete(accountId);
 
-        console.log({
-            accountId,
-            publicKey,
-            signature,
-            message: AUTH_MESSAGE,
-            recipient: 'http://localhost:4000',
-        })
-
         const isValid = await authenticate({
             accountId,
             publicKey,
@@ -124,7 +117,7 @@ router.post('/near/verify', async (req, res) => {
             recipient: 'http://localhost:4000',
             nonce: storedChallenge.challenge
         });
-        console.log('isValid', isValid);
+
         if (!isValid) {
             return res.status(401).json({ error: 'Invalid signature' });
         }
@@ -141,9 +134,10 @@ router.post('/near/verify', async (req, res) => {
                 nearImplicitAddress: accountId,
                 nearNamedAddress: accountId, // You might want to handle this differently
                 lastActiveAt: new Date(),
+                nonce: 0,
             },
         });
-        console.log('user', user);
+
         // Generate a new API key for the user
         const keyValue = crypto.randomBytes(32).toString('hex');
         const apiKey = await prisma.apiKey.create({
@@ -153,9 +147,17 @@ router.post('/near/verify', async (req, res) => {
                 isActive: true,
             },
         });
+        let balance 
+        try {
+            balance = await getUserBalance(user.id);
+        } catch (error) {
+            console.error('Error getting user balance:', error);
+            balance = { virtualBalance: 0 };
+        }
         
         return res.json({
             success: true,
+            balance: balance.virtualBalance,
             user,
             apiKey: { ...apiKey, keyValue },
             message: 'Authentication successful'

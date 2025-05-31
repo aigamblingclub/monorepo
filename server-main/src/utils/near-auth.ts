@@ -96,10 +96,8 @@ function verifySignature({ publicKey, signature, message, recipient, nonce }: {
     const myPK = PublicKey.from(publicKey)
     try {
       const result = myPK.verify(to_sign, real_signature)
-      console.log(`result: ${result}`)
       return result
     } catch (error) {
-      console.log('error', error)
       return false
     }
 }
@@ -108,23 +106,19 @@ async function verifyFullKeyBelongsToUser({ publicKey, accountId }: {
     publicKey: string;
     accountId: string;
 }): Promise<boolean> {
-    console.log({accountId, publicKey})
     // Call the public RPC asking for all the users' keys
     let data = await fetch_all_user_keys({ accountId })
 
     // if there are no keys, then the user could not sign it!
     if (!data?.result?.keys) return false
-    console.log('verifyFullKeyBelongsToUser data', data);
     // check all the keys to see if we find the used_key there
     for (const k of data.result.keys) {
-        console.log('k', k);
         if (k.public_key === publicKey) {
             // Ensure the key is full access, meaning the user had to sign
             // the transaction through the wallet
             return k.access_key.permission === "FullAccess"
         }
     }
-    console.log('verifyFullKeyBelongsToUser false');
     return false // didn't find it
 }
 

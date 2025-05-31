@@ -29,7 +29,7 @@ export function TransactionInput({
           id={id}
           value={value}
           onChange={onChange}
-          className="w-full text-xs px-3 py-2 bg-surface-tertiary border border-theme-primary rounded-border-radius-element text-theme-primary placeholder:text-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+          className="w-full text-xs px-3 bg-surface-tertiary border border-theme-primary rounded-border-radius-element text-theme-primary placeholder:text-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           placeholder="Enter amount"
           disabled={isLoading}
           autoComplete="off"
@@ -37,7 +37,7 @@ export function TransactionInput({
         <button
           onClick={onAction}
           disabled={isDisabled}
-          className="w-[200px] text-sm border px-4 py-2 text-theme-primary bg-transparent border-1 border-theme-primary rounded-border-radius-element font-bold hover:bg-surface-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 disabled:opacity-50 justify-start text-left"
+          className="w-[200px] text-sm border px-4 text-theme-primary bg-transparent border-1 border-theme-primary rounded-border-radius-element font-bold hover:bg-surface-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 disabled:opacity-50 justify-start text-left"
         >
           {isLoading ? '...' : actionLabel}
         </button>

@@ -3,7 +3,7 @@ import "@near-wallet-selector/modal-ui/styles.css";
 
 export function WalletButton() {
   const { isAuthenticated, isLoading, error, accountId, login, logout } = useAuth();
-  console.log({isAuthenticated, isLoading, error, accountId});
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-4">

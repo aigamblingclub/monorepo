@@ -15,7 +15,33 @@ interface ChatProps {
 }
   
 export const Chat: React.FC<ChatProps> = ({ gameState }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: '1',
+      text: 'Hello, how are you?',
+      timestamp: new Date(),
+      playerName: 'John Doe',
+    },
+    {
+      id: '2',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    {
+      id: '3',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    {
+      id: '4',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    
+  ]);
 
   useEffect(() => {
     const roleplay = gameState?.lastMove?.move?.decisionContext?.roleplay;
@@ -37,7 +63,7 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
   }, [gameState]);
 
   return (
-    <div className="h-full max-h-[20vh] w-full max-w-[800px] mx-auto border border-theme-primary rounded-border-radius-element bg-surface-primary">
+    <div className="w-full h-full max-h-[20vh] border border-theme-primary rounded-border-radius-element bg-surface-primary">
       {/* Chat header */}
       <div className="p-2 border-b border-theme-primary">
         <h3 className="text-theme-primary text-shadow-cyan text-lg font-bold">AI Agent Thoughts</h3>
@@ -46,12 +72,12 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
       {/* Thoughts container */}
       <SimpleBar 
         autoHide={false}
-        className="ai-thoughts-scrollbar h-[150px] overflow-y-auto"
+        className="ai-thoughts-scrollbar h-[100px] overflow-y-auto"
       >
         <div className="p-4 space-y-2">
           {messages.map((thought: ChatMessage) => (
             <div key={thought.id} className="flex items-baseline space-x-2">
-              <span className="text-theme-primary text-shadow-cyan font-bold min-w-[100px]">
+              <span className="text-theme-primary text-shadow-cyan font-bold">
                 {thought.playerName}:
               </span>
               <span className="text-theme-secondary text-shadow-cyan">

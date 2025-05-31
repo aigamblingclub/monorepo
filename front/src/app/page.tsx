@@ -17,12 +17,14 @@ function PageLayout({ children }: { children: ReactNode }) {
       <AuthProvider>
         <div className="bg-black">
           <header className="w-full flex justify-between items-start px-4 pt-2">
-            <div style={{ width: '150px' }}></div>
+            <div style={{ width: '30vw' }}></div>
             <div className="flex flex-col justify-center items-center">
               <h1 className="text-[var(--theme-primary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)] text-4xl font-bold my-1 block">AI Gambling Club</h1>
               <h2 className="text-[var(--theme-highlight)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-highlight)] text-xl mb-8 block">Poker Texas Hold&apos;em</h2>
             </div>
-            <WalletButton />
+            <div style={{ width: '30vw' }} className="flex justify-end items-center">
+              <WalletButton />
+            </div>
           </header>
           {children}
         </div>
@@ -31,12 +33,10 @@ function PageLayout({ children }: { children: ReactNode }) {
   );
 }
 
-export default function Home() {
+function HomeContent() {
   const [gameState, setGameState] = useState<PokerState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  console.log("🔍 NEXT_PUBLIC_CONTRACT_ID:", process.env.NEXT_PUBLIC_CONTRACT_ID);
 
   // Use the betting hook at the page level
   const {
@@ -46,9 +46,7 @@ export default function Home() {
     error: bettingError,
     placeBet,
     isConnected
-  } = usePlayerBetting({
-    contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
-  });
+  } = usePlayerBetting();
 
   useEffect(() => {
     const getState = async () => {
@@ -69,80 +67,91 @@ export default function Home() {
         console.error(err);
       }
     };
-    getState()
-    // const interval = setInterval(getState, 1000);
-    // return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const interval = setInterval(getState, 1000);
+    return () => clearInterval(interval);
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
-      <PageLayout>
-        <div className="text-neon-green text-2xl">Loading game state...</div>
-      </PageLayout>
+      <div className="text-neon-green text-2xl">Loading game state...</div>
     );
   }
 
   if (error) {
     return (
-      <PageLayout>
-        <div className="text-neon-red text-2xl">Error: {error}</div>
-      </PageLayout>
+      <div className="text-neon-red text-2xl">Error: {error}</div>
     );
   }
 
   if (!gameState) {
     return (
-      <PageLayout>
-        <div className="text-neon-yellow text-2xl flex justify-center items-center" style={{ marginTop: '200px' }}>
-          Waiting for game...
-        </div>
-      </PageLayout>
+      <div className="text-neon-yellow text-2xl flex justify-center items-center" style={{ marginTop: '200px' }}>
+        Waiting for game...
+      </div>
     );
   }
 
   return (
-    <PageLayout>
-      <div className="h-full flex flex-col">
-        <div className="flex flex-row">
-          <div className="w-[300px] px-4">
-            <MoveHistoryPanel gameState={gameState} />
+    <div className="h-full flex flex-col">
+      <div className="flex flex-col lg:flex-row">
+        {/* History Panel - Moves to bottom on mobile */}
+        <div className="w-full lg:w-[400px] px-4 order-3 lg:order-1">
+          <MoveHistoryPanel gameState={gameState} />
+        </div>
+        
+        {/* Main Game Area - Stays in middle */}
+        <div className="flex flex-col w-full order-2">
+          <PokerTable 
+            gameState={gameState} 
+            playerBets={playerBets.map(bet => ({
+              playerId: bet.playerId,
+              totalBet: bet.totalBet,
+              betAmount: bet.betAmount
+            }))} 
+          />
+          <div className="w-full max-h-64 mt-4 px-4 pb-4">
+            <Chat gameState={gameState} />
           </div>
-          <div className="flex flex-col">
-            <PokerTable gameState={gameState} playerBets={playerBets} />
-            <div className="w-full max-h-64 mt-4 px-4 pb-4">
-              <Chat gameState={gameState} />
-            </div>
-          </div>
+        </div>
 
-          <div className="w-[300px] px-4">
-            <div className="">
-              <BettingPanel
-                players={
-                  gameState?.players?.length > 0 ? [...gameState.players] : []
-                }
-                playerBets={playerBets}
-                onPlaceBet={placeBet}
-                userBalance={userBalance}
-                isLoggedIn={isConnected}
-              />
-              {bettingError && (
-                <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
-                  <p className="text-theme-alert text-shadow-red text-sm">
-                    {bettingError}
-                  </p>
-                </div>
-              )}
-              {bettingLoading && (
-                <div className="mt-4 text-center">
-                  <p className="text-theme-secondary text-shadow-cyan text-sm">
-                    Loading...
-                  </p>
-                </div>
-              )}
-            </div>
+        {/* Betting Panel - Moves to top on mobile */}
+        <div className="w-full lg:w-[400px] px-4 order-1 lg:order-3">
+          <div className="">
+            <BettingPanel
+              players={
+                gameState?.players?.length > 0 ? [...gameState.players] : []
+              }
+              playerBets={playerBets}
+              onPlaceBet={placeBet}
+              userBalance={userBalance}
+              isLoggedIn={isConnected}
+            />
+            {bettingError && (
+              <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
+                <p className="text-theme-alert text-shadow-red text-sm">
+                  {bettingError}
+                </p>
+              </div>
+            )}
+            {bettingLoading && (
+              <div className="mt-4 text-center">
+                <p className="text-theme-secondary text-shadow-cyan text-sm">
+                  Loading...
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <PageLayout>
+      <HomeContent />
     </PageLayout>
   );
 }

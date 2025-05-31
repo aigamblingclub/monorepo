@@ -7,7 +7,14 @@ export let currentStatePoker: PokerState | null = null;
 
 export const updatePokerState = async (interval: number) => {
   if (!currentStatePoker) {
-    currentStatePoker = await getCurrentStatePoker();
+    const raw = await prisma.rawState.findFirst({
+      where: { status: 'active' },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        data: true,
+      },
+    });
+    currentStatePoker = raw ? JSON.parse(raw.data as string) : null;
   }
   setInterval(async () => {
     if (!process.env.POKER_API_URL) {
@@ -17,9 +24,10 @@ export const updatePokerState = async (interval: number) => {
 
     const currentState = await getCurrentStatePoker();
     // Only update the state if the data is different
+
     if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
       console.log('Current state from poker server', currentState);
-      currentStatePoker = currentState; 
+      currentStatePoker = currentState;
       await saveCurrentStateToDatabase(currentState);
     }
   }, interval || 2000);
@@ -71,49 +79,67 @@ const getCurrentStatePoker = async () => {
 
 // save the current state to the database
 export const saveCurrentStateToDatabase = async (state: PokerState) => {
-  await prisma.rawState.create({
-    data: { data: JSON.stringify(state), status: 'active', updatedAt: new Date() },
-  });
+  await prisma.$transaction(async tx => {
+    await tx.rawState.create({
+      data: { data: JSON.stringify(state), status: 'active', updatedAt: new Date() },
+    });
 
-  // save to table
-  await prisma.table.upsert({
-    where: { tableId: state.tableId },
-    update: {
-      tableId: state.tableId,
-      tableStatus: state.tableStatus,
-      config: state.config,
-      winners: state.winner ? [state.winner] : [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    create: {
-      tableId: state.tableId,
-      tableStatus: state.tableStatus,
-      volume: 0, // TODO: sum of all bets, query?
-      totalBets: 0, // TODO: sum of all bets, query?
-      config: state.config,
-    },
-  });
-
-  // save to players
-  for (const player of state.players) {
-    const currentPlayer = currentStatePoker?.players.find(p => p.id === player.id);
-    if (currentPlayer?.playerName === player.playerName) {
-      continue;
-    }
-    await prisma.player.upsert({
-      where: { playerId: player.id },
+    // save to table
+    await tx.table.upsert({
+      where: { tableId: state.tableId },
       update: {
-        playerName: player.playerName,
+        tableId: state.tableId,
+        tableStatus: state.tableStatus,
+        config: state.config,
+        winners: state.winner ? [state.winner] : [],
+        createdAt: new Date(),
         updatedAt: new Date(),
       },
       create: {
-        playerId: player.id,
-        playerName: player.playerName,
-        nonce: 0,
-        updatedAt: new Date(),
+        tableId: state.tableId,
+        tableStatus: state.tableStatus,
+        volume: 0, // TODO: sum of all bets, query?
+        totalBets: 0, // TODO: sum of all bets, query?
+        config: state.config,
       },
     });
-  }
-  // TODO add info to all other tables, rounds, phases, moves, playerHands;
+
+    // save to players
+    for (const player of state.players) {
+      await tx.player.upsert({
+        where: { playerId: player.id },
+        update: {
+          playerName: player.playerName,
+          updatedAt: new Date(),
+        },
+        create: {
+          playerId: player.id,
+          playerName: player.playerName,
+          updatedAt: new Date(),
+        },
+      });
+      await tx.player_Table.upsert({
+        where: {
+          playerId_tableId: {
+            playerId: player.id,
+            tableId: state.tableId,
+          },
+        },
+        update: {
+          status: 'active',
+          volume: player.bet.volume, // ? TODO: sum of all bets in all rounds
+          currentBalance: player.chips,
+        },
+        create: {
+          playerId: player.id,
+          tableId: state.tableId,
+          status: 'active',
+          volume: 0,
+          initialBalance: player.chips,
+          currentBalance: player.chips,
+        },
+      });
+    }
+    // TODO add info to all other tables, rounds, phases, moves, playerHands;
+  });
 };

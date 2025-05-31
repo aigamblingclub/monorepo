@@ -52,8 +52,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    console.log("🔍 body:", body);
-    console.log("🔍 Body verify:", { signature, accountId, publicKey });
 
     const response = await fetch(
       `${API_URL}/api/auth/near/verify`,
@@ -71,8 +69,6 @@ export async function POST(request: Request) {
         }),
       }
     );
-
-    console.log("🔍 Response verify:", response);
 
     if (!response.ok) {
       return NextResponse.json(

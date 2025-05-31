@@ -14,7 +14,7 @@ export async function callViewMethod(contractId: string, methodName: string, arg
     url: nodeUrl
   };
   const provider = new providers.JsonRpcProvider(connectionConfig);
-  
+
   try {
     const result = await provider.query({
       request_type: 'call_function',

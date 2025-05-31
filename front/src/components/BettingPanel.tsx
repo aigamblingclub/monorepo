@@ -5,8 +5,8 @@ import { Transactions } from "./Transactions";
 
 export interface PlayerBet {
   playerId: string;
-  totalContractBet: number;
-  userContractBet: number;
+  totalBet: number;
+  betAmount: number;
 }
 
 interface BettingPanelProps {
@@ -81,8 +81,8 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
                 (bet: PlayerBet) => bet.playerId === player.id
               ) || {
                 playerId: player.id,
-                totalContractBet: 0,
-                userContractBet: 0,
+                totalBet: 0,
+                betAmount: 0,
               };
 
               return (
@@ -90,8 +90,8 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
                   key={player.id}
                   playerId={player.id}
                   playerName={player.playerName}
-                  totalContractBet={playerBet.totalContractBet}
-                  userContractBet={playerBet.userContractBet}
+                  totalBet={playerBet.totalBet}
+                  bet={playerBet}
                   onPlaceBet={onPlaceBet}
                 />
               );
