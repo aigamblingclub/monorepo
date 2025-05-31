@@ -86,20 +86,6 @@ model Player {
   userBets        UserBet[]
 }
 
-model Player_Table {
-  id        Int      @id @default(autoincrement())
-  player    Player   @relation(fields: [playerId], references: [playerId])
-  playerId  String
-  table     Table    @relation(fields: [tableId], references: [tableId])
-  tableId   String
-  status    String    // Non Necessary, use Move.
-  volume    Int // Round Volume(pot) + PlayerBet Volume
-  initialBalance  Int
-  currentBalance  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 /// Game Flow
 model Round {
   id          Int      @id @default(autoincrement())

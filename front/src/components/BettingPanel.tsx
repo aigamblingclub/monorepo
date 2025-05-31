@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { PlayerBetting } from "./PlayerBetting";
 import { PlayerState } from "../types/poker";
 import { Transactions } from "./Transactions";
+import { useNearWallet } from "@/hooks/useNearWallet";
 
 export interface PlayerBet {
   playerId: string;
@@ -24,6 +25,8 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
   userBalance,
   isLoggedIn,
 }) => {
+  const { getUsdcWalletBalance, accountId } = useNearWallet();
+  const [userBalanceOnChain, setUserBalanceOnChain] = useState(0);
   // Only show betting for active players
   const activePlayers = players.filter(
     (player: PlayerState) => player.status !== "FOLDED"
@@ -42,14 +45,28 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
   const actuallyLoggedIn =
     isLoggedIn || playerBets.length > 0 || userBalance > 0;
 
+  useEffect(() => {
+    if (accountId) {
+      getUsdcWalletBalance(accountId).then((balance) => {
+        setUserBalanceOnChain(balance);
+      });
+    }
+  }, [accountId]);
+
+
   return (
     <div className="max-h-[calc(100vh-2rem)] overflow-y-auto shadow-[0_0_var(--shadow-strength)_var(--theme-primary),inset_0_0_var(--shadow-inner-strength)_var(--theme-primary)] border-2 border-theme-primary rounded-border-radius-element p-4 bg-surface-secondary">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-theme-accent text-shadow-pink text-xl">
           Player Betting
         </h3>
-        <div className="text-theme-primary text-shadow-green text-sm">
-          {actuallyLoggedIn ? `Your Balance: $${userBalance}` : ""}
+        <div className="flex flex-col">
+          <div className="text-theme-primary text-shadow-green text-sm">
+            {actuallyLoggedIn ? `Your Game Balance: $${userBalance}` : ""}
+          </div>
+          <div className="text-theme-primary text-shadow-green text-sm">
+            {`Onchain Balance: $${userBalanceOnChain}`}
+          </div>
         </div>
       </div>
 
