@@ -385,7 +385,14 @@ function HomeContent() {
         
         {/* Main Game Area - Stays in middle */}
         <div className="flex flex-col w-full order-2">
-          <PokerTable gameState={gameState} playerBets={playerBets} />
+          <PokerTable 
+            gameState={gameState} 
+            playerBets={playerBets.map(bet => ({
+              playerId: bet.playerId,
+              totalBet: bet.totalBet,
+              betAmount: bet.betAmount
+            }))} 
+          />
           <div className="w-full max-h-64 mt-4 px-4 pb-4">
             <Chat gameState={gameState} />
           </div>

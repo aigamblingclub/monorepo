@@ -5,15 +5,16 @@ import { useAuth } from '@/providers/AuthProvider';
 
 interface BetResponse {
   playerId: string;
-  totalContractBet: number;
-  userContractBet: number;
+  totalBet: number; // total bet amount of the player in the table
+  totalUserBet: number; // total bet amount of the user in the table in the playerId
 }
 
 interface AllBetsResponse {
+  success: boolean;
   playerBets: BetResponse[];
-  userTotalBets: number;
-  totalBetsByPlayer: Record<string, number>;
-  totalBets: number;
+  totalBetsByPlayer: Record<string, number>; // total bets in the table by playerId
+  totalBets: number; // total bet of the table
+  error?: string;
 }
 
 export const usePlayerBetting = () => {
@@ -27,19 +28,15 @@ export const usePlayerBetting = () => {
 
   const isConnected = !!accountId;
 
-  useEffect(() => {
+  const getBalance = useCallback(async () => {
     if (user && apiKey) {
-      const getBalance = async () => {
-        const data = await fetch('/api/balance', {
-          headers: {
-            "x-api-key": apiKey || "",
-          },
-        });
-
-        const balanceData = await data.json();
-        setUserBalance(balanceData.balance);
-      }
-      getBalance();
+      const data = await fetch('/api/balance', {
+        headers: {
+          "x-api-key": apiKey || "",
+        },
+      });
+      const balanceData = await data.json();
+      setUserBalance(balanceData.balance);
     }
   }, [user, apiKey]);
 
@@ -67,9 +64,21 @@ export const usePlayerBetting = () => {
 
       const data: AllBetsResponse = await response.json();
       console.log("🔍 data fetching betting data", data);
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch betting data');
+      }
+
+      // Convert BetResponse to PlayerBet format
+      const formattedBets: PlayerBet[] = data.playerBets.map(bet => ({
+        playerId: bet.playerId,
+        totalBet: bet.totalBet,
+        betAmount: bet.totalUserBet
+      }));
+
       // Update state with fetched data
-      setPlayerBets(data.playerBets);
-      setUserBalance(data.userTotalBets);
+      setPlayerBets(formattedBets);
+      getBalance();
 
     } catch (err) {
       console.error('❌ Error fetching betting data:', err);
@@ -80,7 +89,7 @@ export const usePlayerBetting = () => {
       setLoading(false);
       setInitialized(true);
     }
-  }, [accountId, apiKey]);
+  }, [accountId, apiKey, getBalance]);
 
   const placeBet = useCallback(async (playerId: string, amount: number) => {
     if (!accountId || !apiKey) {
@@ -125,9 +134,10 @@ export const usePlayerBetting = () => {
 
   useEffect(() => {
     if (accountId && apiKey && !loading && !initialized) {
-      fetchData();
+      getBalance();
+      fetchData();  
     }
-  }, [accountId, apiKey, loading, initialized, fetchData]);
+  }, [accountId, apiKey, loading, initialized, fetchData, getBalance]);
 
   return useMemo(() => ({
     playerBets,

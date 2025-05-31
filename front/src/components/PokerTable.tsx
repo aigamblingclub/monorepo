@@ -2,14 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card } from './Card';
 import { Player } from './Player';
 import { PlayerState, PokerState, formatChips, getPhaseLabel, Card as CardType } from '../types/poker';
+import { PlayerBet } from './BettingPanel';
 
 interface PokerTableProps {
   gameState: PokerState;
-  playerBets: Array<{
-    playerId: string;
-    totalContractBet: number;
-    userContractBet: number;
-  }>;
+  playerBets: PlayerBet[];
 }
 
 const getPlayerPosition = (index: number, totalPlayers: number): 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 => {
@@ -71,11 +68,11 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             {/* Players */}
             {gameState?.players?.map((player: PlayerState, index: number) => {
               const playerBet = playerBets.find(
-                (bet: { playerId: string; totalContractBet: number; userContractBet: number }) => bet.playerId === player.id
+                (bet: PlayerBet) => bet.playerId === player.id
               ) || {
                 playerId: player.id,
-                totalContractBet: 0,
-                userContractBet: 0,
+                totalBet: 0,
+                betAmount: 0,
               };
 
               return (
@@ -87,8 +84,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                   )}
                   {...player}
                   isCurrentPlayer={index === gameState?.currentPlayerIndex}
-                  totalContractBet={playerBet.totalContractBet}
-                  userContractBet={playerBet.userContractBet}
+                  totalContractBet={playerBet.totalBet}
+                  userContractBet={playerBet.betAmount}
                 />
               );
             })}
@@ -131,7 +128,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 <>
                   {/* Pot and current bet */}
                   <div className="text-base text-[var(--theme-highlight)] [text-shadow:0_0_5px_var(--theme-highlight)] mb-4 border border-[var(--theme-highlight)] p-2 rounded-md bg-black/50">
-                    <div>POT: ${formatChips(gameState.pot)}</div>
+                    <div>POT: ${formatChips(gameState.round.volume)}</div>
                     {gameState.round?.currentBet > 0 && (
                       <div className="current-bet">
                         Current Bet: ${formatChips(gameState.round.currentBet)}

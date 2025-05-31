@@ -1,18 +1,19 @@
 import React, { useState, useCallback } from 'react';
 import { formatChips } from '../types/poker';
+import { PlayerBet } from './BettingPanel';
 
 interface PlayerBettingProps {
   playerId: string;
   playerName: string;
-  totalContractBet: number;
-  userContractBet: number;
+  totalBet: number;
+  bet: PlayerBet;
   onPlaceBet: (playerId: string, amount: number) => void;
 }
 
 export const PlayerBetting: React.FC<PlayerBettingProps> = ({
   playerName,
-  totalContractBet,
-  userContractBet,
+  totalBet,
+  bet,
   playerId,
   onPlaceBet,
 }) => {
@@ -34,11 +35,11 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
 
       <div className="text-sm mb-1">
         <div className="text-theme-primary text-shadow-green">
-          Total Pool: ${formatChips(totalContractBet)}
+          Total Pool: ${formatChips(totalBet)}
         </div>
-        {userContractBet > 0 && (
+        {bet.betAmount > 0 && (
           <div className="text-theme-accent text-shadow-pink">
-            Your Bet: ${formatChips(userContractBet)}
+            Your Bet: ${formatChips(bet.betAmount)}
           </div>
         )}
       </div>
@@ -54,14 +55,15 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
         <button
           onClick={handleBet}
           className="px-3 border border-theme-primary bg-theme-primary text-surface-primary rounded-border-radius-element hover:bg-theme-highlight transition-colors"
+          disabled={!betAmount || isNaN(Number(betAmount)) || Number(betAmount) <= 0}
         >
           Bet
         </button>
       </div>
 
-      {userContractBet > 0 && totalContractBet > 0 && (
+      {bet.betAmount > 0 && totalBet > 0 && (
         <div className="mt-2 text-xs text-theme-secondary text-shadow-cyan">
-          Your share: {((userContractBet / (totalContractBet || 1)) * 100).toFixed(1)}% of pool
+          Your share: {((bet.betAmount / (totalBet || 1)) * 100).toFixed(1)}% of pool
         </div>
       )}
     </div>
