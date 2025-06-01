@@ -20,6 +20,7 @@
     "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug",
     "agent-start": "npx pnpm --dir agent start",
     "agent": "pnpm agent-build && pnpm --dir agent start",
-    "build-all": "pnpm poker-build && pnpm server-build && pnpm agent-build && pnpm front-build"
+    "build-all": "pnpm poker-build && pnpm server-build && pnpm agent-build && pnpm front-build",
+    "install-all": "bun install && pnpm --dir server-main install && pnpm --dir agent install && pnpm --dir front install"
   }
 }

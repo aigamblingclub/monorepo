@@ -213,26 +213,6 @@ export function useNearWallet() {
     });
   };
 
-  const viewMethod = async (methodName: string, args = {}) => {
-    const { selector } = walletState;
-    if (!selector) throw new Error("Wallet not initialized");
-    const wallet = await selector.wallet();
-    return wallet.signAndSendTransaction({
-      receiverId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
-      actions: [
-        {
-          type: "FunctionCall",
-          params: {
-            methodName,
-            args,
-            gas: "0",
-            deposit: "0",
-          },
-        },
-      ],
-    });
-  };
-
   const getNearBalance = async () => {
     const { selector } = walletState;
     if (!selector) throw new Error("Wallet not initialized");
@@ -281,7 +261,6 @@ export function useNearWallet() {
       signIn,
       signOut,
       callMethod,
-      viewMethod,
       getNearBalance,
       getUsdcWalletBalance,
       callViewMethod,
@@ -289,6 +268,6 @@ export function useNearWallet() {
       isConnected: walletState.accountId !== null,
       isConnecting: walletState.isConnecting,
     }),
-    [walletState, signIn, signOut, callMethod, viewMethod]
+    [walletState, signIn, signOut, callMethod]
   );
 }
