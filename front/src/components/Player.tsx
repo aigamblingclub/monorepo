@@ -144,16 +144,16 @@ export const Player: React.FC<PlayerProps> = ({
               <div className="text-white font-mono text-xs font-bold truncate">
                 {playerName}
               </div>
-              <div className={`${statusColor()} font-mono text-[10px] flex items-center`}>
+              <div className={`${statusColor()} font-mono text-[10px] flex items-center ${isCurrentPlayer && status === "PLAYING" ? "animate-pulse" : ""}`}>
                 <span className="mr-1">{getStatusIcon()}</span>
-                {status === "PLAYING" ? "Ready" : status}
+                {status === "PLAYING" ? (isCurrentPlayer ? "Thinking..." : "Ready") : status}
               </div>
             </div>
           </div>
 
           {/* Chips Display */}
-          <div className="mb-2">
-            <div className="text-white font-mono text-[10px] mb-1">
+          <div className="mt-1">
+            <div className="text-white font-mono text-[10px]">
               <span className="text-gray-400">Chips:</span>
               <span className="text-green-400 ml-1 font-bold">${formatChips(chips)}</span>
             </div>
@@ -161,7 +161,7 @@ export const Player: React.FC<PlayerProps> = ({
 
           {/* Betting Information */}
           {(bet.amount > 0 || bet.volume > 0) && (
-            <div className="mb-2 space-y-1">
+            <div className="space-y-1">
               {bet.amount > 0 && (
                 <div className="text-white font-mono text-[10px]">
                   <span className="text-gray-400">Round Bet:</span>
@@ -194,29 +194,20 @@ export const Player: React.FC<PlayerProps> = ({
               )}
             </div>
           )}
-
-          {/* Current Player Indicator */}
-          {isCurrentPlayer && (
-            <div className="mt-2 text-center">
-              <div className="text-green-400 font-mono text-[10px] animate-pulse">
-                ▶ Thinking...
-              </div>
-            </div>
-          )}
-
-          {/* Player's Hand */}
-          {hand.length > 0 && (
-            <div className="mt-2 flex gap-1 justify-center">
-              {hand.map((card: CardType, index: number) => (
-                <Card
-                  key={`${card.rank}-${card.suit}-${index}`}
-                  card={card}
-                  className="scale-50"
-                />
-              ))}
-            </div>
-          )}
         </div>
+
+        {/* Player's Hand */}
+        {hand.length > 0 && (
+          <div className="flex justify-center mt-2 gap-2">
+            {hand.map((card: CardType, index: number) => (
+              <Card
+                key={`${card.rank}-${card.suit}-${index}`}
+                card={card}
+                isPlayerFolded={status === "FOLDED"}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

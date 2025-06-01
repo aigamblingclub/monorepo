@@ -175,7 +175,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               </div>
             </div>
           )}
-          {ready && !showProgressBar && (
+          {ready && (
             <>
               {/* Pot and current bet */}
               <div className="text-base text-white font-mono mb-4 border border-white p-2 bg-black w-[249px] mx-auto">

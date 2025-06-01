@@ -218,7 +218,7 @@ export default function Home() {
 const fakeData: PokerState[] = [
   {
     "tableId": "1",
-    "tableStatus": "WAITING",
+    "tableStatus": "GAME_OVER",
     "players": [
       {
         "id": "472a3913-2ead-05b5-9ee2-1693304f5862",
@@ -226,10 +226,19 @@ const fakeData: PokerState[] = [
         "status": "PLAYING",
         "playedThisPhase": false,
         "position": "SB",
-        "hand": [],
+        "hand": [
+          {
+            "rank": 1,
+            "suit": "hearts"
+          },
+          {
+            "rank": 13,
+            "suit": "diamonds"
+          }
+        ],
         "chips": 1000,
         "bet": {
-          "amount": 0,
+          "amount": 50,
           "volume": 0
         }
       },
@@ -239,7 +248,16 @@ const fakeData: PokerState[] = [
         "status": "PLAYING",
         "playedThisPhase": false,
         "position": "BB",
-        "hand": [],
+        "hand": [
+          {
+            "rank": 5,
+            "suit": "spades"
+          },
+          {
+            "rank": 10,
+            "suit": "clubs"
+          }
+        ],
         "chips": 1000,
         "bet": {
           "amount": 0,
@@ -248,23 +266,44 @@ const fakeData: PokerState[] = [
       }
     ],
     "lastMove": null,
-    "currentPlayerIndex": -1,
+    "currentPlayerIndex": 0,
     "deck": [],
-    "community": [],
+    "community": [
+      {
+        "rank": 11,
+        "suit": "clubs"
+      },
+      {
+        "rank": 12,
+        "suit": "clubs"
+      },
+      {
+        "rank": 13,
+        "suit": "clubs"
+      },
+      {
+        "rank": 1,
+        "suit": "diamonds"
+      },
+      {
+        "rank": 1,
+        "suit": "spades"
+      }
+    ],
     "phase": {
-      "street": "PRE_FLOP",
+      "street": "SHOWDOWN",
       "actionCount": 0,
       "volume": 0
     },
     "round": {
       "roundNumber": 1,
       "volume": 0,
-      "currentBet": 0,
+      "currentBet": 50,
       "foldedPlayers": [],
       "allInPlayers": []
     },
     "dealerId": "",
-    "winner": null,
+    "winner": "The Showman",
     "config": {
       "maxRounds": null,
       "startingChips": 1000,
