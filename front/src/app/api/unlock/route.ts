@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const error = await response.json();
       return NextResponse.json(
-        { error: error.error || "Failed to process withdrawal" },
+        { error: error.error || "Failed to process unlock" },
         { status: response.status }
       );
     }
@@ -42,9 +42,9 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error processing withdrawal:", error);
+    console.error("Error processing unlock:", error);
     return NextResponse.json(
-      { error: "Failed to process withdrawal" },
+      { error: "Failed to process unlock" },
       { status: 500 }
     );
   }
