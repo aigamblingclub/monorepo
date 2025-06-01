@@ -3,6 +3,7 @@ import { PlayerBetting } from "./PlayerBetting";
 import { PlayerState } from "../types/poker";
 import { Transactions } from "./Transactions";
 import { useNearWallet } from "@/hooks/useNearWallet";
+import { formatUsdcDisplay } from "@/utils/usdcBalance";
 
 export interface PlayerBet {
   playerId: string;
@@ -64,10 +65,10 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
         </h3>
         <div className="flex flex-col">
           <div className="text-theme-primary text-shadow-green text-sm">
-            {actuallyLoggedIn ? `Your Game Balance: $${userBalance}` : ""}
+            {actuallyLoggedIn ? `Your Game Balance: ${formatUsdcDisplay(userBalance)}` : ""}
           </div>
           <div className="text-theme-primary text-shadow-green text-sm">
-            {`Onchain Balance: $${userBalanceOnChain}`}
+            {`Onchain Balance: ${formatUsdcDisplay(userBalanceOnChain)}`}
           </div>
         </div>
       </div>
