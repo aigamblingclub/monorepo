@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import { PrismaClient } from '@/prisma';
 import { getOnChainNonce, getOnChainUsdcBalance } from '@/utils/near';
+import { AGC_CONTRACT_ID } from './env';
 
 const prisma = new PrismaClient();
 
@@ -46,6 +47,30 @@ export async function getUserByNearAddress(nearImplicitAddress: string) {
     where: { nearImplicitAddress },
     select: { id: true, nearImplicitAddress: true, nearNamedAddress: true }
   });
+}
+
+/**
+ * Check if user has a pending unlock that hasn't expired yet
+ */
+export async function checkPendingUnlock(userId: number): Promise<{ hasPendingUnlock: boolean; error?: string }> {
+  const userBalance = await prisma.userBalance.findFirst({
+    where: { 
+      userId,
+      pendingUnlock: true,
+      pendingUnlockDeadline: {
+        gt: new Date() // Check if deadline is in the future
+      }
+    }
+  });
+
+  if (userBalance) {
+    return { 
+      hasPendingUnlock: true, 
+      error: 'User has a pending unlock that has not expired yet' 
+    };
+  }
+
+  return { hasPendingUnlock: false };
 }
 
 /**
@@ -144,9 +169,7 @@ export async function updateUserBalances(userId: number, onchainBalance: number,
  * Validate unlock request with all business logic
  */
 export async function validateUnlockRequest(
-  nearImplicitAddress: string, 
-  unlockUsdcBalance: number,
-  onChainNonce: number
+  nearImplicitAddress: string,
 ): Promise<ContractValidationResult> {
   try {
     // 1. Query User table
@@ -155,22 +178,26 @@ export async function validateUnlockRequest(
       return { isValid: false, error: 'User not found' };
     }
 
-    // 2. Check if user is in an active game
+    // 2. Check if user has a pending unlock and if the deadline has passed
+    const pendingUnlockCheck = await checkPendingUnlock(user.id);
+    if (pendingUnlockCheck.hasPendingUnlock) {
+      return { 
+        isValid: false, 
+        error: pendingUnlockCheck.error 
+      };
+    }
+    
+    // 3. Check if user is in an active game
     const gameStatus = await checkUserGameStatus(user.id);
     if (!gameStatus.canWithdraw) {
       return { isValid: false, error: gameStatus.error };
     }
-
-    // 3. Check nonce synchronization
+    
+    // 4. Check nonce synchronization
+    const onChainNonce = await getOnChainNonce(AGC_CONTRACT_ID, nearImplicitAddress);
     const dbNonce = await getUserNonce(nearImplicitAddress);
-    if (onChainNonce > dbNonce) {
-      // Sync with on-chain balance when nonce is higher
-      const contractId = process.env.AGC_CONTRACT_ID;
-      if (!contractId) {
-        throw new Error('AGC_CONTRACT_ID not set in environment');
-      }
-      
-      const onChainBalance = await getOnChainUsdcBalance(contractId, nearImplicitAddress);
+    if (onChainNonce > dbNonce) {      
+      const onChainBalance = await getOnChainUsdcBalance(AGC_CONTRACT_ID, nearImplicitAddress);
       
       // Update both nonce and balances in database
       await updateUserNonce(nearImplicitAddress, onChainNonce);
@@ -181,14 +208,8 @@ export async function validateUnlockRequest(
       console.log(`  Balance: synced to ${onChainBalance}`);
     }
 
-    // 4. Check virtual balance
+    // 5. Get virtual balance
     const virtualBalance = await getUserVirtualBalance(user.id);
-    if (unlockUsdcBalance > virtualBalance) {
-      return { 
-        isValid: false, 
-        error: `Insufficient virtual balance. Requested: ${unlockUsdcBalance}, Available: ${virtualBalance}` 
-      };
-    }
 
     return {
       isValid: true,

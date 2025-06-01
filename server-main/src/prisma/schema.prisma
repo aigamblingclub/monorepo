@@ -47,7 +47,7 @@ model UserBalance {
   onchainBalance   Int
   virtualBalance   Int
   pendingUnlock   Boolean @default(false)
-  pendingUnlockTxHash       String?
+  pendingUnlockDeadline     DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

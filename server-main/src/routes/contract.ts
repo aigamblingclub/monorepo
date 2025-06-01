@@ -6,6 +6,7 @@ import {
   GameResult 
 } from '@/utils/contract';
 import { getOnChainNonce } from '@/utils/near';
+import { AGC_CONTRACT_ID } from '@/utils/env';
 
 const router = Router();
 
@@ -77,40 +78,19 @@ interface SignMessageResponse {
  */
 router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, res) => {
   try {
-    const { nearImplicitAddress, unlockUsdcBalance }: SignMessageRequest = req.body;
+    const { nearImplicitAddress }: SignMessageRequest = req.body;
 
     // Validate required fields
-    if (!nearImplicitAddress || unlockUsdcBalance === undefined) {
+    if (!nearImplicitAddress) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields: nearImplicitAddress, unlockUsdcBalance' 
+        error: 'Missing required fields: nearImplicitAddress' 
       });
     }
-
-    // Validate unlock amount
-    if (unlockUsdcBalance <= 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Unlock USDC balance amount must be greater than 0' 
-      });
-    }
-
-    // Get on-chain nonce from the AI Gambling Club contract
-    const contractAddress = process.env.AGC_CONTRACT_ID;
-    if (!contractAddress) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'AGC_CONTRACT_ID not configured' 
-      });
-    }
-    
-    const onChainNonce = await getOnChainNonce(contractAddress, nearImplicitAddress);
 
     // Validate unlock request with all business logic
     const validation = await validateUnlockRequest(
       nearImplicitAddress, 
-      unlockUsdcBalance, 
-      onChainNonce
     );
 
     if (!validation.isValid) {

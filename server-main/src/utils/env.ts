@@ -178,6 +178,22 @@ if(!process.env.USDC_CONTRACT_ID) {
  * The NEAR Protocol contract ID for USDC token operations
  * Used for server-side USDC balance checks and transaction processing
  * @type {string}
- * @example "usdc.tether-token.near"
+ * @example "usdc.near"
  */
 export const USDC_CONTRACT_ID = process.env.USDC_CONTRACT_ID;
+
+/**
+ * AGC contract ID validation
+ * @throws {Error} When AGC_CONTRACT_ID is not set
+ */
+if(!process.env.AGC_CONTRACT_ID) {
+    throw new Error('AGC_CONTRACT_ID is not set');
+}
+
+/**
+ * The NEAR Protocol contract ID for the AI Gambling Club contract
+ * Used for server-side AGC contract interactions and balance operations
+ * @type {string}
+ * @example "aigamblingclub.near"
+ */
+export const AGC_CONTRACT_ID = process.env.AGC_CONTRACT_ID;
