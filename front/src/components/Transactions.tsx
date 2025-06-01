@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useNearWallet } from '@/hooks/useNearWallet';
 import { TransactionInput } from './TransactionInput';
+import { NEXT_PUBLIC_CONTRACT_ID } from "@/utils/env";
 
 export function Transactions() {
   const { accountId } = useAuth();
@@ -26,7 +27,7 @@ export function Transactions() {
       await callMethod({
         methodName: "ft_transfer_call",
         args: {
-          receiver_id: process.env.NEXT_PUBLIC_CONTRACT_ID,
+          receiver_id: NEXT_PUBLIC_CONTRACT_ID,
           amount: transferAmount,
           msg: "Deposit to AI Gambling Club",
         },
@@ -58,7 +59,7 @@ export function Transactions() {
       //     amount: transferAmount,
       //   },
       //   deposit: "0",
-      //   receiverId: process.env.NEXT_PUBLIC_CONTRACT_ID,
+      //   receiverId: NEXT_PUBLIC_CONTRACT_ID,
       // });
 
       // TODO TEST
@@ -89,7 +90,7 @@ export function Transactions() {
           gameResult,
         },
         deposit: "0",
-        receiverId: process.env.NEXT_PUBLIC_CONTRACT_ID,
+        receiverId: NEXT_PUBLIC_CONTRACT_ID,
       });
 
       setWithdrawAmount("");

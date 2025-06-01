@@ -5,7 +5,7 @@ import { PokerTable } from '../components/PokerTable';
 import { PokerState } from '../types/poker';
 import { WalletProvider } from "@/providers/WalletProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { WalletButton } from "@/components/WalletButton";
+import { WalletMenu } from "@/components/WalletMenu";
 import { BettingPanel } from "@/components/BettingPanel";
 import { usePlayerBetting } from "@/hooks/usePlayerBetting";
 import { Chat } from "@/components/Chat";
@@ -24,7 +24,7 @@ function PageLayout({ children }: { children: ReactNode }) {
               <h2 className="text-[var(--theme-highlight)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-highlight)] text-xl mb-8 block">Poker Texas Hold&apos;em</h2>
             </div>
             <div style={{ width: '30vw' }} className="flex justify-end items-center">
-              <WalletButton />
+              <WalletMenu />
             </div>
           </header>
           {children}

@@ -27,7 +27,7 @@ import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet"
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import { useEffect, useState, useMemo } from "react";
 import { connect, keyStores, Account, Near } from "near-api-js";
-import { NEXT_PUBLIC_USDC_CONTRACT_ID } from "@/utils/env";
+import { NEXT_PUBLIC_USDC_CONTRACT_ID, NEXT_PUBLIC_CONTRACT_ID } from "@/utils/env";
 
 type ContractArgs = Record<string, unknown>;
 
@@ -98,7 +98,7 @@ export function useNearWallet() {
           setupNightly(),
           setupMeteorWallet(),
           setupMeteorWalletApp({
-            contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+            contractId: NEXT_PUBLIC_CONTRACT_ID,
           }),
           setupOKXWallet(),
           setupNarwallets(),
@@ -108,7 +108,7 @@ export function useNearWallet() {
           setupCoin98Wallet(),
           setupXDEFI(),
           setupWalletConnect({
-            projectId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+            projectId: NEXT_PUBLIC_CONTRACT_ID,
             metadata: {
               name: "AI Gambling Club",
               description: "AI Gambling Club - NEAR Protocol Gambling Platform",
@@ -123,7 +123,7 @@ export function useNearWallet() {
       });
 
       const modal = setupModal(selector, {
-        contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+        contractId: NEXT_PUBLIC_CONTRACT_ID,
       });
 
       // Subscribe to changes
@@ -221,26 +221,26 @@ export function useNearWallet() {
     const accounts = await wallet.getAccounts();
 
     if (accounts && accounts.length > 0) {
-      const response = await fetch("https://rpc.testnet.near.org", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "dontcare",
-          method: "query",
-          params: {
-            request_type: "view_account",
-            finality: "final",
-            account_id: accounts[0].accountId,
-          },
-        }),
-      });
-      console.log("🔍 Response getNearBalance:", response);
-      const data = await response.json();
-      if (data.result && data.result.amount) {
-        return data.result.amount;
+      try {
+        // Get the NEAR connection that's already set up
+        if (!nearConnection) {
+          nearConnection = await connect({
+            networkId: "mainnet",
+            nodeUrl: "https://rpc.mainnet.near.org",
+            walletUrl: "https://wallet.mainnet.near.org",
+            deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
+          });
+        }
+        
+        // Get account state for the connected wallet account
+        const userAccount = await nearConnection.account(accounts[0].accountId);
+        const accountState = await userAccount.state();
+        console.log("🔍 NEAR Account State for", accounts[0].accountId, ":", accountState);
+        
+        // Return the available balance
+        return accountState.amount;
+      } catch (error) {
+        console.error("🔍 Error fetching NEAR balance:", error);
       }
     }
     return "0";
@@ -255,6 +255,15 @@ export function useNearWallet() {
     return result;
   };
 
+  const getAgcUsdcBalance = async (accountId: string) => {
+    const agcContract = NEXT_PUBLIC_CONTRACT_ID;
+    const result = await callViewMethod(agcContract, "getUsdcBalance", {
+      account_id: accountId,
+    });
+    console.log("🔍 AGC USDC balance:", result);
+    return result;
+  };
+
   return useMemo(
     () => ({
       ...walletState,
@@ -263,6 +272,7 @@ export function useNearWallet() {
       callMethod,
       getNearBalance,
       getUsdcWalletBalance,
+      getAgcUsdcBalance,
       callViewMethod,
       accountId: walletState.accountId,
       isConnected: walletState.accountId !== null,
