@@ -1,5 +1,6 @@
 import { PrismaClient } from '@/prisma';
 import { PokerState } from '@/types/schemas';
+import { isDev, isProd, SERVER_POKER } from './env';
 
 const prisma = new PrismaClient();
 
@@ -17,16 +18,23 @@ export const updatePokerState = async (interval: number) => {
     currentStatePoker = raw ? JSON.parse(raw.data as string) : null;
   }
   setInterval(async () => {
-    if (!process.env.POKER_API_URL) {
-      console.log('POKER_API_URL is not set');
+    if (!SERVER_POKER) {
+      console.log(' is not set');
       return;
     }
 
-    const currentState = await getCurrentStatePoker();
+    let currentState: any;
+    if(isDev) {
+      currentState = fakeData[0];
+    } else if (isProd) {
+      currentState = await getCurrentStatePoker();
+    }
     // Only update the state if the data is different
 
     if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
-      console.log('Current state from poker server', currentState);
+      if(isDev) {
+        console.log('[SUCCESS][TABLE][STATE] Saved new state', currentState);
+      }
       currentStatePoker = currentState;
       await saveCurrentStateToDatabase(currentState);
     }
@@ -35,7 +43,7 @@ export const updatePokerState = async (interval: number) => {
 
 const getCurrentStatePoker = async () => {
   try {
-    const response = await fetch(`${process.env.POKER_API_URL}/api/`, {
+    const response = await fetch(`${SERVER_POKER}/api/`, {
       method: 'POST', // rpc is only supported for POST requests
       headers: {
         'Content-Type': 'application/json',
@@ -143,3 +151,62 @@ export const saveCurrentStateToDatabase = async (state: PokerState) => {
     // TODO add info to all other tables, rounds, phases, moves, playerHands;
   });
 };
+
+const fakeData: PokerState[] = [
+  {
+    "tableId": "1",
+    "tableStatus": "WAITING",
+    "players": [
+      {
+        "id": "472a3913-2ead-05b5-9ee2-1693304f5862",
+        "playerName": "The Showman",
+        "status": "PLAYING",
+        "playedThisPhase": false,
+        "position": "SB",
+        "hand": [],
+        "chips": 1000,
+        "bet": {
+          "amount": 0,
+          "volume": 0
+        }
+      },
+      {
+        "id": "058cf225-7d2c-075f-8bf6-b7cad54aa4b7",
+        "playerName": "The Strategist",
+        "status": "PLAYING",
+        "playedThisPhase": false,
+        "position": "BB",
+        "hand": [],
+        "chips": 800,
+        "bet": {
+          "amount": 0,
+          "volume": 0
+        }
+      }
+    ],
+    "lastMove": null,
+    "currentPlayerIndex": -1,
+    "deck": [],
+    "community": [],
+    "phase": {
+      "street": "PRE_FLOP",
+      "actionCount": 0,
+      "volume": 0
+    },
+    "round": {
+      "roundNumber": 1,
+      "volume": 0,
+      "currentBet": 0,
+      "foldedPlayers": [],
+      "allInPlayers": []
+    },
+    "dealerId": "",
+    "winner": null,
+    "config": {
+      "maxRounds": null,
+      "startingChips": 1000,
+      "smallBlind": 10,
+      "bigBlind": 20
+    }
+  },
+]

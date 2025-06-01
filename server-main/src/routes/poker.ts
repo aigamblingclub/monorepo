@@ -1,10 +1,11 @@
 import { currentStatePoker } from '@/utils/poker-state';
 import { Router } from 'express';
+import { SERVER_POKER } from '@/utils/env';
 
 const router = Router();
 
 router.post('/start', async (req: any, res: any) => {
-  const response = await fetch(`${process.env.POKER_API_URL}/api`, {
+  const response = await fetch(`${SERVER_POKER}/api`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

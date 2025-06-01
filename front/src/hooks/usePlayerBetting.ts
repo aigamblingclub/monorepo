@@ -18,10 +18,11 @@ interface AllBetsResponse {
 }
 
 export const usePlayerBetting = () => {
-  const { accountId } = useNearWallet();
+  const { accountId, getUsdcWalletBalance } = useNearWallet();
   const { user, apiKey } = useAuth();
   const [playerBets, setPlayerBets] = useState<PlayerBet[]>([]);
   const [userBalance, setUserBalance] = useState<number>(0);
+  const [usdcBalance, setUsdcBalance] = useState<string>("0");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
@@ -39,6 +40,35 @@ export const usePlayerBetting = () => {
       setUserBalance(balanceData.balance);
     }
   }, [user, apiKey]);
+
+  const getUsdcBalance = useCallback(async () => {
+    if (accountId && getUsdcWalletBalance) {
+      try {
+        console.log("🔍 Fetching USDC balance for:", accountId);
+        const balance = await getUsdcWalletBalance(accountId);
+        console.log("🔍 USDC balance result:", balance);
+        
+        // USDC typically has 6 decimal places, so we need to format it properly
+        const balanceStr = balance?.toString() || "0";
+        const balanceNum = parseFloat(balanceStr);
+        
+        // If balance is a large number, assume it's in smallest units (micro USDC)
+        // and convert to readable USDC (divide by 1,000,000)
+        if (balanceNum > 1000000) {
+          const formattedBalance = (balanceNum / 1000000).toFixed(2);
+          setUsdcBalance(formattedBalance);
+        } else {
+          // If it's already in USDC format, just use it
+          setUsdcBalance(balanceNum.toFixed(2));
+        }
+      } catch (error) {
+        console.error("❌ Error fetching USDC balance:", error);
+        setUsdcBalance("0.00");
+      }
+    } else {
+      setUsdcBalance("0.00");
+    }
+  }, [accountId, getUsdcWalletBalance]);
 
   const fetchData = useCallback(async () => {
     if (!accountId || !apiKey) {
@@ -79,6 +109,7 @@ export const usePlayerBetting = () => {
       // Update state with fetched data
       setPlayerBets(formattedBets);
       getBalance();
+      getUsdcBalance();
 
     } catch (err) {
       console.error('❌ Error fetching betting data:', err);
@@ -89,7 +120,7 @@ export const usePlayerBetting = () => {
       setLoading(false);
       setInitialized(true);
     }
-  }, [accountId, apiKey, getBalance]);
+  }, [accountId, apiKey, getBalance, getUsdcBalance]);
 
   const placeBet = useCallback(async (playerId: string, amount: number) => {
     if (!accountId || !apiKey) {
@@ -135,16 +166,18 @@ export const usePlayerBetting = () => {
   useEffect(() => {
     if (accountId && apiKey && !loading && !initialized) {
       getBalance();
+      getUsdcBalance();
       fetchData();  
     }
-  }, [accountId, apiKey, loading, initialized, fetchData, getBalance]);
+  }, [accountId, apiKey, loading, initialized, fetchData, getBalance, getUsdcBalance]);
 
   return useMemo(() => ({
     playerBets,
     userBalance,
+    usdcBalance,
     loading,
     error,
     placeBet,
     isConnected,
-  }), [playerBets, userBalance, loading, error, placeBet, isConnected]);
+  }), [playerBets, userBalance, usdcBalance, loading, error, placeBet, isConnected]);
 }; 

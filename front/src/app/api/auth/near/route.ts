@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+import { NEXT_PUBLIC_SERVER_MAIN } from "@/utils/env";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,10 +14,10 @@ export async function GET(request: Request) {
 
   try {
     const response = await fetch(
-      `${API_URL}/api/auth/near/challenge?accountId=${accountId}`,
+      `${NEXT_PUBLIC_SERVER_MAIN}/api/auth/near/challenge?accountId=${accountId}`,
       {
         headers: {
-          "API-KEY": process.env.API_KEY || "",
+          "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
         },
       }
     );
@@ -54,12 +53,12 @@ export async function POST(request: Request) {
     }
 
     const response = await fetch(
-      `${API_URL}/api/auth/near/verify`,
+      `${NEXT_PUBLIC_SERVER_MAIN}/api/auth/near/verify`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          "API-KEY": process.env.API_KEY || "",
+          "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
           // origin: window.location.origin,
         },
         body: JSON.stringify({

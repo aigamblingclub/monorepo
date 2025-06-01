@@ -28,7 +28,7 @@ export const HoleCardsSchema = Schema.Tuple(CardSchema, CardSchema);
 export type HoleCards = typeof HoleCardsSchema.Type;
 
 /**
- * Position in the table
+ * # Position in the table
  * 
  * ## Heads-up Game Structure (2 Players)
  *  - Big Blind (BB): Second forced bet, twice the small blind
@@ -96,7 +96,6 @@ export const StreetSchema = Schema.Union(
   Schema.Literal("RIVER"),
   Schema.Literal("SHOWDOWN")
 );
-
 export type Street = typeof StreetSchema.Type;
 
 export const PhaseSchema = Schema.Struct({
@@ -158,7 +157,7 @@ export const MoveEventSchema = Schema.Struct({
 export type MoveEvent = typeof MoveEventSchema.Type;
 
 /**
- * Poker State
+ * # Poker State
  * 
  * One Game (table) has multiple rounds.
  * One round has multiple phases/streets.

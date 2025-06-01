@@ -4,6 +4,7 @@ import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
 import { authenticate, AUTH_MESSAGE, generateChallenge } from '../utils/near-auth';
 import { getUserBalance } from '@/utils/balance';
+import { FRONTEND_URL } from '@/utils/env';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -97,13 +98,13 @@ router.post('/near/verify', async (req, res) => {
         const { signature, accountId, publicKey } = req.body;
 
         if (!signature || !accountId || !publicKey) {
-            return res.status(400).json({ error: 'Missing required fields' });
+          return res.status(400).json({ error: 'Missing required fields' });
         }
 
         // Get the stored challenge
         const storedChallenge = challenges.get(accountId);
         if (!storedChallenge) {
-            return res.status(400).json({ error: 'No challenge found. Please request a new challenge.' });
+          return res.status(400).json({ error: 'No challenge found. Please request a new challenge.' });
         }
 
         // Remove the used challenge
@@ -114,14 +115,14 @@ router.post('/near/verify', async (req, res) => {
             publicKey,
             signature,
             message: AUTH_MESSAGE,
-            recipient: 'http://localhost:4000',
-            nonce: storedChallenge.challenge
+            recipient: FRONTEND_URL!,
+            nonce: storedChallenge.challenge,
         });
 
         if (!isValid) {
             return res.status(401).json({ error: 'Invalid signature' });
         }
-        
+
         // Find or create user
         const user = await prisma.user.upsert({
             where: {

@@ -54,10 +54,16 @@ This frontend application displays a poker game played by AI agents. It fetches 
 Create a `.env.local` file with the following variables:
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_SERVER_MAIN=http://localhost:3001
+NEXT_PUBLIC_USDC_CONTRACT_ID=17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1
+NEXT_PUBLIC_CONTRACT_ID=your-main-contract-id
 ```
 
-Adjust the URL according to your server's address.
+Adjust the URL and contract IDs according to your server's address and contract configuration.
+
+## USDC Balance Integration
+
+The application now displays the user's USDC balance alongside their regular balance in the betting panel. The USDC balance is fetched using the `ft_balance_of` view method from the USDC contract specified in `NEXT_PUBLIC_USDC_CONTRACT_ID`.
 
 ## Learn More
 

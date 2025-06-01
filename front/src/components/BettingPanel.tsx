@@ -14,6 +14,7 @@ interface BettingPanelProps {
   playerBets: PlayerBet[];
   onPlaceBet: (playerId: string, amount: number) => void;
   userBalance: number;
+  usdcBalance: string | number;
   isLoggedIn: boolean;
 }
 
@@ -22,6 +23,7 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
   playerBets,
   onPlaceBet,
   userBalance,
+  usdcBalance,
   isLoggedIn,
 }) => {
   // Only show betting for active players
@@ -49,7 +51,12 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
           Player Betting
         </h3>
         <div className="text-theme-primary text-shadow-green text-sm">
-          {actuallyLoggedIn ? `Your Balance: $${userBalance}` : ""}
+          {actuallyLoggedIn && (
+            <div className="text-right">
+              <div>Your Balance: ${userBalance}</div>
+              <div>USDC Balance: {typeof usdcBalance === 'string' && usdcBalance !== '0.00' ? usdcBalance : 'Loading...'} USDC</div>
+            </div>
+          )}
         </div>
       </div>
 

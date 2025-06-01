@@ -10,6 +10,7 @@ import { BettingPanel } from "@/components/BettingPanel";
 import { usePlayerBetting } from "@/hooks/usePlayerBetting";
 import { Chat } from "@/components/Chat";
 import { MoveHistoryPanel } from "@/components/MoveHistoryPanel";
+import { isDev } from '@/utils/env';
 
 function PageLayout({ children }: { children: ReactNode }) {
   return (
@@ -42,6 +43,7 @@ function HomeContent() {
   const {
     playerBets,
     userBalance,
+    usdcBalance,
     loading: bettingLoading,
     error: bettingError,
     placeBet,
@@ -51,11 +53,16 @@ function HomeContent() {
   useEffect(() => {
     const getState = async () => {
       try {
-        const state = await fetch('/api/current-state');
-        const data = await state.json();
+        let data;
+        if(isDev) {
+          data = fakeData[0];
+        } else {
+          const state = await fetch('/api/current-state');
+          data = await state.json();
+        }
         
         // Only update the state if the data is different
-        if (JSON.stringify(data) !== JSON.stringify(gameState) && !data?.error) {
+        if (JSON.stringify(data) !== JSON.stringify(gameState)) {
           setGameState(data);
           console.log("🔍 Game state:", data);
         }
@@ -125,6 +132,7 @@ function HomeContent() {
               playerBets={playerBets}
               onPlaceBet={placeBet}
               userBalance={userBalance}
+              usdcBalance={usdcBalance}
               isLoggedIn={isConnected}
             />
             {bettingError && (
@@ -155,3 +163,62 @@ export default function Home() {
     </PageLayout>
   );
 }
+
+const fakeData: PokerState[] = [
+  {
+    "tableId": "1",
+    "tableStatus": "WAITING",
+    "players": [
+      {
+        "id": "472a3913-2ead-05b5-9ee2-1693304f5862",
+        "playerName": "The Showman",
+        "status": "PLAYING",
+        "playedThisPhase": false,
+        "position": "SB",
+        "hand": [],
+        "chips": 1000,
+        "bet": {
+          "amount": 0,
+          "volume": 0
+        }
+      },
+      {
+        "id": "058cf225-7d2c-075f-8bf6-b7cad54aa4b7",
+        "playerName": "The Strategist",
+        "status": "PLAYING",
+        "playedThisPhase": false,
+        "position": "BB",
+        "hand": [],
+        "chips": 800,
+        "bet": {
+          "amount": 0,
+          "volume": 0
+        }
+      }
+    ],
+    "lastMove": null,
+    "currentPlayerIndex": -1,
+    "deck": [],
+    "community": [],
+    "phase": {
+      "street": "PRE_FLOP",
+      "actionCount": 0,
+      "volume": 0
+    },
+    "round": {
+      "roundNumber": 1,
+      "volume": 0,
+      "currentBet": 0,
+      "foldedPlayers": [],
+      "allInPlayers": []
+    },
+    "dealerId": "",
+    "winner": null,
+    "config": {
+      "maxRounds": null,
+      "startingChips": 1000,
+      "smallBlind": 10,
+      "bigBlind": 20
+    }
+  },
+]

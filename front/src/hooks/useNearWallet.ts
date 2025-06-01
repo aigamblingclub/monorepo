@@ -27,6 +27,7 @@ import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet"
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import { useEffect, useState, useMemo } from "react";
 import { connect, keyStores, Account, Near } from "near-api-js";
+import { NEXT_PUBLIC_USDC_CONTRACT_ID } from "@/utils/env";
 
 type ContractArgs = Record<string, unknown>;
 
@@ -44,15 +45,16 @@ let viewAccount: Account | null = null;
 async function getViewAccount() {
   if (viewAccount) return viewAccount;
   if (!nearConnection) {
+    // Use mainnet for USDC contract calls since USDC is typically on mainnet
     nearConnection = await connect({
-      networkId: "testnet",
-      nodeUrl: "https://rpc.testnet.near.org",
-      walletUrl: "https://wallet.testnet.near.org",
+      networkId: "mainnet",
+      nodeUrl: "https://rpc.mainnet.near.org",
+      walletUrl: "https://wallet.mainnet.near.org",
       deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
     });
   }
-  // Use uma conta qualquer para view (não precisa ser logada)
-  viewAccount = await nearConnection.account("guest.testnet");
+  // Use a generic account for view calls (doesn't need to be logged in)
+  viewAccount = await nearConnection.account("guest.near");
   console.log("🔍 View account:", viewAccount);
   return viewAccount;
 }
@@ -264,39 +266,8 @@ export function useNearWallet() {
     return "0";
   };
 
-  const getUsdcContractBalance = async () => {
-    const { selector } = walletState;
-    if (!selector) throw new Error("Wallet not initialized");
-    const wallet = await selector.wallet();
-    const accounts = await wallet.getAccounts();
-    if (accounts && accounts.length > 0) {
-      const response = await fetch("https://rpc.mainnet.near.org", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "dontcare",
-          method: "query",
-          params: {
-            request_type: "ft_balance_of",
-            finality: "final",
-            account_id: accounts[0].accountId,
-          },
-        }),
-      });
-      console.log("🔍 Response getUsdcContractBalance:", response);
-      const data = await response.json();
-      if (data.result && data.result.amount) {
-        return data.result.amount;
-      }
-    }
-    return "0";
-  };
-
   const getUsdcWalletBalance = async (accountId: string) => {
-    const usdcContract = process.env.NEXT_PUBLIC_USDC_CONTRACT_ID!;
+    const usdcContract = NEXT_PUBLIC_USDC_CONTRACT_ID!;
     const result = await callViewMethod(usdcContract, "ft_balance_of", {
       account_id: accountId,
     });
@@ -312,7 +283,6 @@ export function useNearWallet() {
       callMethod,
       viewMethod,
       getNearBalance,
-      getUsdcContractBalance,
       getUsdcWalletBalance,
       callViewMethod,
       accountId: walletState.accountId,
