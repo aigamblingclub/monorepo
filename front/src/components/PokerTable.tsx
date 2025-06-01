@@ -24,6 +24,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   const [progress, setProgress] = useState(0);
   const [timer, setTimer] = useState(120); // 2 minutos em segundos
   const [showProgressBar, setShowProgressBar] = useState(false);
+  const [waitingProgress, setWaitingProgress] = useState(0);
+  const [waitingStartTime, setWaitingStartTime] = useState<number | null>(null);
+  const [isDelayed, setIsDelayed] = useState(false);
 
   useEffect(() => {
     if (gameState?.players?.length > 1) {
@@ -59,10 +62,170 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     return () => clearInterval(interval);
   }, [showProgressBar, timer]);
 
+  // Handle WAITING status and 2-minute progress
+  useEffect(() => {
+    if (gameState.tableStatus === "WAITING") {
+      const now = Date.now();
+      
+      // First time receiving WAITING status
+      if (waitingStartTime === null) {
+        setWaitingStartTime(now);
+        setWaitingProgress(0);
+        setIsDelayed(false);
+      } else {
+        // Check if we've exceeded 2 minutes since first WAITING
+        const elapsed = now - waitingStartTime;
+        if (elapsed >= 120000) { // 2 minutes = 120,000ms
+          setIsDelayed(true);
+        }
+      }
+
+      const interval = setInterval(() => {
+        const currentTime = Date.now();
+        const elapsed = currentTime - (waitingStartTime || currentTime);
+        const progressPercent = Math.min((elapsed / 120000) * 100, 100); // 2 minutes = 120,000ms
+        setWaitingProgress(progressPercent);
+        
+        // Check for delayed state
+        if (elapsed >= 120000) {
+          setIsDelayed(true);
+        }
+      }, 100);
+
+      return () => clearInterval(interval);
+    } else {
+      // Reset when not in WAITING state
+      setWaitingStartTime(null);
+      setWaitingProgress(0);
+      setIsDelayed(false);
+    }
+  }, [gameState.tableStatus, waitingStartTime]);
+
   return (
     <div className="w-[50vw] h-[50vh] max-w-[800px] max-h-[500px] bg-black border-2 border-white relative overflow-hidden flex justify-center items-center">
-      {/* Players */}
-      {gameState?.players?.map((player: PlayerState, index: number) => {
+      
+      {/* Center area with POT and cards */}
+      <div className="flex items-center gap-8">
+        {/* Left Player - The Showman */}
+        {gameState?.players?.length > 0 && (
+          <div className="flex-shrink-0">
+            <Player
+              key={gameState.players[0].id}
+              tablePosition={7}
+              {...gameState.players[0]}
+              isCurrentPlayer={0 === gameState?.currentPlayerIndex}
+              totalContractBet={
+                playerBets.find(bet => bet.playerId === gameState.players[0].id)?.totalBet || 0
+              }
+              userContractBet={
+                playerBets.find(bet => bet.playerId === gameState.players[0].id)?.betAmount || 0
+              }
+            />
+          </div>
+        )}
+
+        {/* Center Content */}
+        <div className="text-center flex-shrink-0">
+          {/* Game status */}
+          <div className="text-base text-white font-mono mb-2.5 border-2 border-white p-1.5 bg-black w-[249px] mx-auto">
+            {gameState.tableStatus === "WAITING" && (isDelayed ? "Delayed" : "Waiting...")}
+            {gameState.tableStatus === "PLAYING" &&
+              !ready &&
+              "Waiting for players..."}
+            {gameState.tableStatus === "ROUND_OVER" &&
+              gameState.winner &&
+              `Winner: ${gameState.winner}`}
+            {gameState.tableStatus === "GAME_OVER" &&
+              gameState.winner &&
+              `Game Over - Winner: ${gameState.winner}`}
+
+            {gameState.tableStatus === "PLAYING" && ready && (
+              <>
+                <div>Phase: {getPhaseLabel(gameState.phase.street)}</div>
+                <div>Round: {gameState.round.roundNumber}</div>
+              </>
+            )}
+          </div>
+          {gameState.tableStatus === "WAITING" && (
+            <div className="mb-4 w-[249px] mx-auto">
+              <div 
+                className="progress-bar-outer"
+                style={isDelayed ? { borderColor: '#ef4444' } : {}}
+              >
+                <div
+                  className="progress-bar-inner"
+                  style={{ 
+                    width: `${waitingProgress}%`,
+                    backgroundColor: isDelayed ? '#ef4444' : undefined
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {showProgressBar && (
+            <div className="progress-bar-container">
+              <div className="progress-bar-outer">
+                <div
+                  className="progress-bar-inner"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="progress-bar-label">
+                [ Loading next game... {timer}s ]
+              </div>
+            </div>
+          )}
+          {ready && !showProgressBar && (
+            <>
+              {/* Pot and current bet */}
+              <div className="text-base text-white font-mono mb-4 border border-white p-2 bg-black w-[249px] mx-auto">
+                <div>POT: <span className="text-green-400">${formatChips(gameState.round.volume)}</span></div>
+                {gameState.round?.currentBet > 0 && (
+                  <div className="current-bet">
+                    Current Bet: <span className="text-green-400">${formatChips(gameState.round.currentBet)}</span>
+                  </div>
+                )}
+              </div>
+              {/* Community cards */}
+              <div className="flex justify-center gap-1.5">
+                {gameState?.community?.map((card: CardType, index: number) => (
+                  <Card
+                    key={`${card.rank}-${card.suit}-${index}`}
+                    card={card}
+                  />
+                ))}
+                {/* Empty cards to complete 5 */}
+                {Array.from({
+                  length: Math.max(0, 5 - gameState?.community?.length),
+                }).map((_, index) => (
+                  <Card key={`empty-${index}`} card={null} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Right Player - The Strategist */}
+        {gameState?.players?.length > 1 && (
+          <div className="flex-shrink-0">
+            <Player
+              key={gameState.players[1].id}
+              tablePosition={8}
+              {...gameState.players[1]}
+              isCurrentPlayer={1 === gameState?.currentPlayerIndex}
+              totalContractBet={
+                playerBets.find(bet => bet.playerId === gameState.players[1].id)?.totalBet || 0
+              }
+              userContractBet={
+                playerBets.find(bet => bet.playerId === gameState.players[1].id)?.betAmount || 0
+              }
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Render additional players (3+) using original absolute positioning if needed */}
+      {gameState?.players?.slice(2).map((player: PlayerState, index: number) => {
         const playerBet = playerBets.find(
           (bet: PlayerBet) => bet.playerId === player.id
         ) || {
@@ -75,80 +238,16 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           <Player
             key={player.id}
             tablePosition={getPlayerPosition(
-              index,
+              index + 2,
               gameState.players.length
             )}
             {...player}
-            isCurrentPlayer={index === gameState?.currentPlayerIndex}
+            isCurrentPlayer={index + 2 === gameState?.currentPlayerIndex}
             totalContractBet={playerBet.totalBet}
             userContractBet={playerBet.betAmount}
           />
         );
       })}
-
-      {/* Center area */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-[300px]">
-        {/* Game status */}
-        <div className="text-base text-white font-mono mb-2.5 border-2 border-white p-1.5 bg-black">
-          {gameState.tableStatus === "PLAYING" &&
-            !ready &&
-            "Waiting for players..."}
-          {gameState.tableStatus === "ROUND_OVER" &&
-            gameState.winner &&
-            `Winner: ${gameState.winner}`}
-          {gameState.tableStatus === "GAME_OVER" &&
-            gameState.winner &&
-            `Game Over - Winner: ${gameState.winner}`}
-
-          {gameState.tableStatus === "PLAYING" && (
-            <>
-              <div>Phase: {getPhaseLabel(gameState.phase.street)}</div>
-              <div>Round: {gameState.round.roundNumber}</div>
-            </>
-          )}
-        </div>
-        {showProgressBar && (
-          <div className="progress-bar-container">
-            <div className="progress-bar-outer">
-              <div
-                className="progress-bar-inner"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="progress-bar-label">
-              [ Loading next game... {timer}s ]
-            </div>
-          </div>
-        )}
-        {ready && !showProgressBar && (
-          <>
-            {/* Pot and current bet */}
-            <div className="text-base text-white font-mono mb-4 border border-white p-2 bg-black">
-              <div>POT: <span className="text-green-400">${formatChips(gameState.round.volume)}</span></div>
-              {gameState.round?.currentBet > 0 && (
-                <div className="current-bet">
-                  Current Bet: <span className="text-green-400">${formatChips(gameState.round.currentBet)}</span>
-                </div>
-              )}
-            </div>
-            {/* Community cards */}
-            <div className="flex justify-center gap-1.5">
-              {gameState?.community?.map((card: CardType, index: number) => (
-                <Card
-                  key={`${card.rank}-${card.suit}-${index}`}
-                  card={card}
-                />
-              ))}
-              {/* Empty cards to complete 5 */}
-              {Array.from({
-                length: Math.max(0, 5 - gameState?.community?.length),
-              }).map((_, index) => (
-                <Card key={`empty-${index}`} card={null} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
     </div>
   );
 }; 

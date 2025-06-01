@@ -4,17 +4,24 @@ import { Card } from './Card';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-const getPositionLabel = (position: PlayerState['position']): string => {
+function getPositionLabel(position: string) {
   switch (position) {
-    case 'BB': return 'Big Blind';
-    case 'SB': return 'Small Blind';
-    case 'BTN': return 'Button';
-    case 'EP': return 'Early Position';
-    case 'MP': return 'Middle Position';
-    case 'CO': return 'Cut-off';
-    default: return position;
+    case "SB":
+      return "Small Blind";
+    case "BB":
+      return "Big Blind";
+    case "BTN":
+      return "Dealer";
+    case "EP":
+      return "Early Position";
+    case "MP":
+      return "Middle Position";
+    case "CO":
+      return "Cut-off";
+    default:
+      return position;
   }
-};
+}
 
 interface PlayerProps {
   id: string;
@@ -50,7 +57,7 @@ export const Player: React.FC<PlayerProps> = ({
   bet,
   tablePosition,
   isCurrentPlayer = false,
-  totalContractBet = 1000,
+  totalContractBet = 0,
   userContractBet = 0,
 }) => {
   const statusColor = () => {
@@ -60,89 +67,156 @@ export const Player: React.FC<PlayerProps> = ({
       case "ALL_IN":
         return "text-yellow-400";
       case "PLAYING":
-        return "text-white";
+        return "text-green-400";
       default:
         return "text-white";
     }
   };
 
+  const getStatusIcon = () => {
+    switch (status) {
+      case "FOLDED":
+        return "✗";
+      case "ALL_IN":
+        return "⚡";
+      case "PLAYING":
+        return "●";
+      default:
+        return "●";
+    }
+  };
+
+  const getPositionIcon = () => {
+    switch (position) {
+      case "SB":
+        return "SB";
+      case "BB":
+        return "BB";
+      case "BTN":
+        return "D";
+      case "EP":
+        return "EP";
+      case "MP":
+        return "MP";
+      case "CO":
+        return "CO";
+      default:
+        return "";
+    }
+  };
+
   return (
-    <div className={`player ${positionClasses[tablePosition]}`}>
+    <div className={`${(tablePosition === 7 || tablePosition === 8) ? '' : `player ${positionClasses[tablePosition]}`}`}>
       <div className="relative">
-        {/* AVATAR */}
-        {/* <div className="w-12 h-12 bg-black border-2 border-white mr-2 flex items-center justify-center">
-          <span className={`${statusColor()} font-mono`}>
-            {playerName.slice(0, 2)}
-          </span>
-        </div>
-        {totalContractBet > 0 && (
-          <span className="absolute -bottom-2 -right-2 text-xs text-white bg-green-400 px-1">
-            ${formatChips(totalContractBet)}
-          </span>
-        )} */}
-      </div>
-      <div className="flex flex-col text-xs flex-grow font-mono">
-        <div className="flex items-center mb-1">
-          <span className="font-bold text-white mr-2">
-            {playerName}
-          </span>
-        </div>
-        <div className="flex items-center mb-1">
-          <span className={`${statusColor()}`}>
-            {status === "PLAYING" ? "" : status}
-          </span>
-        </div>
-        <div className="flex items-center mb-1">
-          <span className={`${statusColor()} font-bold`}>
-            {isCurrentPlayer ? "Computing..." : <br />}
-          </span>
-        </div>
-        <div className="flex items-center mb-1">
-          <span className={`${statusColor()}`}>
-            {getPositionLabel(position)}
-          </span>
-        </div>
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-white">
-            Chips: <span className="text-green-400">${formatChips(chips)}</span>
-          </span>
-        </div>
-        <div className="flex justify-between items-center mb-1">
-          {bet.volume > 0 && (
-            <span className="text-white">
-              Bet Total: <span className="text-green-400">${formatChips(bet.volume)}</span>
-            </span>
+        {/* Player Card Container */}
+        <div className="bg-black border-2 border-white rounded-lg p-3 min-w-[160px] relative">
+          {/* Current Player Glow Effect */}
+          {isCurrentPlayer && (
+            <div className="absolute inset-0 border-2 border-green-400 rounded-lg animate-pulse"></div>
+          )}
+          
+          {/* Position Badge */}
+          {position && (
+            <div className="absolute -top-3 -right-2 w-6 h-6 bg-black border-2 border-white rounded-full flex items-center justify-center">
+              <span className="text-white font-mono text-[10px] font-bold">
+                {getPositionIcon()}
+              </span>
+            </div>
+          )}
+
+          {/* Player Avatar */}
+          <div className="flex items-center mb-2">
+            <div className="w-10 h-10 bg-black border-2 border-white rounded-full mr-3 flex items-center justify-center relative overflow-hidden">
+              {/* Avatar Background Pattern */}
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900"></div>
+              <span className={`${statusColor()} font-mono text-xs font-bold relative z-10`}>
+                AGC
+              </span>
+              {/* Status indicator dot */}
+              <div className={`absolute bottom-0 right-0 w-3 h-3 ${
+                status === 'PLAYING' ? 'bg-green-400' : 
+                status === 'FOLDED' ? 'bg-gray-400' : 'bg-yellow-400'
+              } border border-white rounded-full`}></div>
+            </div>
+            
+            {/* Player Name and Status */}
+            <div className="flex-1">
+              <div className="text-white font-mono text-xs font-bold truncate">
+                {playerName}
+              </div>
+              <div className={`${statusColor()} font-mono text-[10px] flex items-center`}>
+                <span className="mr-1">{getStatusIcon()}</span>
+                {status === "PLAYING" ? "Ready" : status}
+              </div>
+            </div>
+          </div>
+
+          {/* Chips Display */}
+          <div className="mb-2">
+            <div className="text-white font-mono text-[10px] mb-1">
+              <span className="text-gray-400">Chips:</span>
+              <span className="text-green-400 ml-1 font-bold">${formatChips(chips)}</span>
+            </div>
+          </div>
+
+          {/* Betting Information */}
+          {(bet.amount > 0 || bet.volume > 0) && (
+            <div className="mb-2 space-y-1">
+              {bet.amount > 0 && (
+                <div className="text-white font-mono text-[10px]">
+                  <span className="text-gray-400">Round Bet:</span>
+                  <span className="text-yellow-400 ml-1">${formatChips(bet.amount)}</span>
+                </div>
+              )}
+              {bet.volume > 0 && (
+                <div className="text-white font-mono text-[10px]">
+                  <span className="text-gray-400">Total Bet:</span>
+                  <span className="text-yellow-400 ml-1">${formatChips(bet.volume)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contract Betting Info */}
+          {(totalContractBet > 0 || userContractBet > 0) && (
+            <div className="border-t border-gray-600 pt-2 space-y-1">
+              {totalContractBet > 0 && (
+                <div className="text-white font-mono text-[10px]">
+                  <span className="text-gray-400">Pool:</span>
+                  <span className="text-blue-400 ml-1">${formatChips(totalContractBet)}</span>
+                </div>
+              )}
+              {userContractBet > 0 && (
+                <div className="text-white font-mono text-[10px]">
+                  <span className="text-gray-400">Your Bet:</span>
+                  <span className="text-blue-400 ml-1">${formatChips(userContractBet)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Current Player Indicator */}
+          {isCurrentPlayer && (
+            <div className="mt-2 text-center">
+              <div className="text-green-400 font-mono text-[10px] animate-pulse">
+                ▶ Thinking...
+              </div>
+            </div>
+          )}
+
+          {/* Player's Hand */}
+          {hand.length > 0 && (
+            <div className="mt-2 flex gap-1 justify-center">
+              {hand.map((card: CardType, index: number) => (
+                <Card
+                  key={`${card.rank}-${card.suit}-${index}`}
+                  card={card}
+                  className="scale-50"
+                />
+              ))}
+            </div>
           )}
         </div>
-        <div className="flex justify-between items-center mb-1">
-          {bet.amount > 0 && (
-            <span className="text-white ml-2">
-              Bet Round: <span className="text-green-400">${formatChips(bet.amount)}</span>
-            </span>
-          )}
-        </div>
-        {totalContractBet > 0 && (
-          <div className="text-white text-xs">
-            Pool: <span className="text-green-400">${formatChips(totalContractBet)}</span>
-          </div>
-        )}
-        {userContractBet > 0 && (
-          <div className="text-white text-xs">
-            Your Bet: <span className="text-green-400">${formatChips(userContractBet)}</span>
-          </div>
-        )}
-        {/* Player's hand */}
-        {hand.length > 0 && (
-          <div className="flex gap-1 mt-1">
-            {hand.map((card: CardType, index: number) => (
-              <Card
-                key={`${card.rank}-${card.suit}-${index}`}
-                card={card}
-                className="scale-75"
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -151,8 +151,8 @@ body {
 .player-4 { bottom: 5%; left: 50%; transform: translateX(-50%); }
 .player-5 { bottom: 20%; left: 15%; transform: translateY(50%); }
 .player-6 { top: 20%; left: 15%; transform: translateY(-50%); }
-.player-7 { top: 50%; left: 2.5%; transform: translate(0%, -50%); }
-.player-8 { top: 50%; right: 2.5%; transform: translate(0%, -50%); }
+.player-7 { top: 50%; left: 15%; transform: translate(0%, -50%); }
+.player-8 { top: 50%; right: 15%; transform: translate(0%, -50%); }
 
 /* Base styles for game status and pot */
 /* Neon text color utilities (manual override) */
