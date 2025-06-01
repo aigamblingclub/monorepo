@@ -16,7 +16,7 @@ export function LockOperations({
   stopTransactionState, 
   isAccountLocked 
 }: LockOperationsProps) {
-  const { accountId } = useAuth();
+  const { accountId, apiKey } = useAuth();
   const { callMethod } = useNearWallet();
   const [isLoadingLock, setIsLoadingLock] = useState(false);
   const [isLoadingUnlock, setIsLoadingUnlock] = useState(false);
@@ -24,7 +24,16 @@ export function LockOperations({
   const [errorUnlock, setErrorUnlock] = useState<string | null>(null);
 
   const handleLock = async () => {
-    if (!accountId || isAccountLocked) return;
+    // Check guard conditions and set errors
+    if (!accountId) {
+      setErrorLock('No account connected');
+      return;
+    }
+    
+    if (isAccountLocked) {
+      setErrorLock('Account is already locked');
+      return;
+    }
     
     let refreshInterval: NodeJS.Timeout | undefined;
     
@@ -56,7 +65,21 @@ export function LockOperations({
   };
 
   const handleUnlock = async () => {
-    if (!accountId || !isAccountLocked) return;
+    // Check guard conditions and set errors
+    if (!accountId) {
+      setErrorUnlock('No account connected');
+      return;
+    }
+    
+    if (!isAccountLocked) {
+      setErrorUnlock('Account is not locked');
+      return;
+    }
+    
+    if (!apiKey) {
+      setErrorUnlock('Not authenticated');
+      return;
+    }
     
     let refreshInterval: NodeJS.Timeout | undefined;
     
@@ -67,16 +90,47 @@ export function LockOperations({
       // Start spinner immediately for visual feedback
       startSpinner();
       
-      // TODO: For manual unlock, we need to call the backend to get signed message
-      // TODO: Call unlockUsdcBalance with message and signature
-      // For now, just simulate the unlock
-      console.log('Manual unlock not implemented yet - requires backend signature');
+      console.log('Getting signed message from backend for unlock...');
       
+      // 1. Call our unlock API to get signed message from backend
+      const unlockResponse = await fetch('/api/unlock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          nearImplicitAddress: accountId,
+        }),
+      });
+
+      if (!unlockResponse.ok) {
+        const error = await unlockResponse.json();
+        throw new Error(error.error || 'Failed to get unlock signature');
+      }
+
+      const { message, signature } = await unlockResponse.json();
+      console.log('Received signed message, calling AGC contract...');
+
+      // 2. Call AGC contract's unlockUsdcBalance with the signed message
+      await callMethod({
+        methodName: 'unlockUsdcBalance',
+        args: {
+          message: JSON.stringify(message), // The gameResult object as string
+          signature: signature, // The signature from backend
+        },
+        deposit: '0',
+        receiverId: NEXT_PUBLIC_CONTRACT_ID,
+      });
+
       // Only start lock status refresh after successful operation
       refreshInterval = startLockRefresh();
       
+      console.log('Account unlocked successfully');
+      
     } catch (err) {
       setErrorUnlock(err instanceof Error ? err.message : 'Failed to unlock account');
+      console.error('Unlock error:', err);
     } finally {
       setIsLoadingUnlock(false);
       // Stop spinner and pass refresh interval
