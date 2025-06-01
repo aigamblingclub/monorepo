@@ -10,12 +10,12 @@ import betRoutes from './routes/bet';
 import balanceRoutes from './routes/balance';
 import { updatePokerState } from './utils/poker-state';
 import { validateApiKeyServer } from './middleware/auth';
+import { PORT } from './utils/env';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
@@ -57,9 +57,9 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-  console.log(`API Documentation available at http://localhost:${port}/api-docs`);
+app.listen(PORT, () => {
+  console.log(`Server is running on PORT ${PORT}`);
+  console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
 });
 
 // Update poker state every 2 seconds

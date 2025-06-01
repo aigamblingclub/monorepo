@@ -47,13 +47,13 @@ The client can be configured through the following environment variables:
 
 | Variable        | Description                        | Default                 |
 | --------------- | ---------------------------------- | ----------------------- |
-| `POKER_API_URL` | Base URL of the poker server API   | `http://localhost:3001` |
+| `` | Base URL of the poker server API   | `http://localhost:3001` |
 | `POKER_API_KEY` | API key for authentication         | `string`                |
 
 Configuration example:
 
 ```bash
-export POKER_API_URL=http://localhost:3001
+export =http://localhost:3001
 export POKER_API_KEY=your-api-key-here
 ```
 
@@ -116,7 +116,7 @@ This client is designed to automatically connect to the Poker server, join avail
 
 ### Authentication
 
-The client uses an API key for server authentication. The API key is required and must be configured in the agent's character file under `settings.secrets.API_KEY`. The client:
+The client uses an API key for server authentication. The API key is required and must be configured in the agent's character file under `settings.secrets.SERVER_MAIN_API_KEY`. The client:
 
 1. Validates the presence of the API key during initialization
 2. Includes the API key in all requests in the `x-api-key` header

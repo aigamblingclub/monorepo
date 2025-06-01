@@ -1,16 +1,15 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+import { NEXT_PUBLIC_SERVER_MAIN } from "@/utils/env";
 
 export async function GET() {
   try {
     const userApiKey = (await headers()).get("x-api-key") || "";
 
-    const response = await fetch(`${API_URL}/api/bet/all`, {
+    const response = await fetch(`${NEXT_PUBLIC_SERVER_MAIN}/api/bet/all`, {
       headers: {
         "x-api-key": userApiKey,
-        "API-KEY": process.env.API_KEY || "",
+        "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
       }
     });
 

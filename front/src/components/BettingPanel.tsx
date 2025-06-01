@@ -15,6 +15,7 @@ interface BettingPanelProps {
   playerBets: PlayerBet[];
   onPlaceBet: (playerId: string, amount: number) => void;
   userBalance: number;
+  usdcBalance: string | number;
   isLoggedIn: boolean;
 }
 
@@ -23,6 +24,7 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
   playerBets,
   onPlaceBet,
   userBalance,
+  usdcBalance,
   isLoggedIn,
 }) => {
   const { getUsdcWalletBalance, accountId } = useNearWallet();

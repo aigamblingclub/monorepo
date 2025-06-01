@@ -1,0 +1,45 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Documentation Requirements Checklist
+
+## Required Elements
+[ ] Module-level JSDoc comment at file top
+[ ] Validation block documentation before each if statement
+[ ] @throws annotations for all error conditions
+[ ] @type annotations for all exported variables
+[ ] Clear purpose description for each variable
+[ ] Usage context explanation
+## Conditional Elements
+[ ] @example for complex values (URLs, connection strings, contract IDs)
+[ ] Security warnings for sensitive variables
+[ ] Environment-specific explanations for conditional variables
+[ ] Cross-service communication context for API endpoints
+## Quality Standards
+[ ] Use consistent language and terminology
+[ ] Be specific about variable purposes
+[ ] Explain the impact of missing variables
+[ ] Provide realistic, helpful examples
+[ ] Use proper JSDoc syntax and formatting
+
+# Language and Style Guidelines
+
+## Terminology
+Use "validation" for environment variable checks
+Use "configuration" for setup-related variables
+Use "authentication" for keys and secrets
+Use "operations" for blockchain/contract interactions
+
+## Tone
+Be clear and concise
+Use present tense
+Be specific about usage context
+Include practical examples where helpful
+
+## Formatting
+One line break between documentation blocks
+Consistent indentation
+Group related variables logically
+Use proper JSDoc syntax (/** */)

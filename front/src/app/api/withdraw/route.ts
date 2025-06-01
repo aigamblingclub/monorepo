@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+import { NEXT_PUBLIC_SERVER_MAIN } from "@/utils/env";
 
 export async function POST(request: Request) {
   try {
@@ -19,12 +18,12 @@ export async function POST(request: Request) {
     // Convert amount to USDC decimals (6 decimals)
     const unlockUsdcBalance = Number(amount) * 1_000_000;
 
-    const response = await fetch(`${API_URL}/api/contract/sign-message`, {
+    const response = await fetch(`${NEXT_PUBLIC_SERVER_MAIN}/api/contract/sign-message`, {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",
         "x-api-key": userApiKey,
-        "API-KEY": process.env.API_KEY || "",
+        "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
       },
       body: JSON.stringify({
         unlockUsdcBalance,
