@@ -178,7 +178,6 @@ function HomeContent() {
           {/* Right Side - Account Manager */}
           <div className="w-80 flex-shrink-0">
             <AccountManager
-              isLoggedIn={isConnected}
               players={
                 gameState?.players?.length > 0 ? [...gameState.players] : []
               }

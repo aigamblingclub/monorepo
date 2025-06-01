@@ -323,6 +323,15 @@ export function useNearWallet() {
     return result;
   };
 
+  const getIsUsdcLocked = async (accountId: string) => {
+    const agcContract = NEXT_PUBLIC_CONTRACT_ID;
+    const result = await callViewMethod(agcContract, "isUsdcLocked", {
+      account_id: accountId,
+    });
+    console.log("🔍 AGC USDC lock status:", result);
+    return result;
+  };
+
   return useMemo(
     () => ({
       ...walletState,
@@ -332,6 +341,7 @@ export function useNearWallet() {
       getNearBalance,
       getUsdcWalletBalance,
       getAgcUsdcBalance,
+      getIsUsdcLocked,
       callViewMethod,
       accountId: walletState.accountId,
       isConnected: walletState.accountId !== null,
