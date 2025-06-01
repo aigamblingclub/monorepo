@@ -27,7 +27,7 @@ import { setupNearMobileWallet } from "@near-wallet-selector/near-mobile-wallet"
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import { useEffect, useState, useMemo } from "react";
 import { connect, keyStores, Account, Near } from "near-api-js";
-import { NEXT_PUBLIC_USDC_CONTRACT_ID } from "@/utils/env";
+import { NEXT_PUBLIC_USDC_CONTRACT_ID, NEXT_PUBLIC_CONTRACT_ID } from "@/utils/env";
 
 type ContractArgs = Record<string, unknown>;
 
@@ -42,21 +42,51 @@ interface WalletState {
 let nearConnection: Near | null = null;
 let viewAccount: Account | null = null;
 
+// Fallback RPC endpoints in order of preference
+const RPC_ENDPOINTS = [
+  "https://rpc.mainnet.near.org",
+  "https://near-mainnet.infura.io/v3/",
+  "https://public-rpc.blockpi.io/http/near",
+  "https://near-mainnet-rpc.allthatnode.com:3030",
+  "https://1rpc.io/near"
+];
+
+let currentRpcIndex = 0;
+
 async function getViewAccount() {
   if (viewAccount) return viewAccount;
-  if (!nearConnection) {
-    // Use mainnet for USDC contract calls since USDC is typically on mainnet
-    nearConnection = await connect({
-      networkId: "mainnet",
-      nodeUrl: "https://rpc.mainnet.near.org",
-      walletUrl: "https://wallet.mainnet.near.org",
-      deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
-    });
+  
+  // Try each RPC endpoint until one works
+  for (let i = 0; i < RPC_ENDPOINTS.length; i++) {
+    const rpcUrl = RPC_ENDPOINTS[(currentRpcIndex + i) % RPC_ENDPOINTS.length];
+    try {
+      if (!nearConnection) {
+        console.log(`🔍 Trying RPC endpoint: ${rpcUrl}`);
+        nearConnection = await connect({
+          networkId: "mainnet",
+          nodeUrl: rpcUrl,
+          walletUrl: "https://wallet.mainnet.near.org",
+          deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
+        });
+      }
+      
+      // Use a generic account for view calls (doesn't need to be logged in)
+      viewAccount = await nearConnection.account("guest.near");
+      console.log("🔍 View account connected successfully:", viewAccount);
+      
+      // Update current working RPC index
+      currentRpcIndex = (currentRpcIndex + i) % RPC_ENDPOINTS.length;
+      return viewAccount;
+    } catch (error) {
+      console.warn(`🔍 RPC endpoint ${rpcUrl} failed:`, error);
+      nearConnection = null; // Reset connection to try next endpoint
+      viewAccount = null;
+      
+      if (i === RPC_ENDPOINTS.length - 1) {
+        throw new Error("All RPC endpoints failed");
+      }
+    }
   }
-  // Use a generic account for view calls (doesn't need to be logged in)
-  viewAccount = await nearConnection.account("guest.near");
-  console.log("🔍 View account:", viewAccount);
-  return viewAccount;
 }
 
 export async function callViewMethod(
@@ -64,16 +94,36 @@ export async function callViewMethod(
   methodName: string,
   args = {}
 ) {
-  try {
-    const account = await getViewAccount();
-    console.log("🔍 Account:", account);
-    const result = await account.viewFunction({ contractId, methodName, args });
-    console.log("🔍 Result:", result);
-    return result;
-  } catch (error) {
-    console.error("🔍 Error:", error);
-    return "0";
+  // Try up to 3 times with different RPC endpoints
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const account = await getViewAccount();
+      if (!account) {
+        throw new Error("Failed to get view account");
+      }
+      
+      console.log(`🔍 Calling ${methodName} on ${contractId} (attempt ${attempt + 1})`);
+      const result = await account.viewFunction({ contractId, methodName, args });
+      console.log("🔍 Result:", result);
+      return result;
+    } catch (error) {
+      console.error(`🔍 Attempt ${attempt + 1} failed:`, error);
+      
+      // Reset connections to try different RPC
+      nearConnection = null;
+      viewAccount = null;
+      currentRpcIndex = (currentRpcIndex + 1) % RPC_ENDPOINTS.length;
+      
+      if (attempt === 2) {
+        console.error("🔍 All attempts failed, returning default value");
+        return "0";
+      }
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
   }
+  return "0";
 }
 
 export function useNearWallet() {
@@ -98,7 +148,7 @@ export function useNearWallet() {
           setupNightly(),
           setupMeteorWallet(),
           setupMeteorWalletApp({
-            contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+            contractId: NEXT_PUBLIC_CONTRACT_ID,
           }),
           setupOKXWallet(),
           setupNarwallets(),
@@ -108,7 +158,7 @@ export function useNearWallet() {
           setupCoin98Wallet(),
           setupXDEFI(),
           setupWalletConnect({
-            projectId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+            projectId: NEXT_PUBLIC_CONTRACT_ID,
             metadata: {
               name: "AI Gambling Club",
               description: "AI Gambling Club - NEAR Protocol Gambling Platform",
@@ -123,7 +173,7 @@ export function useNearWallet() {
       });
 
       const modal = setupModal(selector, {
-        contractId: process.env.NEXT_PUBLIC_CONTRACT_ID!,
+        contractId: NEXT_PUBLIC_CONTRACT_ID,
       });
 
       // Subscribe to changes
@@ -221,26 +271,35 @@ export function useNearWallet() {
     const accounts = await wallet.getAccounts();
 
     if (accounts && accounts.length > 0) {
-      const response = await fetch("https://rpc.testnet.near.org", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "dontcare",
-          method: "query",
-          params: {
-            request_type: "view_account",
-            finality: "final",
-            account_id: accounts[0].accountId,
-          },
-        }),
-      });
-      console.log("🔍 Response getNearBalance:", response);
-      const data = await response.json();
-      if (data.result && data.result.amount) {
-        return data.result.amount;
+      // Try each RPC endpoint until one works
+      for (let i = 0; i < RPC_ENDPOINTS.length; i++) {
+        const rpcUrl = RPC_ENDPOINTS[(currentRpcIndex + i) % RPC_ENDPOINTS.length];
+        try {
+          console.log(`🔍 Fetching NEAR balance using: ${rpcUrl}`);
+          
+          const connection = await connect({
+            networkId: "mainnet",
+            nodeUrl: rpcUrl,
+            walletUrl: "https://wallet.mainnet.near.org",
+            deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
+          });
+          
+          // Get account state for the connected wallet account
+          const userAccount = await connection.account(accounts[0].accountId);
+          const accountState = await userAccount.state();
+          console.log("🔍 NEAR Account State for", accounts[0].accountId, ":", accountState);
+          
+          // Update current working RPC index
+          currentRpcIndex = (currentRpcIndex + i) % RPC_ENDPOINTS.length;
+          
+          // Return the available balance
+          return accountState.amount;
+        } catch (error) {
+          console.warn(`🔍 NEAR balance fetch failed with ${rpcUrl}:`, error);
+          if (i === RPC_ENDPOINTS.length - 1) {
+            console.error("🔍 All RPC endpoints failed for NEAR balance");
+          }
+        }
       }
     }
     return "0";
@@ -255,6 +314,15 @@ export function useNearWallet() {
     return result;
   };
 
+  const getAgcUsdcBalance = async (accountId: string) => {
+    const agcContract = NEXT_PUBLIC_CONTRACT_ID;
+    const result = await callViewMethod(agcContract, "getUsdcBalance", {
+      account_id: accountId,
+    });
+    console.log("🔍 AGC USDC balance:", result);
+    return result;
+  };
+
   return useMemo(
     () => ({
       ...walletState,
@@ -263,6 +331,7 @@ export function useNearWallet() {
       callMethod,
       getNearBalance,
       getUsdcWalletBalance,
+      getAgcUsdcBalance,
       callViewMethod,
       accountId: walletState.accountId,
       isConnected: walletState.accountId !== null,

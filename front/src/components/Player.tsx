@@ -58,11 +58,11 @@ export const Player: React.FC<PlayerProps> = ({
       case "FOLDED":
         return "text-gray-400";
       case "ALL_IN":
-        return "text-neon-yellow";
+        return "text-yellow-400";
       case "PLAYING":
-        return "text-neon-green";
+        return "text-white";
       default:
-        return "text-neon-green";
+        return "text-white";
     }
   };
 
@@ -70,65 +70,65 @@ export const Player: React.FC<PlayerProps> = ({
     <div className={`player ${positionClasses[tablePosition]}`}>
       <div className="relative">
         {/* AVATAR */}
-        {/* <div className="w-12 h-12 bg-black border-2 border-neon-green shadow-neon rounded-full mr-2 flex items-center justify-center">
-          <span className={`${statusColor()} text-shadow-neon`}>
+        {/* <div className="w-12 h-12 bg-black border-2 border-white mr-2 flex items-center justify-center">
+          <span className={`${statusColor()} font-mono`}>
             {playerName.slice(0, 2)}
           </span>
         </div>
         {totalContractBet > 0 && (
-          <span className="absolute -bottom-2 -right-2 text-xs text-white bg-theme-highlight/80 px-1 rounded shadow-neon-yellow">
+          <span className="absolute -bottom-2 -right-2 text-xs text-white bg-green-400 px-1">
             ${formatChips(totalContractBet)}
           </span>
         )} */}
       </div>
-      <div className="flex flex-col text-xs flex-grow">
+      <div className="flex flex-col text-xs flex-grow font-mono">
         <div className="flex items-center mb-1">
-          <span className="font-bold text-neon-green text-shadow-neon mr-2">
+          <span className="font-bold text-white mr-2">
             {playerName}
           </span>
         </div>
         <div className="flex items-center mb-1">
-          <span className={`${statusColor()} text-shadow-neon`}>
+          <span className={`${statusColor()}`}>
             {status === "PLAYING" ? "" : status}
           </span>
         </div>
         <div className="flex items-center mb-1">
-          <span className={`${statusColor()} text-shadow-neon font-bold`}>
+          <span className={`${statusColor()} font-bold`}>
             {isCurrentPlayer ? "Computing..." : <br />}
           </span>
         </div>
         <div className="flex items-center mb-1">
-          <span className={`${statusColor()} text-shadow-neon`}>
+          <span className={`${statusColor()}`}>
             {getPositionLabel(position)}
           </span>
         </div>
         <div className="flex justify-between items-center mb-1">
-          <span className="text-neon-green text-shadow-neon">
-            Chips: ${formatChips(chips)}
+          <span className="text-white">
+            Chips: <span className="text-green-400">${formatChips(chips)}</span>
           </span>
         </div>
         <div className="flex justify-between items-center mb-1">
           {bet.volume > 0 && (
-            <span className="text-neon-yellow text-shadow-yellow">
-              Bet Total: ${formatChips(bet.volume)}
+            <span className="text-white">
+              Bet Total: <span className="text-green-400">${formatChips(bet.volume)}</span>
             </span>
           )}
         </div>
         <div className="flex justify-between items-center mb-1">
           {bet.amount > 0 && (
-            <span className="text-neon-yellow text-shadow-yellow ml-2">
-              Bet Round: ${formatChips(bet.amount)}
+            <span className="text-white ml-2">
+              Bet Round: <span className="text-green-400">${formatChips(bet.amount)}</span>
             </span>
           )}
         </div>
         {totalContractBet > 0 && (
-          <div className="text-theme-primary text-shadow-green text-xs">
-            Pool: ${formatChips(totalContractBet)}
+          <div className="text-white text-xs">
+            Pool: <span className="text-green-400">${formatChips(totalContractBet)}</span>
           </div>
         )}
         {userContractBet > 0 && (
-          <div className="text-theme-accent text-shadow-pink text-xs">
-            Your Bet: ${formatChips(userContractBet)}
+          <div className="text-white text-xs">
+            Your Bet: <span className="text-green-400">${formatChips(userContractBet)}</span>
           </div>
         )}
         {/* Player's hand */}

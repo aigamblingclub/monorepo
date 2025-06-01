@@ -23,27 +23,29 @@ export function TransactionInput({
 }: TransactionInputProps) {
   return (
     <div className={id === 'deposit' ? 'mb-3' : ''}>
-      <div className="flex justify-between">
-        <input
-          type="number"
-          id={id}
-          value={value}
-          onChange={onChange}
-          className="w-full text-xs px-3 bg-surface-tertiary border border-theme-primary rounded-border-radius-element text-theme-primary placeholder:text-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-          placeholder="Enter amount"
-          disabled={isLoading}
-          autoComplete="off"
-        />
-        <button
-          onClick={onAction}
-          disabled={isDisabled}
-          className="w-[200px] text-sm border px-4 text-theme-primary bg-transparent border-1 border-theme-primary rounded-border-radius-element font-bold hover:bg-surface-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 disabled:opacity-50 justify-start text-left"
-        >
-          {isLoading ? '...' : actionLabel}
-        </button>
+      <div>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            id={id}
+            value={value}
+            onChange={onChange}
+            className="w-44 bg-black border border-white rounded px-2 py-1 font-mono text-sm text-white placeholder-gray-400 focus:outline-none disabled:opacity-50 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+            placeholder="Enter amount"
+            disabled={isLoading}
+            autoComplete="off"
+          />
+          <button
+            onClick={onAction}
+            disabled={isDisabled}
+            className="w-24 py-1 bg-black border border-white rounded font-mono text-sm text-white hover:bg-white hover:text-black transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black disabled:hover:text-white"
+          >
+            {isLoading ? '...' : actionLabel}
+          </button>
+        </div>
       </div>
       {error && (
-        <div className="mt-1 p-2 text-xs text-theme-alert border border-theme-alert rounded-border-radius-element bg-transparent">
+        <div className="mt-2 p-2 text-xs text-red-400 border border-red-500 rounded bg-black font-mono">
           {error}
         </div>
       )}

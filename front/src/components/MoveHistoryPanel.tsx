@@ -37,18 +37,22 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({ gameState })
       case "all_in":
         return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - went all in`;
       case "raise":
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - raised to ${playerMove.amount}`;
+        return (
+          <>
+            Round {gameState.round.roundNumber} - Street {gameState.phase.street} - {playerName} - raised to <span className="text-green-400">${playerMove.amount}</span>
+          </>
+        );
       default:
         return "Unknown move";
     }
   };
 
   return (
-    <div className="bg-surface-primary rounded-border-radius-element p-4 border border-theme-primary rounded-border-radius-element">
-      <h3 className="text-theme-primary text-shadow-cyan mb-4">Move History</h3>
-      <div className="max-h-96 overflow-y-auto">
+    <div className="bg-black border-2 border-white p-4 flex-shrink-0 h-[50vh] max-h-[500px] flex flex-col">
+      <h3 className="text-white font-mono font-bold text-lg mb-4">Move History</h3>
+      <div className="flex-1 overflow-y-auto">
         {moveHistory?.length === 0 ? (
-          <p className="text-theme-secondary text-shadow-cyan text-sm">
+          <p className="text-white font-mono text-sm">
             No moves yet
           </p>
         ) : (
@@ -58,11 +62,11 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({ gameState })
                 move && (
                   <li
                     key={index}
-                    className="text-theme-primary text-shadow-cyan text-sm p-2 bg-surface-secondary rounded-border-radius-element"
+                    className="text-white font-mono text-sm p-2 bg-black border border-white"
                   >
                     {getMoveDescription(move)}
                     {/* {move.move.decisionContext?.explanation && (
-                      <p className="text-xs text-theme-secondary mt-1">
+                      <p className="text-xs text-gray-400 mt-1 font-mono">
                         {move.move.decisionContext.explanation}
                       </p>
                     )} */}

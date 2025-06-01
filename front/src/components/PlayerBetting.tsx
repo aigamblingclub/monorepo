@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { formatChips } from '../types/poker';
-import { PlayerBet } from './BettingPanel';
+import { PlayerBet } from './AccountManager';
 
 interface PlayerBettingProps {
   playerId: string;
@@ -28,44 +28,68 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
   }, [playerId, betAmount, onPlaceBet]);
 
   return (
-    <div className="h-full w-full transition-all duration-300 ease-in-out shadow-[0_0_calc(var(--shadow-strength)*0.5)_var(--theme-primary)] hover:shadow-[0_0_var(--shadow-strength)_var(--theme-accent)] hover:border-theme-accent border border-theme-primary rounded-border-radius-element px-3 py-1 bg-surface-tertiary">
-      <div className="flex justify-between items-center mb-1">
-        <h4 className="text-theme-highlight text-shadow-yellow">{playerName}</h4>
+    <div className="bg-black border border-white rounded p-3 transition-all duration-300 ease-in-out hover:border-gray-400">
+      {/* Player Name */}
+      <div className="border-b border-white pb-2 mb-3">
+        <h4 className="text-white font-mono font-semibold">{playerName}</h4>
       </div>
 
-      <div className="text-sm mb-1">
-        <div className="text-theme-primary text-shadow-green">
-          Total Pool: ${formatChips(totalBet)}
+      {/* Betting Information */}
+      <div className="space-y-2 mb-3">
+        <div>
+          <label className="block text-white font-mono text-xs mb-1">
+            Total Pool:
+          </label>
+          <div className="bg-black border border-white rounded px-2 py-1 font-mono text-sm text-white">
+            ${formatChips(totalBet)}
+          </div>
         </div>
+        
         {bet.betAmount > 0 && (
-          <div className="text-theme-accent text-shadow-pink">
-            Your Bet: ${formatChips(bet.betAmount)}
+          <div>
+            <label className="block text-white font-mono text-xs mb-1">
+              Your Bet:
+            </label>
+            <div className="bg-black border border-green-500 rounded px-2 py-1 font-mono text-sm text-green-400">
+              ${formatChips(bet.betAmount)}
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="number"
-          value={betAmount}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBetAmount(e.target.value)}
-          placeholder="Enter bet amount"
-          className="w-[150px] text-xs px-2 rounded-border-radius-element bg-surface-primary border border-theme-primary text-theme-primary placeholder-theme-secondary"
-        />
-        <button
-          onClick={handleBet}
-          className="px-3 border border-theme-primary bg-theme-primary text-surface-primary rounded-border-radius-element hover:bg-theme-highlight transition-colors"
-          disabled={!betAmount || isNaN(Number(betAmount)) || Number(betAmount) <= 0}
-        >
-          Bet
-        </button>
-      </div>
-
-      {bet.betAmount > 0 && totalBet > 0 && (
-        <div className="mt-2 text-xs text-theme-secondary text-shadow-cyan">
-          Your share: {((bet.betAmount / (totalBet || 1)) * 100).toFixed(1)}% of pool
+      {/* Betting Input */}
+      <div className="space-y-2">
+        <div>
+          <label className="block text-white font-mono text-xs mb-1">
+            Place Bet:
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={betAmount}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBetAmount(e.target.value)}
+              placeholder="Enter amount"
+              className="flex-1 bg-black border border-white rounded px-2 py-1 font-mono text-sm text-white placeholder-gray-400 focus:border-gray-400 focus:outline-none"
+            />
+            <button
+              onClick={handleBet}
+              disabled={!betAmount || isNaN(Number(betAmount)) || Number(betAmount) <= 0}
+              className="px-3 py-1 bg-black border border-white rounded font-mono text-sm text-white hover:bg-white hover:text-black transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black disabled:hover:text-white"
+            >
+              Bet
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Bet Share Information */}
+        {bet.betAmount > 0 && totalBet > 0 && (
+          <div className="mt-2 p-2 bg-black border border-gray-500 rounded">
+            <div className="text-gray-400 font-mono text-xs">
+              Your share: {((bet.betAmount / (totalBet || 1)) * 100).toFixed(1)}% of pool
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }; 

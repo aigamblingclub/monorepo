@@ -84,3 +84,19 @@ if(!process.env.NEXT_PUBLIC_USDC_CONTRACT_ID) {
  * @example "usdc.tether-token.near"
  */
 export const NEXT_PUBLIC_USDC_CONTRACT_ID = process.env.NEXT_PUBLIC_USDC_CONTRACT_ID;
+
+/**
+ * Main AGC contract configuration validation
+ * @throws {Error} When NEXT_PUBLIC_CONTRACT_ID is not set
+ */
+if(!process.env.NEXT_PUBLIC_CONTRACT_ID) {
+    throw new Error('NEXT_PUBLIC_CONTRACT_ID is not set');
+}
+
+/**
+ * The NEAR Protocol contract ID for the main AGC (AI Gambling Club) contract
+ * Used for game operations, balance checks, and AGC-specific transactions
+ * @type {string}
+ * @example "agc.your-contract.near"
+ */
+export const NEXT_PUBLIC_CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID;

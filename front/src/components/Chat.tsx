@@ -63,30 +63,30 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
   }, [gameState]);
 
   return (
-    <div className="w-full h-full max-h-[20vh] border border-theme-primary rounded-border-radius-element bg-surface-primary">
+    <div className="w-[50vw] max-w-[800px] h-full max-h-[40vh] border-2 border-white bg-black">
       {/* Chat header */}
-      <div className="p-2 border-b border-theme-primary">
-        <h3 className="text-theme-primary text-shadow-cyan text-lg font-bold">AI Agent Thoughts</h3>
+      <div className="p-2 border-b border-white">
+        <h3 className="text-white font-mono font-bold text-lg">AI Agent Thoughts</h3>
       </div>
 
       {/* Thoughts container */}
       <SimpleBar 
         autoHide={false}
-        className="ai-thoughts-scrollbar h-[100px] overflow-y-auto"
+        className="ai-thoughts-scrollbar h-[200px] overflow-y-auto"
       >
         <div className="p-4 space-y-2">
           {messages.map((thought: ChatMessage) => (
             <div key={thought.id} className="flex items-baseline space-x-2">
-              <span className="text-theme-primary text-shadow-cyan font-bold">
+              <span className="text-green-400 font-mono font-bold">
                 {thought.playerName}:
               </span>
-              <span className="text-theme-secondary text-shadow-cyan">
+              <span className="text-white font-mono">
                 {thought.text}
               </span>
             </div>
           ))}
           {messages.length === 0 && (
-            <div className="text-theme-secondary text-shadow-cyan text-center">
+            <div className="text-gray-400 font-mono text-center">
               Waiting for AI agent&apos;s thoughts...
             </div>
           )}

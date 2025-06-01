@@ -5,8 +5,8 @@ import { PokerTable } from '../components/PokerTable';
 import { PokerState } from '../types/poker';
 import { WalletProvider } from "@/providers/WalletProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { WalletButton } from "@/components/WalletButton";
-import { BettingPanel } from "@/components/BettingPanel";
+import { WalletMenu } from "@/components/WalletMenu";
+import { AccountManager } from "@/components/AccountManager";
 import { usePlayerBetting } from "@/hooks/usePlayerBetting";
 import { Chat } from "@/components/Chat";
 import { MoveHistoryPanel } from "@/components/MoveHistoryPanel";
@@ -20,11 +20,30 @@ function PageLayout({ children }: { children: ReactNode }) {
           <header className="w-full flex justify-between items-start px-4 pt-2">
             <div style={{ width: '30vw' }}></div>
             <div className="flex flex-col justify-center items-center">
-              <h1 className="text-[var(--theme-primary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)] text-4xl font-bold my-1 block">AI Gambling Club</h1>
-              <h2 className="text-[var(--theme-highlight)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-highlight)] text-xl mb-8 block">Poker Texas Hold&apos;em</h2>
+              {/* Terminal-style title container */}
+              <div className="relative mb-4">
+                {/* Terminal window frame */}
+                <div className="border-[var(--border-width)] border-[var(--theme-primary)] bg-[var(--surface-secondary)] rounded-[var(--border-radius-element)] shadow-[0_0_var(--shadow-strength)_var(--theme-primary),inset_0_0_var(--shadow-inner-strength)_var(--theme-primary)]">
+                  {/* Terminal prompt line */}
+                  <div className="font-mono text-[var(--theme-primary)] text-sm mb-2 [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)]">
+                    <span className="opacity-70">user@agc:~$</span> <span className="opacity-90">cat banner.txt</span>
+                  </div>
+                  
+                  {/* ASCII-style title */}
+                  <div className="font-mono text-[var(--theme-primary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)]">
+                    <pre className="text-xl leading-tight whitespace-pre">
+{`╔═══════════════════════════════════╗
+║ AI GAMBLING CLUB           [LIVE] ║
+║ ================           ██████ ║
+║ PROMPT2WIN  v0.1                  ║
+╚═══════════════════════════════════╝`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
             </div>
             <div style={{ width: '30vw' }} className="flex justify-end items-center">
-              <WalletButton />
+              <WalletMenu />
             </div>
           </header>
           {children}
@@ -101,50 +120,48 @@ function HomeContent() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex flex-col lg:flex-row">
-        {/* History Panel - Moves to bottom on mobile */}
-        <div className="w-full lg:w-[400px] px-4 order-3 lg:order-1">
-          <MoveHistoryPanel gameState={gameState} />
-        </div>
-        
-        {/* Main Game Area - Stays in middle */}
-        <div className="flex flex-col w-full order-2">
-          <PokerTable 
-            gameState={gameState} 
-            playerBets={playerBets.map(bet => ({
-              playerId: bet.playerId,
-              totalBet: bet.totalBet,
-              betAmount: bet.betAmount
-            }))} 
-          />
-          <div className="w-full max-h-64 mt-4 px-4 pb-4">
+      {/* Main Content Area - Simple centered layout */}
+      <div className="flex justify-center px-4">
+        <div className="flex gap-6 items-start">
+          {/* Left Side - Move History */}
+          <div className="w-80">
+            <MoveHistoryPanel gameState={gameState} />
+          </div>
+          
+          {/* Center - Poker Table + AAT (main focus) */}
+          <div className="flex flex-col gap-6">
+            <PokerTable 
+              gameState={gameState} 
+              playerBets={playerBets.map(bet => ({
+                playerId: bet.playerId,
+                totalBet: bet.totalBet,
+                betAmount: bet.betAmount
+              }))} 
+            />
             <Chat gameState={gameState} />
           </div>
-        </div>
 
-        {/* Betting Panel - Moves to top on mobile */}
-        <div className="w-full lg:w-[400px] px-4 order-1 lg:order-3">
-          <div className="">
-            <BettingPanel
+          {/* Right Side - Account Manager */}
+          <div className="w-80">
+            <AccountManager
+              isLoggedIn={isConnected}
               players={
                 gameState?.players?.length > 0 ? [...gameState.players] : []
               }
               playerBets={playerBets}
               onPlaceBet={placeBet}
-              userBalance={userBalance}
-              usdcBalance={usdcBalance}
-              isLoggedIn={isConnected}
+              tableStatus={gameState?.tableStatus}
             />
             {bettingError && (
-              <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
-                <p className="text-theme-alert text-shadow-red text-sm">
+              <div className="mt-4 p-2 border border-red-500 bg-black">
+                <p className="text-red-400 font-mono text-sm">
                   {bettingError}
                 </p>
               </div>
             )}
             {bettingLoading && (
               <div className="mt-4 text-center">
-                <p className="text-theme-secondary text-shadow-cyan text-sm">
+                <p className="text-gray-400 font-mono text-sm">
                   Loading...
                 </p>
               </div>
