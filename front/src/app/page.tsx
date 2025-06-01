@@ -20,8 +20,27 @@ function PageLayout({ children }: { children: ReactNode }) {
           <header className="w-full flex justify-between items-start px-4 pt-2">
             <div style={{ width: '30vw' }}></div>
             <div className="flex flex-col justify-center items-center">
-              <h1 className="text-[var(--theme-primary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)] text-4xl font-bold my-1 block">AI Gambling Club</h1>
-              <h2 className="text-[var(--theme-highlight)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-highlight)] text-xl mb-8 block">Poker Texas Hold&apos;em</h2>
+              {/* Terminal-style title container */}
+              <div className="relative mb-4">
+                {/* Terminal window frame */}
+                <div className="border-[var(--border-width)] border-[var(--theme-primary)] bg-[var(--surface-secondary)] rounded-[var(--border-radius-element)] shadow-[0_0_var(--shadow-strength)_var(--theme-primary),inset_0_0_var(--shadow-inner-strength)_var(--theme-primary)]">
+                  {/* Terminal prompt line */}
+                  <div className="font-mono text-[var(--theme-primary)] text-sm mb-2 [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)]">
+                    <span className="opacity-70">user@agc:~$</span> <span className="opacity-90">cat banner.txt</span>
+                  </div>
+                  
+                  {/* ASCII-style title */}
+                  <div className="font-mono text-[var(--theme-primary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)]">
+                    <pre className="text-xl leading-tight whitespace-pre">
+{`╔═══════════════════════════════════╗
+║ AI GAMBLING CLUB           [LIVE] ║
+║ ================           ██████ ║
+║ PROMPT2WIN  v0.1                  ║
+╚═══════════════════════════════════╝`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
             </div>
             <div style={{ width: '30vw' }} className="flex justify-end items-center">
               <WalletMenu />
