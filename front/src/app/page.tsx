@@ -101,30 +101,29 @@ function HomeContent() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex flex-col lg:flex-row">
-        {/* History Panel - Moves to bottom on mobile */}
-        <div className="w-full lg:w-[400px] px-4 order-3 lg:order-1">
-          <MoveHistoryPanel gameState={gameState} />
-        </div>
-        
-        {/* Main Game Area - Stays in middle */}
-        <div className="flex flex-col w-full order-2">
-          <PokerTable 
-            gameState={gameState} 
-            playerBets={playerBets.map(bet => ({
-              playerId: bet.playerId,
-              totalBet: bet.totalBet,
-              betAmount: bet.betAmount
-            }))} 
-          />
-          <div className="w-full max-h-64 mt-4 px-4 pb-4">
+      {/* Main Content Area - Simple centered layout */}
+      <div className="flex justify-center px-4">
+        <div className="flex gap-6 items-start">
+          {/* Left Side - Move History */}
+          <div className="w-80">
+            <MoveHistoryPanel gameState={gameState} />
+          </div>
+          
+          {/* Center - Poker Table + AAT (main focus) */}
+          <div className="flex flex-col gap-6">
+            <PokerTable 
+              gameState={gameState} 
+              playerBets={playerBets.map(bet => ({
+                playerId: bet.playerId,
+                totalBet: bet.totalBet,
+                betAmount: bet.betAmount
+              }))} 
+            />
             <Chat gameState={gameState} />
           </div>
-        </div>
 
-        {/* Betting Panel - Moves to top on mobile */}
-        <div className="w-full lg:w-[400px] px-4 order-1 lg:order-3">
-          <div className="">
+          {/* Right Side - Account Manager */}
+          <div className="w-80">
             <AccountManager
               isLoggedIn={isConnected}
               players={
@@ -135,15 +134,15 @@ function HomeContent() {
               tableStatus={gameState?.tableStatus}
             />
             {bettingError && (
-              <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">
-                <p className="text-theme-alert text-shadow-red text-sm">
+              <div className="mt-4 p-2 border border-red-500 bg-black">
+                <p className="text-red-400 font-mono text-sm">
                   {bettingError}
                 </p>
               </div>
             )}
             {bettingLoading && (
               <div className="mt-4 text-center">
-                <p className="text-theme-secondary text-shadow-cyan text-sm">
+                <p className="text-gray-400 font-mono text-sm">
                   Loading...
                 </p>
               </div>
