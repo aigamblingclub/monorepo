@@ -6,7 +6,7 @@ import { PokerState } from '../types/poker';
 import { WalletProvider } from "@/providers/WalletProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { WalletMenu } from "@/components/WalletMenu";
-import { BettingPanel } from "@/components/BettingPanel";
+import { AccountManager } from "@/components/AccountManager";
 import { usePlayerBetting } from "@/hooks/usePlayerBetting";
 import { Chat } from "@/components/Chat";
 import { MoveHistoryPanel } from "@/components/MoveHistoryPanel";
@@ -125,15 +125,14 @@ function HomeContent() {
         {/* Betting Panel - Moves to top on mobile */}
         <div className="w-full lg:w-[400px] px-4 order-1 lg:order-3">
           <div className="">
-            <BettingPanel
+            <AccountManager
+              isLoggedIn={isConnected}
               players={
                 gameState?.players?.length > 0 ? [...gameState.players] : []
               }
               playerBets={playerBets}
               onPlaceBet={placeBet}
-              userBalance={userBalance}
-              usdcBalance={usdcBalance}
-              isLoggedIn={isConnected}
+              tableStatus={gameState?.tableStatus}
             />
             {bettingError && (
               <div className="mt-4 p-2 border border-theme-alert rounded-border-radius-element bg-surface-secondary">

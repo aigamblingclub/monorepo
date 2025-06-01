@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { PlayerBet } from '../components/BettingPanel';
+import { PlayerBet } from '../components/AccountManager';
 import { useNearWallet } from './useNearWallet';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -68,7 +68,7 @@ export const usePlayerBetting = () => {
     } else {
       setUsdcBalance("0.00");
     }
-  }, [accountId, getUsdcWalletBalance]);
+  }, [accountId]);
 
   const fetchData = useCallback(async () => {
     if (!accountId || !apiKey) {
@@ -169,7 +169,7 @@ export const usePlayerBetting = () => {
       getUsdcBalance();
       fetchData();  
     }
-  }, [accountId, apiKey, loading, initialized, fetchData, getBalance, getUsdcBalance]);
+  }, [accountId, apiKey, loading, initialized]);
 
   return useMemo(() => ({
     playerBets,

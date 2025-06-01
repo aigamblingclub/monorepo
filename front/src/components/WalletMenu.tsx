@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useNearWallet } from '@/hooks/useNearWallet';
 import { formatUsdcDisplay } from '@/utils/usdcBalance';
@@ -58,10 +58,10 @@ export function WalletMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   /**
-   * Fetches and updates wallet balances
-   * Gets NEAR balance, wallet USDC balance, and AGC locked USDC balance
+   * Memoized function to fetch and update wallet balances
+   * Gets NEAR balance, wallet USDC balance, and AGC deposited USDC balance
    */
-  const fetchBalances = async () => {
+  const fetchBalances = useCallback(async () => {
     if (!accountId || !isAuthenticated) return;
     
     setIsLoadingBalances(true);
@@ -74,7 +74,7 @@ export function WalletMenu() {
       const usdcBal = await getUsdcWalletBalance(accountId);
       setWalletUsdcBalance(usdcBal);
 
-      // Fetch AGC locked USDC balance
+      // Fetch AGC deposited USDC balance
       const agcBal = await getAgcUsdcBalance(accountId);
       setAgcUsdcBalance(agcBal);
     } catch (error) {
@@ -82,7 +82,7 @@ export function WalletMenu() {
     } finally {
       setIsLoadingBalances(false);
     }
-  };
+  }, [accountId, isAuthenticated]);
 
   /**
    * Effect to fetch balances when menu opens
@@ -91,7 +91,7 @@ export function WalletMenu() {
     if (isMenuOpen && isAuthenticated) {
       fetchBalances();
     }
-  }, [isMenuOpen, isAuthenticated, accountId]);
+  }, [isMenuOpen, isAuthenticated, fetchBalances]);
 
   /**
    * Effect to handle clicking outside menu to close it
@@ -204,7 +204,7 @@ export function WalletMenu() {
                 {isLoadingBalances ? (
                   <span className="animate-pulse">Loading...</span>
                 ) : (
-                  `${formatNearBalance(nearBalance)} NEAR`
+                  <span className="text-green-400">{`${formatNearBalance(nearBalance)} NEAR`}</span>
                 )}
               </div>
             </div>
@@ -218,21 +218,21 @@ export function WalletMenu() {
                 {isLoadingBalances ? (
                   <span className="animate-pulse">Loading...</span>
                 ) : (
-                  formatUsdcDisplay(walletUsdcBalance)
+                  <span className="text-green-400">{formatUsdcDisplay(walletUsdcBalance)}</span>
                 )}
               </div>
             </div>
 
-            {/* Locked USDC Balance */}
+            {/* Deposited USDC Balance */}
             <div>
               <label className="block text-white font-mono text-sm mb-1">
-                Locked USDC:
+                Deposited USDC:
               </label>
               <div className="bg-black border border-white rounded px-3 py-2 font-mono text-sm text-white">
                 {isLoadingBalances ? (
                   <span className="animate-pulse">Loading...</span>
                 ) : (
-                  formatUsdcDisplay(agcUsdcBalance)
+                  <span className="text-green-400">{formatUsdcDisplay(agcUsdcBalance)}</span>
                 )}
               </div>
             </div>

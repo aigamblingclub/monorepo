@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card } from './Card';
 import { Player } from './Player';
 import { PlayerState, PokerState, formatChips, getPhaseLabel, Card as CardType } from '../types/poker';
-import { PlayerBet } from './BettingPanel';
+import { PlayerBet } from './AccountManager';
 
 interface PokerTableProps {
   gameState: PokerState;

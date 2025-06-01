@@ -42,21 +42,51 @@ interface WalletState {
 let nearConnection: Near | null = null;
 let viewAccount: Account | null = null;
 
+// Fallback RPC endpoints in order of preference
+const RPC_ENDPOINTS = [
+  "https://rpc.mainnet.near.org",
+  "https://near-mainnet.infura.io/v3/",
+  "https://public-rpc.blockpi.io/http/near",
+  "https://near-mainnet-rpc.allthatnode.com:3030",
+  "https://1rpc.io/near"
+];
+
+let currentRpcIndex = 0;
+
 async function getViewAccount() {
   if (viewAccount) return viewAccount;
-  if (!nearConnection) {
-    // Use mainnet for USDC contract calls since USDC is typically on mainnet
-    nearConnection = await connect({
-      networkId: "mainnet",
-      nodeUrl: "https://rpc.mainnet.near.org",
-      walletUrl: "https://wallet.mainnet.near.org",
-      deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
-    });
+  
+  // Try each RPC endpoint until one works
+  for (let i = 0; i < RPC_ENDPOINTS.length; i++) {
+    const rpcUrl = RPC_ENDPOINTS[(currentRpcIndex + i) % RPC_ENDPOINTS.length];
+    try {
+      if (!nearConnection) {
+        console.log(`🔍 Trying RPC endpoint: ${rpcUrl}`);
+        nearConnection = await connect({
+          networkId: "mainnet",
+          nodeUrl: rpcUrl,
+          walletUrl: "https://wallet.mainnet.near.org",
+          deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
+        });
+      }
+      
+      // Use a generic account for view calls (doesn't need to be logged in)
+      viewAccount = await nearConnection.account("guest.near");
+      console.log("🔍 View account connected successfully:", viewAccount);
+      
+      // Update current working RPC index
+      currentRpcIndex = (currentRpcIndex + i) % RPC_ENDPOINTS.length;
+      return viewAccount;
+    } catch (error) {
+      console.warn(`🔍 RPC endpoint ${rpcUrl} failed:`, error);
+      nearConnection = null; // Reset connection to try next endpoint
+      viewAccount = null;
+      
+      if (i === RPC_ENDPOINTS.length - 1) {
+        throw new Error("All RPC endpoints failed");
+      }
+    }
   }
-  // Use a generic account for view calls (doesn't need to be logged in)
-  viewAccount = await nearConnection.account("guest.near");
-  console.log("🔍 View account:", viewAccount);
-  return viewAccount;
 }
 
 export async function callViewMethod(
@@ -64,16 +94,36 @@ export async function callViewMethod(
   methodName: string,
   args = {}
 ) {
-  try {
-    const account = await getViewAccount();
-    console.log("🔍 Account:", account);
-    const result = await account.viewFunction({ contractId, methodName, args });
-    console.log("🔍 Result:", result);
-    return result;
-  } catch (error) {
-    console.error("🔍 Error:", error);
-    return "0";
+  // Try up to 3 times with different RPC endpoints
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const account = await getViewAccount();
+      if (!account) {
+        throw new Error("Failed to get view account");
+      }
+      
+      console.log(`🔍 Calling ${methodName} on ${contractId} (attempt ${attempt + 1})`);
+      const result = await account.viewFunction({ contractId, methodName, args });
+      console.log("🔍 Result:", result);
+      return result;
+    } catch (error) {
+      console.error(`🔍 Attempt ${attempt + 1} failed:`, error);
+      
+      // Reset connections to try different RPC
+      nearConnection = null;
+      viewAccount = null;
+      currentRpcIndex = (currentRpcIndex + 1) % RPC_ENDPOINTS.length;
+      
+      if (attempt === 2) {
+        console.error("🔍 All attempts failed, returning default value");
+        return "0";
+      }
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
   }
+  return "0";
 }
 
 export function useNearWallet() {
@@ -221,26 +271,35 @@ export function useNearWallet() {
     const accounts = await wallet.getAccounts();
 
     if (accounts && accounts.length > 0) {
-      try {
-        // Get the NEAR connection that's already set up
-        if (!nearConnection) {
-          nearConnection = await connect({
+      // Try each RPC endpoint until one works
+      for (let i = 0; i < RPC_ENDPOINTS.length; i++) {
+        const rpcUrl = RPC_ENDPOINTS[(currentRpcIndex + i) % RPC_ENDPOINTS.length];
+        try {
+          console.log(`🔍 Fetching NEAR balance using: ${rpcUrl}`);
+          
+          const connection = await connect({
             networkId: "mainnet",
-            nodeUrl: "https://rpc.mainnet.near.org",
+            nodeUrl: rpcUrl,
             walletUrl: "https://wallet.mainnet.near.org",
             deps: { keyStore: new keyStores.BrowserLocalStorageKeyStore() },
           });
+          
+          // Get account state for the connected wallet account
+          const userAccount = await connection.account(accounts[0].accountId);
+          const accountState = await userAccount.state();
+          console.log("🔍 NEAR Account State for", accounts[0].accountId, ":", accountState);
+          
+          // Update current working RPC index
+          currentRpcIndex = (currentRpcIndex + i) % RPC_ENDPOINTS.length;
+          
+          // Return the available balance
+          return accountState.amount;
+        } catch (error) {
+          console.warn(`🔍 NEAR balance fetch failed with ${rpcUrl}:`, error);
+          if (i === RPC_ENDPOINTS.length - 1) {
+            console.error("🔍 All RPC endpoints failed for NEAR balance");
+          }
         }
-        
-        // Get account state for the connected wallet account
-        const userAccount = await nearConnection.account(accounts[0].accountId);
-        const accountState = await userAccount.state();
-        console.log("🔍 NEAR Account State for", accounts[0].accountId, ":", accountState);
-        
-        // Return the available balance
-        return accountState.amount;
-      } catch (error) {
-        console.error("🔍 Error fetching NEAR balance:", error);
       }
     }
     return "0";
