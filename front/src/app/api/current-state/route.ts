@@ -21,7 +21,6 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching poker state:", error);
     return NextResponse.json(
       { error: "Failed to fetch poker state" },
       { status: 500 }

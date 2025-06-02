@@ -44,9 +44,7 @@ export const usePlayerBetting = () => {
   const getUsdcBalance = useCallback(async () => {
     if (accountId && getUsdcWalletBalance) {
       try {
-        console.log("🔍 Fetching USDC balance for:", accountId);
         const balance = await getUsdcWalletBalance(accountId);
-        console.log("🔍 USDC balance result:", balance);
         
         // USDC typically has 6 decimal places, so we need to format it properly
         const balanceStr = balance?.toString() || "0";
@@ -62,7 +60,6 @@ export const usePlayerBetting = () => {
           setUsdcBalance(balanceNum.toFixed(2));
         }
       } catch (error) {
-        console.error("❌ Error fetching USDC balance:", error);
         setUsdcBalance("0.00");
       }
     } else {
@@ -72,14 +69,12 @@ export const usePlayerBetting = () => {
 
   const fetchData = useCallback(async () => {
     if (!accountId || !apiKey) {
-      console.log("⚠️ Not fully connected", { accountId, hasApiKey: !!apiKey });
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      console.log("📡 Fetching betting data...");
 
       // Fetch all bets data
       const response = await fetch('/api/bet/all', {
@@ -87,13 +82,11 @@ export const usePlayerBetting = () => {
           "x-api-key": apiKey,
         }
       });
-      console.log("🔍 response fetching betting data", response);
       if (!response.ok) {
         throw new Error('Failed to fetch betting data');
       }
 
       const data: AllBetsResponse = await response.json();
-      console.log("🔍 data fetching betting data", data);
       
       if (!data.success) {
         throw new Error(data.error || 'Failed to fetch betting data');
@@ -112,7 +105,6 @@ export const usePlayerBetting = () => {
       getUsdcBalance();
 
     } catch (err) {
-      console.error('❌ Error fetching betting data:', err);
       setError('Failed to load betting data');
       setPlayerBets([]);
       setUserBalance(0);
@@ -124,7 +116,6 @@ export const usePlayerBetting = () => {
 
   const placeBet = useCallback(async (playerId: string, amount: number) => {
     if (!accountId || !apiKey) {
-      console.error("❌ Cannot place bet: not connected");
       setError('Not connected');
       return false;
     }
@@ -132,7 +123,6 @@ export const usePlayerBetting = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log(`💸 Placing bet of ${amount} on player ${playerId}`);
       
       const response = await fetch('/api/bet', {
         method: 'POST',
@@ -155,7 +145,6 @@ export const usePlayerBetting = () => {
       
       return true;
     } catch (err) {
-      console.error('❌ Error placing bet:', err);
       setError('Failed to place bet');
       return false;
     } finally {

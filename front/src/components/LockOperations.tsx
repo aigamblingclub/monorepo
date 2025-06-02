@@ -53,8 +53,6 @@ export function LockOperations({
 
       // Only start lock status refresh after successful transaction
       refreshInterval = startLockRefresh();
-
-      console.log('Account locked for betting');
     } catch (err) {
       setErrorLock(err instanceof Error ? err.message : 'Failed to lock account');
     } finally {
@@ -90,8 +88,6 @@ export function LockOperations({
       // Start spinner immediately for visual feedback
       startSpinner();
       
-      console.log('Getting signed message from backend for unlock...');
-      
       // 1. Call our unlock API to get signed message from backend
       const unlockResponse = await fetch('/api/unlock', {
         method: 'POST',
@@ -104,15 +100,12 @@ export function LockOperations({
         }),
       });
 
-      console.log('Unlock response:', unlockResponse);
-
       if (!unlockResponse.ok) {
         const error = await unlockResponse.json();
         throw new Error(error.error || 'Failed to get unlock signature');
       }
 
       const { message, signature } = await unlockResponse.json();
-      console.log('Received signed message, calling AGC contract...');
 
       // 2. Call AGC contract's unlockUsdcBalance with the signed message
       await callMethod({
@@ -127,12 +120,8 @@ export function LockOperations({
 
       // Only start lock status refresh after successful operation
       refreshInterval = startLockRefresh();
-      
-      console.log('Account unlocked successfully');
-      
     } catch (err) {
       setErrorUnlock(err instanceof Error ? err.message : 'Failed to unlock account');
-      console.error('Unlock error:', err);
     } finally {
       setIsLoadingUnlock(false);
       // Stop spinner and pass refresh interval

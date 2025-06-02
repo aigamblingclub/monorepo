@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import { PrismaClient } from '@/prisma';
-import { getUserBalance } from '@/utils/balance';
+import { getUserVirtualBalance } from '@/utils/contract';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -56,7 +56,7 @@ router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) =
       });
     }
 
-    const { virtualBalance } = await getUserBalance(userId);
+    const virtualBalance = await getUserVirtualBalance(userId);
 
     const response: GetBalanceResponse = {
       success: true,
@@ -65,7 +65,6 @@ router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) =
 
     return res.json(response);
   } catch (error) {
-    console.error('Get virtual balance error:', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error',

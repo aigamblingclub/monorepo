@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       signature: data.signature, // The signature to verify
     });
   } catch (error) {
-    console.error("Error processing unlock:", error);
+
     return NextResponse.json(
       { error: "Failed to process unlock" },
       { status: 500 }

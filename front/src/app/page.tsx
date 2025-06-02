@@ -83,14 +83,12 @@ function HomeContent() {
         // Only update the state if the data is different
         if (JSON.stringify(data) !== JSON.stringify(gameState)) {
           setGameState(data);
-          console.log("🔍 Game state:", data);
         }
         
         setLoading(false);
       } catch (err) {
         setError('Failed to load game state');
         setLoading(false);
-        console.error(err);
       }
     };
 

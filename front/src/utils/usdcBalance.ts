@@ -56,7 +56,6 @@ export function formatUsdcBalance(rawBalance: string | number): string {
     // Format to 2 decimal places for display
     return usdcAmount.toFixed(2);
   } catch (error) {
-    console.error('Error formatting USDC balance:', error);
     return "0.00";
   }
 }
@@ -96,7 +95,6 @@ export function toContractBalance(usdcAmount: string | number): string {
     
     return contractBalance.toString();
   } catch (error) {
-    console.error('Error converting to contract balance:', error);
     return "0";
   }
 }
@@ -138,7 +136,6 @@ export function formatUsdcDisplay(rawBalance: string | number, showSymbol: boole
     
     return showSymbol ? `${formatted} USDC` : formatted;
   } catch (error) {
-    console.error('Error formatting USDC display:', error);
     return showSymbol ? "$0.00 USDC" : "$0.00";
   }
 }
@@ -199,7 +196,6 @@ export function getRawBalanceAsNumber(rawBalance: string | number): number {
     const balance = typeof rawBalance === 'string' ? parseFloat(rawBalance) : rawBalance;
     return isNaN(balance) || balance < 0 ? 0 : balance;
   } catch (error) {
-    console.error('Error converting raw balance to number:', error);
     return 0;
   }
 } 
