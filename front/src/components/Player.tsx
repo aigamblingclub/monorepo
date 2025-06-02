@@ -4,25 +4,6 @@ import { Card } from './Card';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-function getPositionLabel(position: string) {
-  switch (position) {
-    case 'SB':
-      return 'Small Blind';
-    case 'BB':
-      return 'Big Blind';
-    case 'BTN':
-      return 'Dealer';
-    case 'EP':
-      return 'Early Position';
-    case 'MP':
-      return 'Middle Position';
-    case 'CO':
-      return 'Cut-off';
-    default:
-      return position;
-  }
-}
-
 interface PlayerProps {
   id: string;
   playerName: string;
@@ -88,17 +69,17 @@ export const Player: React.FC<PlayerProps> = ({
 
   const getPositionIcon = () => {
     switch (position) {
-      case 'SB':
+      case 'SB': // Small Blind
         return 'SB';
-      case 'BB':
+      case 'BB': // Big Blind
         return 'BB';
-      case 'BTN':
+      case 'BTN': // Dealer
         return 'D';
-      case 'EP':
+      case 'EP': // Early Position
         return 'EP';
-      case 'MP':
+      case 'MP': // Middle Position
         return 'MP';
-      case 'CO':
+      case 'CO': // Cut-off
         return 'CO';
       default:
         return '';

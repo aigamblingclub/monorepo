@@ -30,8 +30,8 @@ import { connect, keyStores, Account, Near } from 'near-api-js';
 import {
   NEXT_PUBLIC_USDC_CONTRACT_ID,
   NEXT_PUBLIC_CONTRACT_ID,
+  isDev,
 } from '@/utils/env';
-import { useAuth } from '@/providers/AuthProvider';
 
 type ContractArgs = Record<string, unknown>;
 
@@ -80,6 +80,9 @@ async function getViewAccount() {
       currentRpcIndex = (currentRpcIndex + i) % RPC_ENDPOINTS.length;
       return viewAccount;
     } catch (error) {
+      if (isDev) {
+        console.error("getViewAccount error:", error);
+      }
       nearConnection = null; // Reset connection to try next endpoint
       viewAccount = null;
 
@@ -103,6 +106,9 @@ export async function callViewMethod(
     const result = await account.viewFunction({ contractId, methodName, args });
     return result;
   } catch (error) {
+    if (isDev) {
+      console.error("callViewMethod error:", error);
+    }
     throw new Error('Failed to get view account');
   }
 }
@@ -193,6 +199,9 @@ export function useNearWallet() {
     try {
       modal.show();
     } catch (err) {
+      if (isDev) {
+        console.error("signIn error:", err);
+      }
       setWalletState(prev => ({ ...prev, isConnecting: false }));
     }
   };
@@ -271,6 +280,9 @@ export function useNearWallet() {
           // Return the available balance
           return accountState.amount;
         } catch (error) {
+          if (isDev) {
+            console.error("getNearBalance error:", error);
+          }
           throw new Error('Failed to get NEAR balance');
         }
       }

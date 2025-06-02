@@ -8,6 +8,8 @@
  * @module usdcBalance
  */
 
+import { isDev } from "./env";
+
 /**
  * Standard decimal places for USDC and most stablecoins
  * @constant {number}
@@ -57,6 +59,9 @@ export function formatUsdcBalance(rawBalance: string | number): string {
     // Format to 2 decimal places for display
     return usdcAmount.toFixed(2);
   } catch (error) {
+    if (isDev) {
+      console.error("formatUsdcBalance error:", error);
+    }
     return '0.00';
   }
 }
@@ -97,6 +102,9 @@ export function toContractBalance(usdcAmount: string | number): string {
 
     return contractBalance.toString();
   } catch (error) {
+    if (isDev) {
+      console.error("toContractBalance error:", error);
+    }
     return '0';
   }
 }
@@ -141,6 +149,9 @@ export function formatUsdcDisplay(
 
     return showSymbol ? `${formatted} USDC` : formatted;
   } catch (error) {
+    if (isDev) {
+      console.error("formatUsdcDisplay error:", error);
+    }
     return showSymbol ? '$0.00 USDC' : '$0.00';
   }
 }
@@ -178,6 +189,9 @@ export function isValidUsdcAmount(amount: string): boolean {
 
     return true;
   } catch (error) {
+    if (isDev) {
+      console.error("isValidUsdcAmount error:", error);
+    }
     return false;
   }
 }
@@ -202,6 +216,9 @@ export function getRawBalanceAsNumber(rawBalance: string | number): number {
       typeof rawBalance === 'string' ? parseFloat(rawBalance) : rawBalance;
     return isNaN(balance) || balance < 0 ? 0 : balance;
   } catch (error) {
+    if (isDev) {
+      console.error("getRawBalanceAsNumber error:", error);
+    }
     return 0;
   }
 }
