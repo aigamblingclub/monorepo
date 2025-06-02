@@ -53,9 +53,9 @@ describe('Contract Integration Tests', () => {
       // These should be set in the actual environment
       expect(process.env.NEAR_NODE_URL).toBeDefined();
       expect(process.env.AGC_CONTRACT_ID).toBeDefined();
-      
+
       console.log('NEAR_NODE_URL:', process.env.NEAR_NODE_URL);
       console.log('AGC_CONTRACT_ID:', process.env.AGC_CONTRACT_ID);
     });
   });
-}); 
+});

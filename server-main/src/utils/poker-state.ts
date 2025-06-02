@@ -23,7 +23,7 @@ export const updatePokerState = async (interval: number) => {
     }
 
     let currentState: any;
-    if(isDev) {
+    if (isDev) {
       currentState = fakeData[0];
     } else if (isProd) {
       currentState = await getCurrentStatePoker();
@@ -147,59 +147,59 @@ export const saveCurrentStateToDatabase = async (state: PokerState) => {
 
 const fakeData: PokerState[] = [
   {
-    "tableId": "1",
-    "tableStatus": "WAITING",
-    "players": [
+    tableId: '1',
+    tableStatus: 'WAITING',
+    players: [
       {
-        "id": "472a3913-2ead-05b5-9ee2-1693304f5862",
-        "playerName": "The Showman",
-        "status": "PLAYING",
-        "playedThisPhase": false,
-        "position": "SB",
-        "hand": [],
-        "chips": 1000,
-        "bet": {
-          "amount": 0,
-          "volume": 0
-        }
+        id: '472a3913-2ead-05b5-9ee2-1693304f5862',
+        playerName: 'The Showman',
+        status: 'PLAYING',
+        playedThisPhase: false,
+        position: 'SB',
+        hand: [],
+        chips: 1000,
+        bet: {
+          amount: 0,
+          volume: 0,
+        },
       },
       {
-        "id": "058cf225-7d2c-075f-8bf6-b7cad54aa4b7",
-        "playerName": "The Strategist",
-        "status": "PLAYING",
-        "playedThisPhase": false,
-        "position": "BB",
-        "hand": [],
-        "chips": 800,
-        "bet": {
-          "amount": 0,
-          "volume": 0
-        }
-      }
+        id: '058cf225-7d2c-075f-8bf6-b7cad54aa4b7',
+        playerName: 'The Strategist',
+        status: 'PLAYING',
+        playedThisPhase: false,
+        position: 'BB',
+        hand: [],
+        chips: 800,
+        bet: {
+          amount: 0,
+          volume: 0,
+        },
+      },
     ],
-    "lastMove": null,
-    "currentPlayerIndex": -1,
-    "deck": [],
-    "community": [],
-    "phase": {
-      "street": "PRE_FLOP",
-      "actionCount": 0,
-      "volume": 0
+    lastMove: null,
+    currentPlayerIndex: -1,
+    deck: [],
+    community: [],
+    phase: {
+      street: 'PRE_FLOP',
+      actionCount: 0,
+      volume: 0,
     },
-    "round": {
-      "roundNumber": 1,
-      "volume": 0,
-      "currentBet": 0,
-      "foldedPlayers": [],
-      "allInPlayers": []
+    round: {
+      roundNumber: 1,
+      volume: 0,
+      currentBet: 0,
+      foldedPlayers: [],
+      allInPlayers: [],
     },
-    "dealerId": "",
-    "winner": null,
-    "config": {
-      "maxRounds": null,
-      "startingChips": 1000,
-      "smallBlind": 10,
-      "bigBlind": 20
-    }
+    dealerId: '',
+    winner: null,
+    config: {
+      maxRounds: null,
+      startingChips: 1000,
+      smallBlind: 10,
+      bigBlind: 20,
+    },
   },
-]
+];

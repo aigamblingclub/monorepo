@@ -10,17 +10,21 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Store challenges temporarily (in production, use Redis or similar)
-const challenges = new Map<string, { challenge: Buffer, timestamp: number }>();
+const challenges = new Map<string, { challenge: Buffer; timestamp: number }>();
 
 // Clean up old challenges every 5 minutes
-setInterval(() => {
+setInterval(
+  () => {
     const now = Date.now();
     for (const [key, value] of challenges.entries()) {
-        if (now - value.timestamp > 5 * 60 * 1000) { // 5 minutes
-            challenges.delete(key);
-        }
+      if (now - value.timestamp > 5 * 60 * 1000) {
+        // 5 minutes
+        challenges.delete(key);
+      }
     }
-}, 5 * 60 * 1000);
+  },
+  5 * 60 * 1000,
+);
 
 /**
  * @swagger
@@ -42,22 +46,22 @@ setInterval(() => {
  *         description: Account ID is required
  */
 router.get('/near/challenge', (req, res) => {
-    const challenge = generateChallenge();
-    const accountId = req.query.accountId as string;
-    
-    if (!accountId) {
-        return res.status(400).json({ error: 'Account ID is required' });
-    }
+  const challenge = generateChallenge();
+  const accountId = req.query.accountId as string;
 
-    challenges.set(accountId, {
-        challenge,
-        timestamp: Date.now()
-    });
+  if (!accountId) {
+    return res.status(400).json({ error: 'Account ID is required' });
+  }
 
-    res.json({
-        challenge: challenge.toString('base64'),
-        message: AUTH_MESSAGE
-    });
+  challenges.set(accountId, {
+    challenge,
+    timestamp: Date.now(),
+  });
+
+  res.json({
+    challenge: challenge.toString('base64'),
+    message: AUTH_MESSAGE,
+  });
 });
 
 /**
@@ -94,77 +98,77 @@ router.get('/near/challenge', (req, res) => {
  *         description: Internal server error
  */
 router.post('/near/verify', async (req, res) => {
-    try {
-        const { signature, accountId, publicKey } = req.body;
+  try {
+    const { signature, accountId, publicKey } = req.body;
 
-        if (!signature || !accountId || !publicKey) {
-          return res.status(400).json({ error: 'Missing required fields' });
-        }
-
-        // Get the stored challenge
-        const storedChallenge = challenges.get(accountId);
-        if (!storedChallenge) {
-          return res.status(400).json({ error: 'No challenge found. Please request a new challenge.' });
-        }
-
-        // Remove the used challenge
-        challenges.delete(accountId);
-
-        const isValid = await authenticate({
-            accountId,
-            publicKey,
-            signature,
-            message: AUTH_MESSAGE,
-            recipient: FRONTEND_URL!,
-            nonce: storedChallenge.challenge,
-        });
-
-        if (!isValid) {
-            return res.status(401).json({ error: 'Invalid signature' });
-        }
-
-        // Find or create user
-        const user = await prisma.user.upsert({
-            where: {
-                nearNamedAddress: accountId,
-            },
-            update: {
-                lastActiveAt: new Date(),
-            },
-            create: {
-                nearImplicitAddress: publicKey,
-                nearNamedAddress: accountId, // You might want to handle this differently
-                lastActiveAt: new Date(),
-                nonce: 0,
-            },
-        });
-
-        // Generate a new API key for the user
-        const keyValue = crypto.randomBytes(32).toString('hex');
-        const apiKey = await prisma.apiKey.create({
-            data: {
-                keyValue,
-                userId: user.id,
-                isActive: true,
-            },
-        });
-        let virtualBalance;
-        try {
-            virtualBalance = await getUserVirtualBalance(user.id);
-        } catch (error) {
-            virtualBalance = 0;
-        }
-        
-        return res.json({
-            success: true,
-            balance: virtualBalance,
-            user,
-            apiKey: { ...apiKey, keyValue },
-            message: 'Authentication successful'
-        });
-    } catch (error) {
-        return res.status(500).json({ error: 'Internal server error' });
+    if (!signature || !accountId || !publicKey) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    // Get the stored challenge
+    const storedChallenge = challenges.get(accountId);
+    if (!storedChallenge) {
+      return res.status(400).json({ error: 'No challenge found. Please request a new challenge.' });
+    }
+
+    // Remove the used challenge
+    challenges.delete(accountId);
+
+    const isValid = await authenticate({
+      accountId,
+      publicKey,
+      signature,
+      message: AUTH_MESSAGE,
+      recipient: FRONTEND_URL!,
+      nonce: storedChallenge.challenge,
+    });
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    // Find or create user
+    const user = await prisma.user.upsert({
+      where: {
+        nearNamedAddress: accountId,
+      },
+      update: {
+        lastActiveAt: new Date(),
+      },
+      create: {
+        nearImplicitAddress: publicKey,
+        nearNamedAddress: accountId, // You might want to handle this differently
+        lastActiveAt: new Date(),
+        nonce: 0,
+      },
+    });
+
+    // Generate a new API key for the user
+    const keyValue = crypto.randomBytes(32).toString('hex');
+    const apiKey = await prisma.apiKey.create({
+      data: {
+        keyValue,
+        userId: user.id,
+        isActive: true,
+      },
+    });
+    let virtualBalance;
+    try {
+      virtualBalance = await getUserVirtualBalance(user.id);
+    } catch (error) {
+      virtualBalance = 0;
+    }
+
+    return res.json({
+      success: true,
+      balance: virtualBalance,
+      user,
+      apiKey: { ...apiKey, keyValue },
+      message: 'Authentication successful',
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 /**
