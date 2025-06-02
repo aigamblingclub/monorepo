@@ -198,6 +198,11 @@ export class AIGamblingClub {
   lockUsdcBalance() { 
     const account_id = near.predecessorAccountId();
 
+    // Check if account is already locked
+    if (this._isUsdcLocked(account_id)) {
+      throw new Error("Account is already locked");
+    }
+
     // Check if withdrawal is pending
     if (this._isWithdrawalPending(account_id)) {
       throw new Error("Cannot lock account with pending withdrawal");
