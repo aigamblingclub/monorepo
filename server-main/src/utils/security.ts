@@ -229,7 +229,7 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
                 }
                 
                 // Validation: Contract account is no longer locked
-                if (accountIsStillLocked) {
+                if (!accountIsStillLocked) {
                   throw new Error(`Account is still locked on contract after sync attempt ${balanceSyncAttempts}`);
                 }
                 

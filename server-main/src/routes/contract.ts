@@ -141,7 +141,7 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
     }
 
     // Validation: Check if virtual balance change data is available
-    if (!validation.virtualBalanceChange) {
+    if (!validation.virtualBalanceChange && validation.virtualBalanceChange !== 0) {
       return res.status(400).json({ 
         success: false, 
         error: 'Virtual balance is not available' 

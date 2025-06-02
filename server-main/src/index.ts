@@ -8,6 +8,7 @@ import authRoutes from './routes/auth';
 import pokerRoutes from './routes/poker';
 import betRoutes from './routes/bet';
 import balanceRoutes from './routes/balance';
+import contractRoutes from './routes/contract';
 import { updatePokerState } from './utils/poker-state';
 import { validateApiKeyServer } from './middleware/auth';
 import { PORT } from './utils/env';
@@ -50,6 +51,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/game', pokerRoutes);
 app.use('/api/bet', betRoutes);
 app.use('/api/user/balance', balanceRoutes);
+app.use('/api/contract', contractRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

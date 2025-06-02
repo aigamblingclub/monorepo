@@ -182,10 +182,10 @@ router.post('/near/verify', async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - nearNamedAddress
+ *               - nearImplicitAddress
  *               - nearNamedAddress
  *             properties:
- *               nearNamedAddress:
+ *               nearImplicitAddress:
  *                 type: string
  *                 description: NEAR wallet implicit address
  *               nearNamedAddress:

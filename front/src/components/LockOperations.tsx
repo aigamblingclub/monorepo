@@ -104,6 +104,8 @@ export function LockOperations({
         }),
       });
 
+      console.log('Unlock response:', unlockResponse);
+
       if (!unlockResponse.ok) {
         const error = await unlockResponse.json();
         throw new Error(error.error || 'Failed to get unlock signature');

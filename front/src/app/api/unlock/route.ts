@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { NEXT_PUBLIC_SERVER_MAIN } from "@/utils/env";
+import { isDev } from "@/utils/env";
 
 export async function POST(request: Request) {
   try {
@@ -15,9 +15,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const serverMainUrl = isDev ? process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL : process.env.NEXT_PUBLIC_SERVER_MAIN;
+
     // Call backend to get signed message for unlock
     // Backend will determine the amount based on user's virtual balance
-    const response = await fetch(`${NEXT_PUBLIC_SERVER_MAIN}/api/contract/sign-message`, {
+    // We use process.env here because NEXT_PUBLIC_SERVER_MAIN is not available in the browser
+    const response = await fetch(`${serverMainUrl}/api/contract/sign-message`, {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",
@@ -26,7 +29,6 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         nearNamedAddress,
-        // No unlockUsdcBalance sent - backend will determine based on virtual balance
       }),
     });
 
