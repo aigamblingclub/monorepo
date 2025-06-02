@@ -265,6 +265,7 @@ export async function validateUserCanBet(
             errors.push(
               `Balance synchronization failed to complete after ${maxSyncAttempts} attempts`,
             );
+            await setUserCanBet(user.id, false);
             return { success: false, canBet: false, errors };
           }
         } catch (error) {
