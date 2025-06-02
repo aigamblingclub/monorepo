@@ -20,6 +20,7 @@ import { Transactions } from './Transactions';
 import { LockOperations } from './LockOperations';
 import { PlayerBetting } from './PlayerBetting';
 import { PlayerState } from '../types/poker';
+import { isDev } from '@/utils/env';
 
 export interface PlayerBet {
   playerId: string;
@@ -78,6 +79,11 @@ export function AccountManager({
       setUserBalanceOnChain(walletBalance);
       setDepositedUsdcBalance(agcBalance);
     } catch (error) {
+      if (isDev) {
+        console.error("Fetch balances error:", error);
+      }
+      setUserBalanceOnChain(0);
+      setDepositedUsdcBalance(0);
     } finally {
       setIsLoadingBalances(false);
     }
@@ -93,9 +99,12 @@ export function AccountManager({
       const lockStatus = await getIsUsdcLocked(accountId);
       setIsAccountLocked(lockStatus);
     } catch (error) {
+      if (isDev) {
+        console.error("Fetch lock status error:", error);
+      }
       setIsAccountLocked(false);
     }
-  }, [accountId, apiKey, getIsUsdcLocked]);
+  }, [accountId, getIsUsdcLocked]);
 
   /**
    * Fetch balances only when accountId changes
@@ -105,41 +114,8 @@ export function AccountManager({
       fetchBalances();
       fetchIsUsdcLocked();
     }
-  }, [accountId]); // Only depend on accountId, not the functions
+  }, [accountId]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Handle transaction start - begins periodic balance refresh
-   */
-  const handleTransactionStart = useCallback(() => {
-    setIsTransactionPending(true);
-
-    // Start periodic balance refresh every 3 seconds
-    const intervalId = setInterval(() => {
-      if (accountId) {
-        fetchBalances();
-      }
-    }, 3000);
-
-    // Store interval ID for cleanup
-    return intervalId;
-  }, [accountId, fetchBalances]);
-
-  /**
-   * Handle transaction end - stops periodic refresh
-   */
-  const handleTransactionEnd = useCallback(
-    (intervalId?: NodeJS.Timeout) => {
-      setIsTransactionPending(false);
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-      // Final balance refresh
-      if (accountId) {
-        fetchBalances();
-      }
-    },
-    [accountId, fetchBalances]
-  );
 
   /**
    * Start spinner only (visual feedback)

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PlayerBet } from '../components/AccountManager';
 import { useNearWallet } from './useNearWallet';
 import { useAuth } from '@/providers/AuthProvider';
+import { isDev } from '@/utils/env';
 
 interface BetResponse {
   playerId: string;
@@ -60,12 +61,15 @@ export const usePlayerBetting = () => {
           setUsdcBalance(balanceNum.toFixed(2));
         }
       } catch (error) {
+        if (isDev) {
+          console.error("getUsdcBalance error:", error);
+        }
         setUsdcBalance('0.00');
       }
     } else {
       setUsdcBalance('0.00');
     }
-  }, [accountId]);
+  }, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     if (!accountId || !apiKey) {
@@ -104,6 +108,9 @@ export const usePlayerBetting = () => {
       getBalance();
       getUsdcBalance();
     } catch (err) {
+      if (isDev) {
+        console.error("fetchData error:", err);
+      }
       setError('Failed to load betting data');
       setPlayerBets([]);
       setUserBalance(0);
@@ -145,6 +152,9 @@ export const usePlayerBetting = () => {
 
         return true;
       } catch (err) {
+        if (isDev) {
+          console.error("placeBet error:", err);
+        }
         setError('Failed to place bet');
         return false;
       } finally {
@@ -160,7 +170,7 @@ export const usePlayerBetting = () => {
       getUsdcBalance();
       fetchData();
     }
-  }, [accountId, apiKey, loading, initialized]);
+  }, [accountId, apiKey, loading, initialized]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return useMemo(
     () => ({

@@ -65,12 +65,9 @@ function HomeContent() {
   // Use the betting hook at the page level
   const {
     playerBets,
-    userBalance,
-    usdcBalance,
     loading: bettingLoading,
     error: bettingError,
     placeBet,
-    isConnected,
   } = usePlayerBetting();
 
   useEffect(() => {
@@ -91,6 +88,9 @@ function HomeContent() {
 
         setLoading(false);
       } catch (err) {
+        if (isDev) {
+          console.error("getState error:", err);
+        }
         setError('Failed to load game state');
         setLoading(false);
       }

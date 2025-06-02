@@ -14,6 +14,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useNearWallet } from '@/hooks/useNearWallet';
 import { formatUsdcDisplay } from '@/utils/usdcBalance';
 import '@near-wallet-selector/modal-ui/styles.css';
+import { isDev } from '@/utils/env';
 
 /**
  * Formats NEAR balance from yoctoNEAR to readable NEAR format
@@ -29,6 +30,9 @@ function formatNearBalance(yoctoNearBalance: string): string {
     const nearAmount = balance / Math.pow(10, 24);
     return nearAmount.toFixed(4);
   } catch (error) {
+    if (isDev) {
+      console.error("🔍 error:", error);
+    }
     return '0.0000';
   }
 }
@@ -79,10 +83,16 @@ export function WalletMenu() {
       const agcBal = await getAgcUsdcBalance(accountId);
       setAgcUsdcBalance(agcBal);
     } catch (error) {
+      if (isDev) {
+        console.error("🔍 error:", error);
+      }
+      setNearBalance('0');
+      setWalletUsdcBalance('0');
+      setAgcUsdcBalance('0');
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [accountId, isAuthenticated]);
+  }, [accountId, isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Effect to fetch balances when menu opens
