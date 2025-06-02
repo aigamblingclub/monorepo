@@ -88,6 +88,10 @@ export function useNearAuth() {
         throw new Error('Wallet selector not initialized');
       }
 
+      if (!accountId) {
+        throw new Error('Wallet Connect Error');
+      }
+
       // 1. Get challenge from Next.js API
       const challengeResponse = await fetch(
         `/api/auth/near?accountId=${accountId}`
