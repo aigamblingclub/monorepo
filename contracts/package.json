@@ -13,7 +13,9 @@
     "admin": "node scripts/admin.js",
     "eth": "node scripts/genEthPk.js",
     "monitor": "node scripts/monitor.js",
-    "test": "mocha test/**/*.test.js --timeout 60000"
+    "test": "mocha test/**/*.test.js --timeout 60000",
+    "format": "prettier --write \"src/**/*.{js,ts,json}\" \"scripts/**/*.{js,ts,json}\" \"test/**/*.{js,ts,json}\"",
+    "format:check": "prettier --check \"src/**/*.{js,ts,json}\" \"scripts/**/*.{js,ts,json}\" \"test/**/*.{js,ts,json}\""
   },
   "keywords": [
     "near",
@@ -34,6 +36,7 @@
   "devDependencies": {
     "chai": "^4.3.7",
     "dotenv": "^16.3.1",
-    "mocha": "^10.2.0"
+    "mocha": "^10.2.0",
+    "prettier": "^3.0.0"
   }
 }

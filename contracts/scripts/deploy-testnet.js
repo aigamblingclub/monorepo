@@ -31,11 +31,19 @@ async function main() {
 
   // Validate arguments
   if (!accountId || !backendPublicKey) {
-    console.error('Usage: deploy-testnet.js [account_id] [admin_account] [usdc_token_contract] [backend_public_key]');
+    console.error(
+      'Usage: deploy-testnet.js [account_id] [admin_account] [usdc_token_contract] [backend_public_key]'
+    );
     console.error('  account_id: The account ID to deploy the contract to');
-    console.error('  admin_account: The account ID of the admin (default: same as account_id)');
-    console.error('  usdc_token_contract: The account ID of the USDC token contract (default: usdc.fakes.testnet)');
-    console.error('  backend_public_key: The Ed25519 public key for signature verification (base64 encoded)');
+    console.error(
+      '  admin_account: The account ID of the admin (default: same as account_id)'
+    );
+    console.error(
+      '  usdc_token_contract: The account ID of the USDC token contract (default: usdc.fakes.testnet)'
+    );
+    console.error(
+      '  backend_public_key: The Ed25519 public key for signature verification (base64 encoded)'
+    );
     process.exit(1);
   }
 
@@ -55,12 +63,15 @@ async function main() {
 
     // Deploy the contract
     console.log(`\nDeploying contract...`);
-    execSync(`near deploy ${accountId} ${contractFile} --networkId testnet`, { stdio: 'inherit' });
+    execSync(`near deploy ${accountId} ${contractFile} --networkId testnet`, {
+      stdio: 'inherit',
+    });
 
     // Check if the contract is already initialized
     console.log(`\nChecking if contract is already initialized...`);
-    const {isInitialized, adminAccount} = await isContractInitialized(accountId);
-    
+    const { isInitialized, adminAccount } =
+      await isContractInitialized(accountId);
+
     if (isInitialized) {
       console.log(`Contract is already initialized, skipping initialization.`);
     } else {
@@ -77,7 +88,9 @@ async function main() {
     console.log(`Admin: ${adminAccount ? adminAccount : finalAdminAccount}`);
     console.log(`USDC Token Contract: ${usdcTokenContract}`);
     console.log(`Backend Public Key: ${backendPublicKey}`);
-    console.log(`Explorer URL: https://explorer.testnet.near.org/accounts/${accountId}`);
+    console.log(
+      `Explorer URL: https://explorer.testnet.near.org/accounts/${accountId}`
+    );
   } catch (error) {
     console.error('Error deploying contract:', error.message);
     process.exit(1);

@@ -13,7 +13,7 @@ interface ChatMessage {
 interface ChatProps {
   gameState?: PokerState;
 }
-  
+
 export const Chat: React.FC<ChatProps> = ({ gameState }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -40,7 +40,6 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
       timestamp: new Date(),
       playerName: 'Jane Doe',
     },
-    
   ]);
 
   useEffect(() => {
@@ -58,35 +57,35 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
         playerName: playerName,
       };
 
-      setMessages((prevMessages) => [roleplayMessage, ...prevMessages]);
+      setMessages(prevMessages => [roleplayMessage, ...prevMessages]);
     }
   }, [gameState]);
 
   return (
-    <div className="w-[50vw] max-w-[800px] h-full max-h-[40vh] border-2 border-white bg-black">
+    <div className='w-[50vw] max-w-[800px] h-full max-h-[40vh] border-2 border-white bg-black'>
       {/* Chat header */}
-      <div className="p-2 border-b border-white">
-        <h3 className="text-white font-mono font-bold text-lg">AI Agent Thoughts</h3>
+      <div className='p-2 border-b border-white'>
+        <h3 className='text-white font-mono font-bold text-lg'>
+          AI Agent Thoughts
+        </h3>
       </div>
 
       {/* Thoughts container */}
-      <SimpleBar 
+      <SimpleBar
         autoHide={false}
-        className="ai-thoughts-scrollbar h-[200px] overflow-y-auto"
+        className='ai-thoughts-scrollbar h-[200px] overflow-y-auto'
       >
-        <div className="p-4 space-y-2">
+        <div className='p-4 space-y-2'>
           {messages.map((thought: ChatMessage) => (
-            <div key={thought.id} className="flex items-baseline space-x-2">
-              <span className="text-green-400 font-mono font-bold">
+            <div key={thought.id} className='flex items-baseline space-x-2'>
+              <span className='text-green-400 font-mono font-bold'>
                 {thought.playerName}:
               </span>
-              <span className="text-white font-mono">
-                {thought.text}
-              </span>
+              <span className='text-white font-mono'>{thought.text}</span>
             </div>
           ))}
           {messages.length === 0 && (
-            <div className="text-gray-400 font-mono text-center">
+            <div className='text-gray-400 font-mono text-center'>
               Waiting for AI agent&apos;s thoughts...
             </div>
           )}
@@ -94,4 +93,4 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
       </SimpleBar>
     </div>
   );
-}; 
+};

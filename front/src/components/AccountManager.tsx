@@ -1,16 +1,16 @@
 /**
  * Account Manager Component
- * 
+ *
  * This component handles the two distinct account states:
  * - Unlocked: Balance management (deposit/withdraw) with lock option
  * - Locked: Betting interface with unlock option
- * 
+ *
  * Uses terminal aesthetic matching the WalletMenu.
- * 
+ *
  * @module AccountManager
  */
 
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
@@ -34,14 +34,15 @@ interface AccountManagerProps {
   tableStatus?: string;
 }
 
-export function AccountManager({ 
+export function AccountManager({
   players = [],
   playerBets = [],
   onPlaceBet = () => {},
-  tableStatus = "WAITING"
+  tableStatus = 'WAITING',
 }: AccountManagerProps) {
   const { accountId, apiKey } = useAuth();
-  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance } = useNearWallet();
+  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance } =
+    useNearWallet();
   const [userBalanceOnChain, setUserBalanceOnChain] = useState(0);
   const [depositedUsdcBalance, setDepositedUsdcBalance] = useState(0);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
@@ -53,7 +54,8 @@ export function AccountManager({
 
   // Check if betting is allowed based on table status
   // Betting is only allowed when game hasn't started (WAITING) or between games
-  const gameInProgress = tableStatus === "PLAYING" || tableStatus === "ROUND_OVER";
+  const gameInProgress =
+    tableStatus === 'PLAYING' || tableStatus === 'ROUND_OVER';
   const bettingAllowed = !gameInProgress;
 
   // All players are available for betting (when game hasn't started)
@@ -71,7 +73,7 @@ export function AccountManager({
     try {
       const [walletBalance, agcBalance] = await Promise.all([
         getUsdcWalletBalance(accountId),
-        getVirtualUsdcBalance(apiKey)
+        getVirtualUsdcBalance(apiKey),
       ]);
       setUserBalanceOnChain(walletBalance);
       setDepositedUsdcBalance(agcBalance);
@@ -110,7 +112,7 @@ export function AccountManager({
    */
   const handleTransactionStart = useCallback(() => {
     setIsTransactionPending(true);
-    
+
     // Start periodic balance refresh every 3 seconds
     const intervalId = setInterval(() => {
       if (accountId) {
@@ -125,16 +127,19 @@ export function AccountManager({
   /**
    * Handle transaction end - stops periodic refresh
    */
-  const handleTransactionEnd = useCallback((intervalId?: NodeJS.Timeout) => {
-    setIsTransactionPending(false);
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-    // Final balance refresh
-    if (accountId) {
-      fetchBalances();
-    }
-  }, [accountId, fetchBalances]);
+  const handleTransactionEnd = useCallback(
+    (intervalId?: NodeJS.Timeout) => {
+      setIsTransactionPending(false);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      // Final balance refresh
+      if (accountId) {
+        fetchBalances();
+      }
+    },
+    [accountId, fetchBalances]
+  );
 
   /**
    * Start spinner only (visual feedback)
@@ -170,30 +175,36 @@ export function AccountManager({
   /**
    * Stop spinner and balance refresh
    */
-  const stopDepositWithdrawTransactionState = useCallback((intervalId?: NodeJS.Timeout) => {
-    setIsTransactionPending(false);
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-    // Final balance refresh
-    if (accountId) {
-      fetchBalances();
-    }
-  }, [accountId, fetchBalances]);
+  const stopDepositWithdrawTransactionState = useCallback(
+    (intervalId?: NodeJS.Timeout) => {
+      setIsTransactionPending(false);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      // Final balance refresh
+      if (accountId) {
+        fetchBalances();
+      }
+    },
+    [accountId, fetchBalances]
+  );
 
   /**
    * Stop spinner and lock status refresh
    */
-  const stopLockUnlockTransactionState = useCallback((intervalId?: NodeJS.Timeout) => {
-    setIsTransactionPending(false);
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-    // Final lock status refresh
-    if (accountId) {
-      fetchIsUsdcLocked();
-    }
-  }, [accountId, fetchIsUsdcLocked]);
+  const stopLockUnlockTransactionState = useCallback(
+    (intervalId?: NodeJS.Timeout) => {
+      setIsTransactionPending(false);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      // Final lock status refresh
+      if (accountId) {
+        fetchIsUsdcLocked();
+      }
+    },
+    [accountId, fetchIsUsdcLocked]
+  );
 
   /**
    * Breathing Spinner Component for terminal aesthetics
@@ -202,12 +213,12 @@ export function AccountManager({
     if (!isTransactionPending) return null;
 
     return (
-      <div className="absolute top-4 right-4">
-        <div 
-          className="w-3 h-3 border border-white bg-black animate-spin"
-          style={{ 
+      <div className='absolute top-4 right-4'>
+        <div
+          className='w-3 h-3 border border-white bg-black animate-spin'
+          style={{
             animationDuration: '2s',
-            animationTimingFunction: 'linear'
+            animationTimingFunction: 'linear',
           }}
         />
       </div>
@@ -217,14 +228,14 @@ export function AccountManager({
   // Connection warning for unauthenticated users
   if (!actuallyLoggedIn) {
     return (
-      <div className="bg-black border-2 border-white p-4">
-        <div className="border-b border-white pb-3 mb-4">
-          <h3 className="text-white font-mono font-bold text-lg">
+      <div className='bg-black border-2 border-white p-4'>
+        <div className='border-b border-white pb-3 mb-4'>
+          <h3 className='text-white font-mono font-bold text-lg'>
             Account Manager
           </h3>
         </div>
-        <div className="p-3 bg-black border border-yellow-500">
-          <p className="text-yellow-400 font-mono text-sm text-center">
+        <div className='p-3 bg-black border border-yellow-500'>
+          <p className='text-yellow-400 font-mono text-sm text-center'>
             Connect your NEAR wallet to manage your account
           </p>
         </div>
@@ -235,38 +246,46 @@ export function AccountManager({
   // UNLOCKED STATE: Balance Management
   if (!isAccountLocked) {
     return (
-      <div className="bg-black border-2 border-white p-4 relative flex-shrink-0">
+      <div className='bg-black border-2 border-white p-4 relative flex-shrink-0'>
         <BreathingSpinner />
-        
+
         {/* Header */}
-        <div className="border-b border-white pb-3 mb-4">
-          <h3 className="text-white font-mono font-bold text-lg">
+        <div className='border-b border-white pb-3 mb-4'>
+          <h3 className='text-white font-mono font-bold text-lg'>
             Account Manager
           </h3>
-          <div className="flex flex-col gap-1 mt-2">
-            <div className="text-white font-mono text-sm">
-              Wallet Balance: {isLoadingBalances ? (
-                <span className="animate-pulse">Loading...</span>
+          <div className='flex flex-col gap-1 mt-2'>
+            <div className='text-white font-mono text-sm'>
+              Wallet Balance:{' '}
+              {isLoadingBalances ? (
+                <span className='animate-pulse'>Loading...</span>
               ) : (
-                <span className="text-green-400">{formatUsdcDisplay(userBalanceOnChain)}</span>
+                <span className='text-green-400'>
+                  {formatUsdcDisplay(userBalanceOnChain)}
+                </span>
               )}
             </div>
-            <div className="text-white font-mono text-sm">
-              Deposited USDC: {isLoadingBalances ? (
-                <span className="animate-pulse">Loading...</span>
+            <div className='text-white font-mono text-sm'>
+              Deposited USDC:{' '}
+              {isLoadingBalances ? (
+                <span className='animate-pulse'>Loading...</span>
               ) : (
-                <span className="text-green-400">{formatUsdcDisplay(depositedUsdcBalance)}</span>
+                <span className='text-green-400'>
+                  {formatUsdcDisplay(depositedUsdcBalance)}
+                </span>
               )}
             </div>
           </div>
         </div>
 
         {/* Balance Operations */}
-        <div className="mb-4">
-          <div className="border-b border-white pb-2 mb-3">
-            <h4 className="text-white font-mono font-semibold text-md">Operations</h4>
+        <div className='mb-4'>
+          <div className='border-b border-white pb-2 mb-3'>
+            <h4 className='text-white font-mono font-semibold text-md'>
+              Operations
+            </h4>
           </div>
-          <Transactions 
+          <Transactions
             startSpinner={startSpinner}
             startBalanceRefresh={startBalanceRefresh}
             stopTransactionState={stopDepositWithdrawTransactionState}
@@ -274,7 +293,7 @@ export function AccountManager({
         </div>
 
         {/* Lock Account Button */}
-        <LockOperations 
+        <LockOperations
           startSpinner={startSpinner}
           startLockRefresh={startLockRefresh}
           stopTransactionState={stopLockUnlockTransactionState}
@@ -282,8 +301,8 @@ export function AccountManager({
         />
 
         {/* Footer Information */}
-        <div className="border-t border-white pt-3 mt-4">
-          <div className="text-gray-400 font-mono text-xs space-y-1">
+        <div className='border-t border-white pt-3 mt-4'>
+          <div className='text-gray-400 font-mono text-xs space-y-1'>
             <p>* Lock account to enable betting mode</p>
             <p>* No deposits/withdrawals while betting</p>
           </div>
@@ -294,23 +313,26 @@ export function AccountManager({
 
   // LOCKED STATE: Betting Interface
   return (
-    <div className="bg-black border-2 border-white p-4 relative flex-shrink-0">
+    <div className='bg-black border-2 border-white p-4 relative flex-shrink-0'>
       <BreathingSpinner />
-      
+
       {/* Header */}
-      <div className="border-b border-white pb-3 mb-4">
-        <h3 className="text-white font-mono font-bold text-lg">
+      <div className='border-b border-white pb-3 mb-4'>
+        <h3 className='text-white font-mono font-bold text-lg'>
           Betting Interface
         </h3>
-        <div className="text-white font-mono text-sm mt-2">
-          Deposited USDC: <span className="text-green-400">{formatUsdcDisplay(depositedUsdcBalance)}</span>
+        <div className='text-white font-mono text-sm mt-2'>
+          Deposited USDC:{' '}
+          <span className='text-green-400'>
+            {formatUsdcDisplay(depositedUsdcBalance)}
+          </span>
         </div>
       </div>
 
       {/* Game Status Warning */}
       {!bettingAllowed && (
-        <div className="mb-4 p-3 bg-black border border-orange-500 rounded">
-          <p className="text-orange-400 font-mono text-sm text-center">
+        <div className='mb-4 p-3 bg-black border border-orange-500 rounded'>
+          <p className='text-orange-400 font-mono text-sm text-center'>
             Game in progress - betting closed
           </p>
         </div>
@@ -318,7 +340,7 @@ export function AccountManager({
 
       {/* Available Players for Betting */}
       {bettingAllowed && availableForBetting.length > 0 ? (
-        <div className="space-y-3 mb-4">
+        <div className='space-y-3 mb-4'>
           {availableForBetting.map((player: PlayerState) => {
             const playerBet = playerBets.find(
               (bet: PlayerBet) => bet.playerId === player.id
@@ -341,21 +363,21 @@ export function AccountManager({
           })}
         </div>
       ) : bettingAllowed ? (
-        <div className="mb-4 p-3 bg-black border border-white rounded text-center">
-          <p className="text-white font-mono text-sm">
+        <div className='mb-4 p-3 bg-black border border-white rounded text-center'>
+          <p className='text-white font-mono text-sm'>
             No players available for next game
           </p>
         </div>
       ) : (
-        <div className="mb-4 p-3 bg-black border border-white rounded text-center">
-          <p className="text-white font-mono text-sm">
+        <div className='mb-4 p-3 bg-black border border-white rounded text-center'>
+          <p className='text-white font-mono text-sm'>
             Betting will open before next game starts
           </p>
         </div>
       )}
 
       {/* Unlock Account Button */}
-      <LockOperations 
+      <LockOperations
         startSpinner={startSpinner}
         startLockRefresh={startLockRefresh}
         stopTransactionState={stopLockUnlockTransactionState}
@@ -363,8 +385,8 @@ export function AccountManager({
       />
 
       {/* Footer Information */}
-      <div className="border-t border-white pt-3 mt-4">
-        <div className="text-gray-400 font-mono text-xs space-y-1">
+      <div className='border-t border-white pt-3 mt-4'>
+        <div className='text-gray-400 font-mono text-xs space-y-1'>
           <p>* Betting only allowed before game starts</p>
           <p>* Winnings distributed after game ends</p>
           <p>* Unlock to manage balance again</p>
@@ -372,4 +394,4 @@ export function AccountManager({
       </div>
     </div>
   );
-} 
+}

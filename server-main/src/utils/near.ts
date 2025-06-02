@@ -8,23 +8,27 @@ import { AGC_CONTRACT_ID, NEAR_NODE_URL } from './env';
  * @param args Method arguments
  * @returns Method result
  */
-export async function callViewMethod(contractId: string, methodName: string, args: any = {}): Promise<any> {
+export async function callViewMethod(
+  contractId: string,
+  methodName: string,
+  args: any = {},
+): Promise<any> {
   const nodeUrl = NEAR_NODE_URL;
-  
+
   const connectionConfig = {
-    url: nodeUrl
+    url: nodeUrl,
   };
   const provider = new providers.JsonRpcProvider(connectionConfig);
 
   try {
-    const result = await provider.query({
+    const result = (await provider.query({
       request_type: 'call_function',
       account_id: contractId,
       method_name: methodName,
       args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
       finality: 'optimistic',
-    }) as any;
-    
+    })) as any;
+
     return JSON.parse(Buffer.from(result.result).toString());
   } catch (error) {
     throw new Error(`Error calling view method ${methodName}`);
@@ -52,7 +56,10 @@ export async function getOnChainNonce(accountId: string): Promise<number> {
  * @param accountId User's NEAR account ID
  * @returns User's USDC balance
  */
-export async function getOnChainUsdcBalance(contractId: string, accountId: string): Promise<number> {
+export async function getOnChainUsdcBalance(
+  contractId: string,
+  accountId: string,
+): Promise<number> {
   try {
     const balance = await callViewMethod(contractId, 'getUsdcBalance', { account_id: accountId });
     return parseInt(balance);
@@ -69,10 +76,12 @@ export async function getOnChainUsdcBalance(contractId: string, accountId: strin
  */
 export async function isAccountLocked(accountId: string): Promise<boolean> {
   try {
-    const isLocked = await callViewMethod(AGC_CONTRACT_ID, 'isUsdcLocked', { account_id: accountId });
+    const isLocked = await callViewMethod(AGC_CONTRACT_ID, 'isUsdcLocked', {
+      account_id: accountId,
+    });
     return isLocked;
   } catch (error) {
     // Return false if there's an error (assume not locked)
     return false;
   }
-} 
+}

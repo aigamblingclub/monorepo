@@ -111,8 +111,8 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
     // current table
     const currentTable = await prisma.table.findFirst({
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     if (!currentTable) {
@@ -204,7 +204,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
   } catch (error) {
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal server error'
+      error: error instanceof Error ? error.message : 'Internal server error',
     });
   }
 });
@@ -217,14 +217,14 @@ router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) =
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'User not authenticated'
+        error: 'User not authenticated',
       });
     }
 
     if (!tableId) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required query parameter: tableId'
+        error: 'Missing required query parameter: tableId',
       });
     }
 
@@ -232,18 +232,18 @@ router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) =
     const userBets = await prisma.userBet.findMany({
       where: {
         tableId: tableId as string,
-        userId
-      }
+        userId,
+      },
     });
 
     return res.json({
       success: true,
-      bets: userBets
+      bets: userBets,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal server error'
+      error: error instanceof Error ? error.message : 'Internal server error',
     });
   }
 });
@@ -255,22 +255,22 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'User not authenticated'
+        error: 'User not authenticated',
       });
     }
-    
+
     // Get the last table
     const table = await prisma.table.findFirst({
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     // Validate required fields
     if (!table) {
       return res.status(400).json({
         success: false,
-        error: 'No table found'
+        error: 'No table found',
       });
     }
 
@@ -279,28 +279,28 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
       // Get all bets for the table
       prisma.userBet.findMany({
         where: {
-          tableId: table.tableId
-        }
+          tableId: table.tableId,
+        },
       }),
       // Get total bets for the table
       prisma.userBet.aggregate({
         where: {
-          tableId: table.tableId
+          tableId: table.tableId,
         },
         _sum: {
-          amount: true
-        }
+          amount: true,
+        },
       }),
       // Get total bets by player
       prisma.userBet.groupBy({
         by: ['playerId'],
         where: {
-          tableId: table.tableId
+          tableId: table.tableId,
         },
         _sum: {
-          amount: true
-        }
-      })
+          amount: true,
+        },
+      }),
     ]);
 
     // Get user's bets by player
@@ -308,46 +308,52 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
       by: ['playerId'],
       where: {
         tableId: table.tableId,
-        userId
+        userId,
       },
       _sum: {
-        amount: true
-      }
+        amount: true,
+      },
     });
 
     // Convert user bets to a map for easier lookup
-    const userBetsMap = userBetsByPlayer.reduce((acc, bet) => {
-      acc[bet.playerId] = bet._sum.amount || 0;
-      return acc;
-    }, {} as Record<string, number>);
+    const userBetsMap = userBetsByPlayer.reduce(
+      (acc, bet) => {
+        acc[bet.playerId] = bet._sum.amount || 0;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     // Convert bets by player to the required format
-    const totalBetsByPlayer = betsByPlayerResult.reduce((acc, bet) => {
-      acc[bet.playerId] = bet._sum.amount || 0;
-      return acc;
-    }, {} as Record<string, number>);
+    const totalBetsByPlayer = betsByPlayerResult.reduce(
+      (acc, bet) => {
+        acc[bet.playerId] = bet._sum.amount || 0;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     // Format response according to BetResponse interface
     const playerBets: BetResponse[] = betsByPlayerResult.map(bet => ({
       playerId: bet.playerId,
       totalBet: bet._sum.amount || 0,
-      totalUserBet: userBetsMap[bet.playerId] || 0
+      totalUserBet: userBetsMap[bet.playerId] || 0,
     }));
 
     const response: AllBetsResponse = {
       success: true,
       playerBets,
       totalBetsByPlayer,
-      totalBets: totalBetsResult._sum.amount || 0
+      totalBets: totalBetsResult._sum.amount || 0,
     };
 
     return res.json(response);
   } catch (error) {
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal server error'
+      error: error instanceof Error ? error.message : 'Internal server error',
     });
   }
 });
 
-export default router; 
+export default router;

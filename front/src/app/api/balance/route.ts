@@ -1,23 +1,25 @@
-import { isDev } from "@/utils/env";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
+import { isDev } from '@/utils/env';
+import { headers } from 'next/headers';
+import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const userApiKey = (await headers()).get("x-api-key") || "";
+    const userApiKey = (await headers()).get('x-api-key') || '';
 
-    const serverMainUrl = isDev ? process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL : process.env.NEXT_PUBLIC_SERVER_MAIN;
+    const serverMainUrl = isDev
+      ? process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL
+      : process.env.NEXT_PUBLIC_SERVER_MAIN;
 
     const response = await fetch(`${serverMainUrl}/api/user/balance`, {
       headers: {
-        "x-api-key": userApiKey, 
-        "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
+        'x-api-key': userApiKey,
+        'API-KEY': process.env.SERVER_MAIN_API_KEY || '',
       },
     });
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: "Failed to fetch balance" },
+        { error: 'Failed to fetch balance' },
         { status: 500 }
       );
     }
@@ -26,7 +28,7 @@ export async function GET() {
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
-      { error: "Failed to fetch balance" },
+      { error: 'Failed to fetch balance' },
       { status: 500 }
     );
   }

@@ -3,11 +3,10 @@ import { PrismaClient } from '@/prisma';
 
 const prisma = new PrismaClient();
 
-
 export const validateApiKeyServer = async (req: Request, res: Response, next: NextFunction) => {
   if (!process.env.API_KEY_SERVER && req.headers['API-KEY'] !== process.env.API_KEY_SERVER) {
     return res.status(401).json({ error: 'Unauthorized' });
-  } 
+  }
   return next();
 };
 
@@ -60,11 +59,11 @@ export const validateApiKey = async (
     // Attach API key and user info to request
     req.apiKey = validApiKey;
     req.user = { id: validApiKey.userId };
-    
+
     // Preserve the body
     const body = req.body;
     req.body = body;
-    
+
     return next();
   } catch (error) {
     return res.status(500).json({ error: 'Internal server error' });

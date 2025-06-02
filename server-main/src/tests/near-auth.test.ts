@@ -3,7 +3,7 @@ import { authenticate } from '../utils/near-auth';
 
 // Constants for authentication
 const AUTH_MESSAGE = 'log me in';
-const AUTH_CHALLENGE = Buffer.from(Array.from(Array(32).keys()));  
+const AUTH_CHALLENGE = Buffer.from(Array.from(Array(32).keys()));
 
 describe('NEAR Authentication', () => {
   // This is a sample message that would be signed by the NEAR wallet
@@ -52,4 +52,4 @@ describe('NEAR Authentication', () => {
 
     expect(result).toBe(false);
   });
-}); 
+});

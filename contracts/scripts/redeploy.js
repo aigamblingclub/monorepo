@@ -22,15 +22,18 @@ const NETWORK_CONFIGS = {
   testnet: {
     networkId: 'testnet',
     nodeUrl: process.env.TESTNET_NODE_URL || 'https://rpc.testnet.near.org',
-    defaultUsdcContract: process.env.TESTNET_USDC_CONTRACT || 'usdc.fakes.testnet',
-    explorerUrl: 'https://explorer.testnet.near.org/accounts'
+    defaultUsdcContract:
+      process.env.TESTNET_USDC_CONTRACT || 'usdc.fakes.testnet',
+    explorerUrl: 'https://explorer.testnet.near.org/accounts',
   },
   mainnet: {
     networkId: 'mainnet',
     nodeUrl: process.env.MAINNET_NODE_URL || 'https://rpc.mainnet.near.org',
-    defaultUsdcContract: process.env.MAINNET_USDC_CONTRACT || 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
-    explorerUrl: 'https://explorer.near.org/accounts'
-  }
+    defaultUsdcContract:
+      process.env.MAINNET_USDC_CONTRACT ||
+      'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
+    explorerUrl: 'https://explorer.near.org/accounts',
+  },
 };
 
 // Function to check account state and balance
@@ -43,7 +46,7 @@ async function checkAccountState(accountId, networkId) {
     const stateData = JSON.parse(result);
     return {
       exists: true,
-      balance: parseFloat(stateData.amount) / 10**24 // Convert yoctoNEAR to NEAR
+      balance: parseFloat(stateData.amount) / 10 ** 24, // Convert yoctoNEAR to NEAR
     };
   } catch (error) {
     if (error.message.includes('does not exist')) {
@@ -57,7 +60,9 @@ async function checkAccountState(accountId, networkId) {
 async function verifyAccountAccess(accountId, networkId) {
   try {
     // Try to view access key list - this will fail if we don't have access
-    execSync(`near keys ${accountId} --networkId ${networkId}`, { stdio: 'pipe' });
+    execSync(`near keys ${accountId} --networkId ${networkId}`, {
+      stdio: 'pipe',
+    });
     return true;
   } catch (error) {
     return false;
@@ -83,13 +88,23 @@ async function main() {
 
   // Validate network argument
   if (!networkArg || !['testnet', 'mainnet'].includes(networkArg)) {
-    console.error('Usage: redeploy.js <network> <account_id> [admin_account] [usdc_token_contract] [beneficiary_account] [backend_public_key]');
+    console.error(
+      'Usage: redeploy.js <network> <account_id> [admin_account] [usdc_token_contract] [beneficiary_account] [backend_public_key]'
+    );
     console.error('  network: Network to deploy to (testnet or mainnet)');
     console.error('  account_id: The account ID to deploy the contract to');
-    console.error('  admin_account: The account ID of the admin (default: same as account_id)');
-    console.error('  usdc_token_contract: The account ID of the USDC token contract');
-    console.error('  beneficiary_account: The account that will receive the funds when deleting the contract');
-    console.error('  backend_public_key: The Ed25519 public key for signature verification (defaults to BACKEND_PUBLIC_KEY from .env)');
+    console.error(
+      '  admin_account: The account ID of the admin (default: same as account_id)'
+    );
+    console.error(
+      '  usdc_token_contract: The account ID of the USDC token contract'
+    );
+    console.error(
+      '  beneficiary_account: The account that will receive the funds when deleting the contract'
+    );
+    console.error(
+      '  backend_public_key: The Ed25519 public key for signature verification (defaults to BACKEND_PUBLIC_KEY from .env)'
+    );
     process.exit(1);
   }
 
@@ -98,24 +113,29 @@ async function main() {
 
   // Validate required arguments
   if (!accountId || !beneficiaryAccount || !backendPublicKey) {
-    console.error('Missing required arguments. Please provide account_id, beneficiary_account, and ensure BACKEND_PUBLIC_KEY is set in .env or provided as argument.');
+    console.error(
+      'Missing required arguments. Please provide account_id, beneficiary_account, and ensure BACKEND_PUBLIC_KEY is set in .env or provided as argument.'
+    );
     process.exit(1);
   }
 
   // Set default admin account if not provided
   const finalAdminAccount = adminAccount || accountId;
-  
+
   // Set default USDC contract based on network if not provided
-  const finalUsdcContract = usdcTokenContract || networkConfig.defaultUsdcContract;
+  const finalUsdcContract =
+    usdcTokenContract || networkConfig.defaultUsdcContract;
 
   // Show warning for mainnet deployment
   if (networkArg === 'mainnet') {
     console.log('⚠️  WARNING: You are about to deploy to NEAR MAINNET ⚠️');
-    console.log('This is a production environment. Please confirm your action.');
+    console.log(
+      'This is a production environment. Please confirm your action.'
+    );
     const confirmation = await new Promise(resolve => {
       const rl = require('readline').createInterface({
         input: process.stdin,
-        output: process.stdout
+        output: process.stdout,
       });
       rl.question('Are you sure you want to proceed? (yes/no): ', answer => {
         rl.close();
@@ -144,22 +164,29 @@ async function main() {
 
     // Safety checks before proceeding
     console.log('\nPerforming safety checks...');
-    
+
     // 1. Check target account balance
     const targetAccount = await checkAccountState(accountId, networkArg);
     if (targetAccount.exists) {
-      console.log(`Target account ${accountId} exists with ${targetAccount.balance} NEAR`);
+      console.log(
+        `Target account ${accountId} exists with ${targetAccount.balance} NEAR`
+      );
       if (targetAccount.balance > 10) {
-        console.log(`⚠️  WARNING: Account has more than 10 NEAR (${targetAccount.balance} NEAR)`);
+        console.log(
+          `⚠️  WARNING: Account has more than 10 NEAR (${targetAccount.balance} NEAR)`
+        );
         const proceed = await new Promise(resolve => {
           const rl = require('readline').createInterface({
             input: process.stdin,
-            output: process.stdout
+            output: process.stdout,
           });
-          rl.question('Do you want to proceed with deletion? (yes/no): ', answer => {
-            rl.close();
-            resolve(answer.toLowerCase() === 'yes');
-          });
+          rl.question(
+            'Do you want to proceed with deletion? (yes/no): ',
+            answer => {
+              rl.close();
+              resolve(answer.toLowerCase() === 'yes');
+            }
+          );
         });
         if (!proceed) {
           console.log('Operation cancelled.');
@@ -169,21 +196,33 @@ async function main() {
     }
 
     // 2. Check beneficiary account balance and access
-    const beneficiaryState = await checkAccountState(beneficiaryAccount, networkArg);
+    const beneficiaryState = await checkAccountState(
+      beneficiaryAccount,
+      networkArg
+    );
     if (!beneficiaryState.exists) {
-      console.error(`Error: Beneficiary account ${beneficiaryAccount} does not exist`);
+      console.error(
+        `Error: Beneficiary account ${beneficiaryAccount} does not exist`
+      );
       process.exit(1);
     }
-    
+
     if (beneficiaryState.balance < 10) {
-      console.error(`Error: Beneficiary account ${beneficiaryAccount} has insufficient funds (${beneficiaryState.balance} NEAR). Needs at least 10 NEAR.`);
+      console.error(
+        `Error: Beneficiary account ${beneficiaryAccount} has insufficient funds (${beneficiaryState.balance} NEAR). Needs at least 10 NEAR.`
+      );
       process.exit(1);
     }
 
     // 3. Verify we have access to beneficiary account
-    const hasBeneficiaryAccess = await verifyAccountAccess(beneficiaryAccount, networkArg);
+    const hasBeneficiaryAccess = await verifyAccountAccess(
+      beneficiaryAccount,
+      networkArg
+    );
     if (!hasBeneficiaryAccess) {
-      console.error(`Error: No access to beneficiary account ${beneficiaryAccount}. Please login to this account first.`);
+      console.error(
+        `Error: No access to beneficiary account ${beneficiaryAccount}. Please login to this account first.`
+      );
       process.exit(1);
     }
 
@@ -208,7 +247,10 @@ async function main() {
 
     // Deploy the contract
     console.log(`\nDeploying contract...`);
-    execSync(`near deploy ${accountId} ${contractFile} --networkId ${networkArg}`, { stdio: 'inherit' });
+    execSync(
+      `near deploy ${accountId} ${contractFile} --networkId ${networkArg}`,
+      { stdio: 'inherit' }
+    );
 
     // Initialize the contract
     console.log(`\nInitializing contract...`);
@@ -233,4 +275,4 @@ async function main() {
 main().catch(error => {
   console.error('Redeployment failed:', error);
   process.exit(1);
-}); 
+});

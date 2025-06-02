@@ -6,18 +6,18 @@ type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 function getPositionLabel(position: string) {
   switch (position) {
-    case "SB":
-      return "Small Blind";
-    case "BB":
-      return "Big Blind";
-    case "BTN":
-      return "Dealer";
-    case "EP":
-      return "Early Position";
-    case "MP":
-      return "Middle Position";
-    case "CO":
-      return "Cut-off";
+    case 'SB':
+      return 'Small Blind';
+    case 'BB':
+      return 'Big Blind';
+    case 'BTN':
+      return 'Dealer';
+    case 'EP':
+      return 'Early Position';
+    case 'MP':
+      return 'Middle Position';
+    case 'CO':
+      return 'Cut-off';
     default:
       return position;
   }
@@ -62,116 +62,137 @@ export const Player: React.FC<PlayerProps> = ({
 }) => {
   const statusColor = () => {
     switch (status) {
-      case "FOLDED":
-        return "text-gray-400";
-      case "ALL_IN":
-        return "text-yellow-400";
-      case "PLAYING":
-        return "text-green-400";
+      case 'FOLDED':
+        return 'text-gray-400';
+      case 'ALL_IN':
+        return 'text-yellow-400';
+      case 'PLAYING':
+        return 'text-green-400';
       default:
-        return "text-white";
+        return 'text-white';
     }
   };
 
   const getStatusIcon = () => {
     switch (status) {
-      case "FOLDED":
-        return "✗";
-      case "ALL_IN":
-        return "⚡";
-      case "PLAYING":
-        return "●";
+      case 'FOLDED':
+        return '✗';
+      case 'ALL_IN':
+        return '⚡';
+      case 'PLAYING':
+        return '●';
       default:
-        return "●";
+        return '●';
     }
   };
 
   const getPositionIcon = () => {
     switch (position) {
-      case "SB":
-        return "SB";
-      case "BB":
-        return "BB";
-      case "BTN":
-        return "D";
-      case "EP":
-        return "EP";
-      case "MP":
-        return "MP";
-      case "CO":
-        return "CO";
+      case 'SB':
+        return 'SB';
+      case 'BB':
+        return 'BB';
+      case 'BTN':
+        return 'D';
+      case 'EP':
+        return 'EP';
+      case 'MP':
+        return 'MP';
+      case 'CO':
+        return 'CO';
       default:
-        return "";
+        return '';
     }
   };
 
   return (
-    <div className={`${(tablePosition === 7 || tablePosition === 8) ? '' : `player ${positionClasses[tablePosition]}`}`}>
-      <div className="relative">
+    <div
+      className={`${tablePosition === 7 || tablePosition === 8 ? '' : `player ${positionClasses[tablePosition]}`}`}
+    >
+      <div className='relative'>
         {/* Player Card Container */}
-        <div className="bg-black border-2 border-white rounded-lg p-3 min-w-[160px] relative">
+        <div className='bg-black border-2 border-white rounded-lg p-3 min-w-[160px] relative'>
           {/* Current Player Glow Effect */}
           {isCurrentPlayer && (
-            <div className="absolute inset-0 border-2 border-green-400 rounded-lg animate-pulse"></div>
+            <div className='absolute inset-0 border-2 border-green-400 rounded-lg animate-pulse'></div>
           )}
-          
+
           {/* Position Badge */}
           {position && (
-            <div className="absolute -top-3 -right-2 w-6 h-6 bg-black border-2 border-white rounded-full flex items-center justify-center">
-              <span className="text-white font-mono text-[10px] font-bold">
+            <div className='absolute -top-3 -right-2 w-6 h-6 bg-black border-2 border-white rounded-full flex items-center justify-center'>
+              <span className='text-white font-mono text-[10px] font-bold'>
                 {getPositionIcon()}
               </span>
             </div>
           )}
 
           {/* Player Avatar */}
-          <div className="flex items-center mb-2">
-            <div className="w-10 h-10 bg-black border-2 border-white rounded-full mr-3 flex items-center justify-center relative overflow-hidden">
+          <div className='flex items-center mb-2'>
+            <div className='w-10 h-10 bg-black border-2 border-white rounded-full mr-3 flex items-center justify-center relative overflow-hidden'>
               {/* Avatar Background Pattern */}
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900"></div>
-              <span className={`${statusColor()} font-mono text-xs font-bold relative z-10`}>
+              <div className='absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900'></div>
+              <span
+                className={`${statusColor()} font-mono text-xs font-bold relative z-10`}
+              >
                 AGC
               </span>
               {/* Status indicator dot */}
-              <div className={`absolute bottom-0 right-0 w-3 h-3 ${
-                status === 'PLAYING' ? 'bg-green-400' : 
-                status === 'FOLDED' ? 'bg-gray-400' : 'bg-yellow-400'
-              } border border-white rounded-full`}></div>
+              <div
+                className={`absolute bottom-0 right-0 w-3 h-3 ${
+                  status === 'PLAYING'
+                    ? 'bg-green-400'
+                    : status === 'FOLDED'
+                      ? 'bg-gray-400'
+                      : 'bg-yellow-400'
+                } border border-white rounded-full`}
+              ></div>
             </div>
-            
+
             {/* Player Name and Status */}
-            <div className="flex-1">
-              <div className="text-white font-mono text-xs font-bold truncate">
+            <div className='flex-1'>
+              <div className='text-white font-mono text-xs font-bold truncate'>
                 {playerName}
               </div>
-              <div className={`${statusColor()} font-mono text-[10px] flex items-center ${isCurrentPlayer && status === "PLAYING" ? "animate-pulse" : ""}`}>
-                <span className="mr-1">{getStatusIcon()}</span>
-                {status === "PLAYING" ? (isCurrentPlayer ? "Thinking..." : "Ready") : status}
+              <div
+                className={`${statusColor()} font-mono text-[10px] flex items-center ${isCurrentPlayer && status === 'PLAYING' ? 'animate-pulse' : ''}`}
+              >
+                <span className='mr-1'>{getStatusIcon()}</span>
+                {status === 'PLAYING'
+                  ? isCurrentPlayer
+                    ? 'Thinking...'
+                    : 'Ready'
+                  : status}
               </div>
             </div>
           </div>
 
           {/* Chips Display */}
-          <div className="mt-1">
-            <div className="text-white font-mono text-[10px]">
-              <span className="text-gray-400">Chips:</span>
-              <span className="text-green-400 ml-1 font-bold">${formatChips(chips)}</span>
+          <div className='mt-1'>
+            <div className='text-white font-mono text-[10px]'>
+              <span className='text-gray-400'>Chips:</span>
+              <span className='text-green-400 ml-1 font-bold'>
+                ${formatChips(chips)}
+              </span>
             </div>
           </div>
 
           {/* Betting Information */}
           {(bet.amount > 0 || bet.volume > 0) && (
-            <div className="space-y-1">
+            <div className='space-y-1'>
               {bet.amount > 0 && (
-                <div className="text-white font-mono text-[10px]">
-                  <span className="text-gray-400">Round Bet:</span>
-                  <span className="text-yellow-400 ml-1">${formatChips(bet.amount)}</span>
+                <div className='text-white font-mono text-[10px]'>
+                  <span className='text-gray-400'>Round Bet:</span>
+                  <span className='text-yellow-400 ml-1'>
+                    ${formatChips(bet.amount)}
+                  </span>
                 </div>
               )}
               {bet.volume > 0 && (
-                <div className="text-white font-mono text-[10px]">
-                  <span className="text-gray-400">Total Bet:</span>
-                  <span className="text-yellow-400 ml-1">${formatChips(bet.volume)}</span>
+                <div className='text-white font-mono text-[10px]'>
+                  <span className='text-gray-400'>Total Bet:</span>
+                  <span className='text-yellow-400 ml-1'>
+                    ${formatChips(bet.volume)}
+                  </span>
                 </div>
               )}
             </div>
@@ -179,17 +200,21 @@ export const Player: React.FC<PlayerProps> = ({
 
           {/* Contract Betting Info */}
           {(totalContractBet > 0 || userContractBet > 0) && (
-            <div className="border-t border-gray-600 pt-2 space-y-1">
+            <div className='border-t border-gray-600 pt-2 space-y-1'>
               {totalContractBet > 0 && (
-                <div className="text-white font-mono text-[10px]">
-                  <span className="text-gray-400">Pool:</span>
-                  <span className="text-blue-400 ml-1">${formatChips(totalContractBet)}</span>
+                <div className='text-white font-mono text-[10px]'>
+                  <span className='text-gray-400'>Pool:</span>
+                  <span className='text-blue-400 ml-1'>
+                    ${formatChips(totalContractBet)}
+                  </span>
                 </div>
               )}
               {userContractBet > 0 && (
-                <div className="text-white font-mono text-[10px]">
-                  <span className="text-gray-400">Your Bet:</span>
-                  <span className="text-blue-400 ml-1">${formatChips(userContractBet)}</span>
+                <div className='text-white font-mono text-[10px]'>
+                  <span className='text-gray-400'>Your Bet:</span>
+                  <span className='text-blue-400 ml-1'>
+                    ${formatChips(userContractBet)}
+                  </span>
                 </div>
               )}
             </div>
@@ -198,12 +223,12 @@ export const Player: React.FC<PlayerProps> = ({
 
         {/* Player's Hand */}
         {hand.length > 0 && (
-          <div className="flex justify-center mt-2 gap-2">
+          <div className='flex justify-center mt-2 gap-2'>
             {hand.map((card: CardType, index: number) => (
               <Card
                 key={`${card.rank}-${card.suit}-${index}`}
                 card={card}
-                isPlayerFolded={status === "FOLDED"}
+                isPlayerFolded={status === 'FOLDED'}
               />
             ))}
           </div>
@@ -211,4 +236,4 @@ export const Player: React.FC<PlayerProps> = ({
       </div>
     </div>
   );
-}; 
+};

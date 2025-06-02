@@ -120,6 +120,9 @@ importers:
       postcss:
         specifier: ^8.5.4
         version: 8.5.4
+      prettier:
+        specifier: ^3.0.0
+        version: 3.5.3
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.17
@@ -3198,6 +3201,11 @@ packages:
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
+
+  prettier@3.5.3:
+    resolution: {integrity: sha512-QQtaxnoDJeAkDvDKWCLiwIXkTgRhwYDEQCghU9Z6q03iyek/rxRh/2lC3HB7P8sWT2xC/y5JDctPLBIGzHKbhw==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   process-warning@1.0.0:
     resolution: {integrity: sha512-du4wfLyj4yCZq1VupnVSZmRsPJsNuxoDQFdCFHLaYiEbFBD7QE0a+I4D7hOxrVnh78QE/YipFAj9lXHiXocV+Q==}
@@ -7987,6 +7995,8 @@ snapshots:
   postmate@1.5.2: {}
 
   prelude-ls@1.2.1: {}
+
+  prettier@3.5.3: {}
 
   process-warning@1.0.0: {}
 

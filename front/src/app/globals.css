@@ -3,25 +3,26 @@
 @tailwind utilities;
 
 /* Neon Theme - Default */
-[data-theme="neon"] { /* Also apply when explicitly set */
+[data-theme='neon'] {
+  /* Also apply when explicitly set */
   /* Theme-specific variables */
   --theme-primary: #00ff00;
   --theme-secondary: #00ffff;
   --theme-accent: #ff00ff;
   --theme-highlight: #ffff00;
   --theme-alert: #ff007f;
-  
+
   /* Surface colors */
   --surface-primary: rgba(0, 20, 0, 0.8);
   --surface-secondary: rgba(0, 0, 0, 0.7);
   --surface-tertiary: rgba(0, 10, 10, 0.7);
-  
+
   /* Border properties */
   --border-width: 2px;
   --border-radius-table: 100px;
   --border-radius-card: 5px;
   --border-radius-element: 10px;
-  
+
   /* Shadow properties */
   --shadow-strength: 10px;
   --shadow-inner-strength: 10px;
@@ -38,18 +39,18 @@
   --theme-accent: #ffffff;
   --theme-highlight: #ffffff;
   --theme-alert: #ffffff;
-  
+
   /* Surface colors */
   --surface-primary: transparent;
   --surface-secondary: transparent;
   --surface-tertiary: transparent;
-  
+
   /* Border properties */
   --border-width: 2px;
   --border-radius-table: 0;
   --border-radius-card: 0;
   --border-radius-element: 0;
-  
+
   /* Shadow properties */
   --shadow-strength: 0;
   --shadow-inner-strength: 0;
@@ -62,25 +63,25 @@
 }
 
 /* Poker Stars Theme */
-[data-theme="poker-stars"] {
+[data-theme='poker-stars'] {
   /* Theme-specific variables */
   --theme-primary: #fff;
   --theme-secondary: #000;
   --theme-accent: #ff9800;
   --theme-highlight: #ffc107;
   --theme-alert: #f44336;
-  
+
   /* Surface colors */
   --surface-primary: #1b5e20;
   --surface-secondary: rgba(0, 0, 0, 0.9);
   --surface-tertiary: rgba(253, 255, 254, 0.9);
-  
+
   /* Border properties */
   --border-width: 2px;
   --border-radius-table: 200px;
   --border-radius-card: 8px;
   --border-radius-element: 4px;
-  
+
   /* Shadow properties */
   --shadow-strength: 0px;
   --shadow-inner-strength: 5px;
@@ -106,7 +107,7 @@ html {
 body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
-  font-family: "Courier New", monospace;
+  font-family: 'Courier New', monospace;
   /* overflow: hidden; */
 }
 
@@ -114,20 +115,21 @@ body {
   .text-shadow-green {
     text-shadow: 0 0 var(--text-shadow-strength) var(--theme-primary);
   }
-  
+
   .text-shadow-cyan {
     text-shadow: 0 0 var(--text-shadow-strength) var(--theme-secondary);
   }
-  
+
   .text-shadow-pink {
-    text-shadow: 0 0 var(--text-shadow-large-strength) var(--theme-accent),
-                 0 0 calc(var(--text-shadow-large-strength) * 2) var(--theme-accent);
+    text-shadow:
+      0 0 var(--text-shadow-large-strength) var(--theme-accent),
+      0 0 calc(var(--text-shadow-large-strength) * 2) var(--theme-accent);
   }
-  
+
   .text-shadow-yellow {
     text-shadow: 0 0 var(--text-shadow-large-strength) var(--theme-highlight);
   }
-  
+
   .text-shadow-red {
     text-shadow: 0 0 var(--text-shadow-strength) var(--theme-alert);
   }
@@ -145,14 +147,46 @@ body {
   border-radius: var(--border-radius-element);
 }
 
-.player-1 { top: 5%; left: 50%; transform: translateX(-50%); }
-.player-2 { top: 20%; right: 15%; transform: translateY(-50%); }
-.player-3 { bottom: 20%; right: 15%; transform: translateY(50%); }
-.player-4 { bottom: 5%; left: 50%; transform: translateX(-50%); }
-.player-5 { bottom: 20%; left: 15%; transform: translateY(50%); }
-.player-6 { top: 20%; left: 15%; transform: translateY(-50%); }
-.player-7 { top: 50%; left: 15%; transform: translate(0%, -50%); }
-.player-8 { top: 50%; right: 15%; transform: translate(0%, -50%); }
+.player-1 {
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.player-2 {
+  top: 20%;
+  right: 15%;
+  transform: translateY(-50%);
+}
+.player-3 {
+  bottom: 20%;
+  right: 15%;
+  transform: translateY(50%);
+}
+.player-4 {
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.player-5 {
+  bottom: 20%;
+  left: 15%;
+  transform: translateY(50%);
+}
+.player-6 {
+  top: 20%;
+  left: 15%;
+  transform: translateY(-50%);
+}
+.player-7 {
+  top: 50%;
+  left: 15%;
+  transform: translate(0%, -50%);
+}
+.player-8 {
+  top: 50%;
+  right: 15%;
+  transform: translate(0%, -50%);
+}
 
 /* Base styles for game status and pot */
 /* Neon text color utilities (manual override) */
@@ -263,7 +297,9 @@ body {
   border-radius: 0;
 }
 
-.ai-thoughts-scrollbar .simplebar-track.simplebar-vertical .simplebar-scrollbar:hover::before {
+.ai-thoughts-scrollbar
+  .simplebar-track.simplebar-vertical
+  .simplebar-scrollbar:hover::before {
   background-color: var(--theme-primary);
 }
 

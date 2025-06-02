@@ -17,7 +17,7 @@ const contractFile = join(buildDir, 'ai-gambling-club.wasm');
 // Create readline interface for user input
 const rl = createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 async function main() {
@@ -32,16 +32,25 @@ async function main() {
   const args = process.argv.slice(2);
   const accountId = args[0];
   const adminAccount = args[1];
-  const usdcTokenContract = args[2] || 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near'; // Default USDC contract on mainnet
+  const usdcTokenContract =
+    args[2] || 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near'; // Default USDC contract on mainnet
   const backendPublicKey = args[3]; // Backend public key for signature verification
 
   // Validate arguments
   if (!accountId || !backendPublicKey) {
-    console.error('Usage: deploy-mainnet.js [account_id] [admin_account] [usdc_token_contract] [backend_public_key]');
+    console.error(
+      'Usage: deploy-mainnet.js [account_id] [admin_account] [usdc_token_contract] [backend_public_key]'
+    );
     console.error('  account_id: The account ID to deploy the contract to');
-    console.error('  admin_account: The account ID of the admin (default: same as account_id)');
-    console.error('  usdc_token_contract: The account ID of the USDC token contract (default: a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near)');
-    console.error('  backend_public_key: The Ed25519 public key for signature verification (base64 encoded)');
+    console.error(
+      '  admin_account: The account ID of the admin (default: same as account_id)'
+    );
+    console.error(
+      '  usdc_token_contract: The account ID of the USDC token contract (default: a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near)'
+    );
+    console.error(
+      '  backend_public_key: The Ed25519 public key for signature verification (base64 encoded)'
+    );
     process.exit(1);
   }
 
@@ -54,52 +63,66 @@ async function main() {
   console.log(`Admin Account: ${finalAdminAccount}`);
   console.log(`USDC Token Contract: ${usdcTokenContract}`);
   console.log(`Backend Public Key: ${backendPublicKey}`);
-  console.log('\nThis is a production environment. Please confirm your action.');
+  console.log(
+    '\nThis is a production environment. Please confirm your action.'
+  );
 
-  rl.question('Are you sure you want to deploy to mainnet? (yes/no): ', async (answer) => {
-    if (answer.toLowerCase() !== 'yes') {
-      console.log('Deployment cancelled.');
-      rl.close();
-      process.exit(0);
-    }
-    
-    try {
-      // Login to NEAR account
-      console.log(`\nPlease login to your NEAR account (${accountId})...`);
-      execSync(`near login --networkId mainnet`, { stdio: 'inherit' });
-
-      // Deploy the contract
-      console.log(`\nDeploying contract...`);
-      execSync(`near deploy ${accountId} ${contractFile} --networkId mainnet`, { stdio: 'inherit' });
-
-      // Check if the contract is already initialized
-      console.log(`\nChecking if contract is already initialized...`);
-      const {isInitialized, admin} = await isContractInitialized(accountId);
-      
-      if (isInitialized || true) { // default to true because it's trying to initialize the contract again all the time
-        console.log(`Contract is already initialized, skipping initialization.`);
-      } else {
-        // Initialize the contract
-        console.log(`\nInitializing contract...`);
-        execSync(
-          `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${usdcTokenContract}", "backend_public_key": "${backendPublicKey}"}' --accountId ${accountId} --networkId mainnet`,
-          { stdio: 'inherit' }
-        );
+  rl.question(
+    'Are you sure you want to deploy to mainnet? (yes/no): ',
+    async answer => {
+      if (answer.toLowerCase() !== 'yes') {
+        console.log('Deployment cancelled.');
+        rl.close();
+        process.exit(0);
       }
 
-      console.log(`\nContract deployed successfully!`);
-      console.log(`Contract: ${accountId}`);
-      console.log(`Admin: ${admin ? admin : adminAccount ? adminAccount : accountId}`);
-      console.log(`USDC Token Contract: ${usdcTokenContract}`);
-      console.log(`Backend Public Key: ${backendPublicKey}`);
-      console.log(`Explorer URL: https://explorer.near.org/accounts/${accountId}`);
-    } catch (error) {
-      console.error('Error deploying contract:', error.message);
-      process.exit(1);
-    }
-  });
-}
+      try {
+        // Login to NEAR account
+        console.log(`\nPlease login to your NEAR account (${accountId})...`);
+        execSync(`near login --networkId mainnet`, { stdio: 'inherit' });
 
+        // Deploy the contract
+        console.log(`\nDeploying contract...`);
+        execSync(
+          `near deploy ${accountId} ${contractFile} --networkId mainnet`,
+          { stdio: 'inherit' }
+        );
+
+        // Check if the contract is already initialized
+        console.log(`\nChecking if contract is already initialized...`);
+        const { isInitialized, admin } = await isContractInitialized(accountId);
+
+        if (isInitialized || true) {
+          // default to true because it's trying to initialize the contract again all the time
+          console.log(
+            `Contract is already initialized, skipping initialization.`
+          );
+        } else {
+          // Initialize the contract
+          console.log(`\nInitializing contract...`);
+          execSync(
+            `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${usdcTokenContract}", "backend_public_key": "${backendPublicKey}"}' --accountId ${accountId} --networkId mainnet`,
+            { stdio: 'inherit' }
+          );
+        }
+
+        console.log(`\nContract deployed successfully!`);
+        console.log(`Contract: ${accountId}`);
+        console.log(
+          `Admin: ${admin ? admin : adminAccount ? adminAccount : accountId}`
+        );
+        console.log(`USDC Token Contract: ${usdcTokenContract}`);
+        console.log(`Backend Public Key: ${backendPublicKey}`);
+        console.log(
+          `Explorer URL: https://explorer.near.org/accounts/${accountId}`
+        );
+      } catch (error) {
+        console.error('Error deploying contract:', error.message);
+        process.exit(1);
+      }
+    }
+  );
+}
 
 // Execute the main function
 main().catch(error => {
