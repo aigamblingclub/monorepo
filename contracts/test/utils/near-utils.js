@@ -1,5 +1,5 @@
 import { connect, keyStores, utils, providers, KeyPair } from 'near-api-js';
-import { TextEncoder } from "util";
+import { TextEncoder } from 'util';
 import { readFileSync } from 'fs';
 import dotenv from 'dotenv';
 
@@ -17,25 +17,25 @@ export async function initNear(credentials = null) {
   // Use provided credentials or fall back to env vars
   const accountId = credentials?.accountId || process.env.NEAR_ACCOUNT_ID;
   const privateKey = credentials?.privateKey || process.env.NEAR_PRIVATE_KEY;
-  
+
   if (!accountId || !privateKey) {
     throw new Error('[ERROR][CONFIG] Missing NEAR credentials');
   }
 
   const keyStore = new keyStores.InMemoryKeyStore();
   const keyPair = utils.KeyPair.fromString(privateKey);
-  
+
   await keyStore.setKey('testnet', accountId, keyPair);
 
   const config = {
     keyStore,
     networkId: 'testnet',
-    nodeUrl: 'https://rpc.testnet.near.org'
+    nodeUrl: 'https://rpc.testnet.near.org',
   };
 
   const near = await connect(config);
   const account = await near.account(accountId);
-  
+
   return { near, account, accountId };
 }
 
@@ -54,10 +54,10 @@ export async function isContractInitialized(contractId, options = {}) {
 
   try {
     const connectionConfig = {
-      url: nodeUrl
+      url: nodeUrl,
     };
     const provider = new providers.JsonRpcProvider(connectionConfig);
-    
+
     // Try to access admin account using the getAdmin method
     const response = await provider.query({
       request_type: 'call_function',
@@ -66,13 +66,13 @@ export async function isContractInitialized(contractId, options = {}) {
       args_base64: Buffer.from(JSON.stringify({})).toString('base64'),
       finality: 'optimistic',
     });
-    
+
     // If we get a result, the contract has been initialized
     const adminAccount = JSON.parse(Buffer.from(response.result).toString());
-    return {isInitialized: !!adminAccount, admin: adminAccount};
+    return { isInitialized: !!adminAccount, admin: adminAccount };
   } catch (error) {
     // If we get an error, the contract is likely not initialized or the method doesn't exist
-    return {isInitialized: false, admin: null};
+    return { isInitialized: false, admin: null };
   }
 }
 
@@ -86,22 +86,28 @@ export async function isContractInitialized(contractId, options = {}) {
  * @param {String} options.verbose Verbose output
  * @returns {Object} Deployment result
  */
-export async function deployContract(account, contractName, wasmPath, initArgs = {}, options = {}) {
+export async function deployContract(
+  account,
+  contractName,
+  wasmPath,
+  initArgs = {},
+  options = {}
+) {
   const { verbose = false } = options;
   try {
     const wasmBinary = readFileSync(wasmPath);
-    
+
     // Deploy the contract
     if (verbose) {
       console.info(`[INFO][DEPLOY] Deploying contract to ${contractName}...`);
     }
-    
+
     // First, check if the contract is already initialized
     const { isInitialized, admin } = await isContractInitialized(contractName);
     if (verbose) {
       console.info(`[INFO][DEPLOY] Contract is initialized: ${isInitialized}`);
     }
-    
+
     // First, create the account if it doesn't exist
     try {
       // Calculate gas and deposit for deployment
@@ -117,12 +123,21 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
       if (Object.keys(initArgs).length > 0) {
         if (isInitialized) {
           if (verbose) {
-            console.info(`[INFO][INIT] Contract is already initialized, skipping initialization`);
+            console.info(
+              `[INFO][INIT] Contract is already initialized, skipping initialization`
+            );
           }
-          return { success: true, contractId: contractName, alreadyInitialized: true };
+          return {
+            success: true,
+            contractId: contractName,
+            alreadyInitialized: true,
+          };
         } else {
           if (verbose) {
-            console.info(`[INFO][INIT] Initializing contract with args:`, initArgs);
+            console.info(
+              `[INFO][INIT] Initializing contract with args:`,
+              initArgs
+            );
           }
           try {
             const initResult = await account.functionCall({
@@ -130,29 +145,50 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
               methodName: 'init',
               args: initArgs,
               gas: gas,
-              attachedDeposit: utils.format.parseNearAmount('0.01')
+              attachedDeposit: utils.format.parseNearAmount('0.01'),
             });
             if (verbose) {
               console.info(`[INFO][INIT] Contract initialization successful`);
             }
-            return { success: true, contractId: contractName, alreadyInitialized: false };
+            return {
+              success: true,
+              contractId: contractName,
+              alreadyInitialized: false,
+            };
           } catch (initError) {
             if (initError.toString().includes('Contract already initialized')) {
               if (verbose) {
-                console.info(`[INFO][INIT] Contract is already initialized, initialization attempt was rejected`);
+                console.info(
+                  `[INFO][INIT] Contract is already initialized, initialization attempt was rejected`
+                );
               }
-              return { success: true, contractId: contractName, alreadyInitialized: true };
+              return {
+                success: true,
+                contractId: contractName,
+                alreadyInitialized: true,
+              };
             } else {
               if (verbose) {
-                console.error(`[ERROR][DEPLOY] Error initializing contract:`, initError);
+                console.error(
+                  `[ERROR][DEPLOY] Error initializing contract:`,
+                  initError
+                );
               }
-              return { success: false, error: initError, alreadyInitialized: false };
+              return {
+                success: false,
+                error: initError,
+                alreadyInitialized: false,
+              };
             }
           }
         }
       }
 
-      return { success: true, contractId: contractName, alreadyInitialized: false };
+      return {
+        success: true,
+        contractId: contractName,
+        alreadyInitialized: false,
+      };
     } catch (error) {
       // Check if the error is because the contract is already initialized
       if (error.toString().includes('Contract already initialized')) {
@@ -183,12 +219,12 @@ export async function deployContract(account, contractName, wasmPath, initArgs =
  */
 export async function callViewMethod(contractId, methodName, args = {}) {
   const nodeUrl = process.env.NEAR_NODE_URL || 'https://rpc.testnet.near.org';
-  
+
   const connectionConfig = {
-    url: nodeUrl
+    url: nodeUrl,
   };
   const provider = new providers.JsonRpcProvider(connectionConfig);
-  
+
   try {
     const result = await provider.query({
       request_type: 'call_function',
@@ -197,7 +233,7 @@ export async function callViewMethod(contractId, methodName, args = {}) {
       args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
       finality: 'optimistic',
     });
-    
+
     return JSON.parse(Buffer.from(result.result).toString());
   } catch (error) {
     console.error(`Error calling view method ${methodName}:`, error);
@@ -215,16 +251,23 @@ export async function callViewMethod(contractId, methodName, args = {}) {
  * @param {String} gas Gas to use
  * @returns {Object} Transaction result
  */
-export async function callWriteMethod(account, contractId, methodName, args = {}, attachedDeposit = '0', gas = '300000000000000') {
+export async function callWriteMethod(
+  account,
+  contractId,
+  methodName,
+  args = {},
+  attachedDeposit = '0',
+  gas = '300000000000000'
+) {
   try {
     const result = await account.functionCall({
       contractId,
       methodName,
       args,
       gas,
-      attachedDeposit
+      attachedDeposit,
     });
-    
+
     return result;
   } catch (error) {
     console.error(`Error calling change method ${methodName}:`, error);
@@ -259,7 +302,7 @@ export function signMessage(messageObject, privateKeyString) {
 
   // 5. Return the signature bytes encoded as Uint8Array
   // signature.signature is the Uint8Array
-  return {signature: signature.signature, messageBytes: messageBytes};
+  return { signature: signature.signature, messageBytes: messageBytes };
 }
 
 /**
@@ -270,7 +313,7 @@ export function signMessage(messageObject, privateKeyString) {
  */
 export async function mintUSDCTokens(account, amountInUSD = 100) {
   const usdcContractId = process.env.USDC_CONTRACT_ID || 'usdc.fakes.testnet';
-  
+
   try {
     // Check current balance first
     const currentBalance = await callViewMethod(
@@ -282,7 +325,7 @@ export async function mintUSDCTokens(account, amountInUSD = 100) {
 
     // Convert USD amount to proper decimals (USDC uses 6 decimals)
     const requiredAmount = BigInt(amountInUSD * 1_000_000);
-    
+
     // Only mint if current balance is less than required amount
     if (BigInt(currentBalance) < requiredAmount) {
       // First register the account with storage deposit if needed
@@ -296,30 +339,25 @@ export async function mintUSDCTokens(account, amountInUSD = 100) {
 
       // Mint only the difference needed
       const mintAmount = (requiredAmount - BigInt(currentBalance)).toString();
-      await callWriteMethod(
-        account,
-        usdcContractId,
-        'mint',
-        { 
-          account_id: account.accountId,
-          amount: mintAmount
-        }
-      );
+      await callWriteMethod(account, usdcContractId, 'mint', {
+        account_id: account.accountId,
+        amount: mintAmount,
+      });
 
       // Verify the new balance
-      const newBalance = await callViewMethod(
-        usdcContractId,
-        'ft_balance_of',
-        { account_id: account.accountId }
-      );
+      const newBalance = await callViewMethod(usdcContractId, 'ft_balance_of', {
+        account_id: account.accountId,
+      });
       console.log(`USDC balance after minting: ${newBalance}`);
       return newBalance;
     } else {
-      console.log(`Account already has sufficient USDC balance (${currentBalance}), skipping mint`);
+      console.log(
+        `Account already has sufficient USDC balance (${currentBalance}), skipping mint`
+      );
       return currentBalance;
     }
   } catch (error) {
     console.error('[ERROR][USDC] Failed to get test USDC tokens:', error);
     throw error;
   }
-} 
+}
