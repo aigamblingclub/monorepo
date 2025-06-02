@@ -1,16 +1,16 @@
 /**
  * NEAR Protocol Authentication Hook
- * 
+ *
  * This custom React hook provides authentication functionality for NEAR Protocol integration.
  * It manages the complete authentication flow including wallet connection, message signing,
  * backend verification, and session management with API key storage.
- * 
+ *
  * @module useNearAuth
  * @requires useNearWallet - For NEAR wallet operations
  * @requires AuthState - Type definitions for authentication state
  */
 
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useNearWallet } from './useNearWallet';
@@ -18,7 +18,7 @@ import { AuthState } from '@/types/auth';
 
 /**
  * Custom hook for NEAR Protocol authentication with backend integration
- * 
+ *
  * Manages the complete authentication lifecycle:
  * 1. NEAR wallet connection
  * 2. Challenge/response authentication with backend
@@ -26,7 +26,7 @@ import { AuthState } from '@/types/auth';
  * 4. Signature verification
  * 5. API key management and storage
  * 6. Session state management
- * 
+ *
  * @returns {Object} Authentication state and control functions
  * @returns {boolean} isAuthenticated - Whether user is currently authenticated
  * @returns {boolean} isLoading - Whether authentication operation is in progress
@@ -50,7 +50,13 @@ export function useNearAuth() {
     apiKey: null,
   });
 
-  const { signIn, signOut: nearSignOut, accountId, isConnected, selector } = useNearWallet();
+  const {
+    signIn,
+    signOut: nearSignOut,
+    accountId,
+    isConnected,
+    selector,
+  } = useNearWallet();
 
   /**
    * Auto-authentication effect
@@ -65,13 +71,13 @@ export function useNearAuth() {
 
   /**
    * Authenticates user with backend using NEAR wallet signature
-   * 
+   *
    * Implements the complete challenge-response authentication flow:
    * 1. Requests challenge from backend API
    * 2. Signs challenge message with NEAR wallet
    * 3. Sends signature to backend for verification
    * 4. Stores API key and updates authentication state
-   * 
+   *
    * @async
    * @returns {Promise<boolean>} True if authentication successful, false otherwise
    * @throws {Error} When wallet selector not initialized
@@ -95,7 +101,7 @@ export function useNearAuth() {
       const challengeResponse = await fetch(
         `/api/auth/near?accountId=${accountId}`
       );
-      
+
       if (!challengeResponse.ok) {
         throw new Error('Failed to get challenge');
       }
@@ -105,7 +111,7 @@ export function useNearAuth() {
       // 2. Sign message with wallet
       const wallet = await selector.wallet();
       const accounts = await wallet.getAccounts();
-      
+
       if (!accounts || accounts.length === 0) {
         throw new Error('No accounts found');
       }
@@ -113,14 +119,14 @@ export function useNearAuth() {
       const signatureObj = await wallet.signMessage({
         message,
         recipient: window.location.origin,
-        nonce: Buffer.from(challenge, 'base64')
+        nonce: Buffer.from(challenge, 'base64'),
       });
 
       // 3. Verify signature with Next.js API
       const verifyResponse = await fetch(`/api/auth/near`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           origin: window.location.origin, // send to server
         },
         body: JSON.stringify({
@@ -160,10 +166,10 @@ export function useNearAuth() {
 
   /**
    * Initiates user login process
-   * 
+   *
    * If wallet is not connected, triggers wallet connection flow.
    * If wallet is already connected, proceeds directly to backend authentication.
-   * 
+   *
    * @async
    * @returns {Promise<boolean>} True if login process initiated successfully
    */
@@ -177,25 +183,25 @@ export function useNearAuth() {
 
   /**
    * Logs out user and clears all session data
-   * 
+   *
    * Performs complete cleanup:
    * 1. Removes API key from localStorage
    * 2. Signs out from NEAR wallet
    * 3. Resets authentication state
-   * 
+   *
    * @async
    * @throws {Error} When logout process fails
    */
   const logout = async () => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+
       // Clear local storage
       localStorage.removeItem('apiKey');
-      
+
       // Sign out from NEAR wallet
       await nearSignOut();
-      
+
       setAuthState({
         isAuthenticated: false,
         isLoading: false,
@@ -218,4 +224,4 @@ export function useNearAuth() {
     logout,
     accountId,
   };
-} 
+}

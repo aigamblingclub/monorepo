@@ -1,10 +1,10 @@
 /**
  * Environment Configuration Utility
- * 
+ *
  * This module validates and exports environment variables required for the application.
  * It ensures all necessary environment variables are set and provides typed exports
  * for consistent usage throughout the application.
- * 
+ *
  * @module env
  * @throws {Error} When required environment variables are missing
  */
@@ -13,8 +13,8 @@
  * Application environment mode
  * @throws {Error} When NEXT_PUBLIC_NODE_ENV is not set
  */
-if(!process.env.NEXT_PUBLIC_NODE_ENV) {
-    throw new Error('NODE_ENV is not set');
+if (!process.env.NEXT_PUBLIC_NODE_ENV) {
+  throw new Error('NODE_ENV is not set');
 }
 
 /**
@@ -33,14 +33,14 @@ export const isProd = NODE_ENV === 'production';
  * Boolean flag indicating if the application is running in development mode
  * @type {boolean}
  */
-export const isDev = !isProd
+export const isDev = !isProd;
 
 /**
  * Application port configuration
  * @throws {Error} When NEXT_PUBLIC_PORT is not set
  */
-if(!process.env.NEXT_PUBLIC_PORT) {
-    throw new Error('PORT is not set');
+if (!process.env.NEXT_PUBLIC_PORT) {
+  throw new Error('PORT is not set');
 }
 
 /**
@@ -55,10 +55,10 @@ export const PORT = process.env.NEXT_PUBLIC_PORT;
  * - In development: requires NEXT_PUBLIC_SERVER_MAIN_LOCAL
  * @throws {Error} When required server URL environment variable is not set
  */
-if(isProd && !process.env.NEXT_PUBLIC_SERVER_MAIN) {
-    throw new Error('NEXT_PUBLIC_SERVER_MAIN is not set');
+if (isProd && !process.env.NEXT_PUBLIC_SERVER_MAIN) {
+  throw new Error('NEXT_PUBLIC_SERVER_MAIN is not set');
 } else if (isDev && !process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL) {
-    throw new Error('NEXT_PUBLIC_SERVER_MAIN_LOCAL is not set');
+  throw new Error('NEXT_PUBLIC_SERVER_MAIN_LOCAL is not set');
 }
 
 /**
@@ -67,14 +67,16 @@ if(isProd && !process.env.NEXT_PUBLIC_SERVER_MAIN) {
  * - Uses NEXT_PUBLIC_SERVER_MAIN_LOCAL in development
  * @type {string}
  */
-export const NEXT_PUBLIC_SERVER_MAIN = process.env.NEXT_PUBLIC_SERVER_MAIN || process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL;
+export const NEXT_PUBLIC_SERVER_MAIN =
+  process.env.NEXT_PUBLIC_SERVER_MAIN ||
+  process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL;
 
 /**
  * USDC contract configuration validation
  * @throws {Error} When NEXT_PUBLIC_USDC_CONTRACT_ID is not set
  */
-if(!process.env.NEXT_PUBLIC_USDC_CONTRACT_ID) {
-    throw new Error('NEXT_PUBLIC_USDC_CONTRACT_ID is not set');
+if (!process.env.NEXT_PUBLIC_USDC_CONTRACT_ID) {
+  throw new Error('NEXT_PUBLIC_USDC_CONTRACT_ID is not set');
 }
 
 /**
@@ -83,14 +85,15 @@ if(!process.env.NEXT_PUBLIC_USDC_CONTRACT_ID) {
  * @type {string}
  * @example "usdc.tether-token.near"
  */
-export const NEXT_PUBLIC_USDC_CONTRACT_ID = process.env.NEXT_PUBLIC_USDC_CONTRACT_ID;
+export const NEXT_PUBLIC_USDC_CONTRACT_ID =
+  process.env.NEXT_PUBLIC_USDC_CONTRACT_ID;
 
 /**
  * Main AGC contract configuration validation
  * @throws {Error} When NEXT_PUBLIC_CONTRACT_ID is not set
  */
-if(!process.env.NEXT_PUBLIC_CONTRACT_ID) {
-    throw new Error('NEXT_PUBLIC_CONTRACT_ID is not set');
+if (!process.env.NEXT_PUBLIC_CONTRACT_ID) {
+  throw new Error('NEXT_PUBLIC_CONTRACT_ID is not set');
 }
 
 /**

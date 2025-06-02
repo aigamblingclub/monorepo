@@ -15,10 +15,10 @@ export type {
   TableAction,
   CardValue,
   Position,
-} from "./schemas";
+} from './schemas';
 
 // Import for local use
-import { Street, Suite, type CardValue as CV } from "./schemas";
+import { Street, Suite, type CardValue as CV } from './schemas';
 
 type CardSuit = Suite;
 
@@ -34,42 +34,47 @@ export const getCardLabel = (rank: CV): string => {
 // Utility function to get card suit symbol
 export const getCardSuitSymbol = (suit: CardSuit): string => {
   switch (suit) {
-    case 'hearts': return '❤';
-    case 'diamonds': return '♦';
-    case 'clubs': return '♣';
-    case 'spades': return '♠';
-    default: return '';
+    case 'hearts':
+      return '❤';
+    case 'diamonds':
+      return '♦';
+    case 'clubs':
+      return '♣';
+    case 'spades':
+      return '♠';
+    default:
+      return '';
   }
 };
 
 // Utility function to get the phase name in a more readable format
 export const getPhaseLabel = (phase: Street): string => {
   switch (phase) {
-    case "PRE_FLOP":
-      return "Pre-Flop";
-    case "FLOP":
-      return "Flop";
-    case "TURN":
-      return "Turn";
-    case "RIVER":
-      return "River";
-    case "SHOWDOWN":
-      return "Showdown";
+    case 'PRE_FLOP':
+      return 'Pre-Flop';
+    case 'FLOP':
+      return 'Flop';
+    case 'TURN':
+      return 'Turn';
+    case 'RIVER':
+      return 'River';
+    case 'SHOWDOWN':
+      return 'Showdown';
     default:
-      return "Unknown";
+      return 'Unknown';
   }
 };
 
 // Utility function to format chips amount
 export const formatChips = (amount: number): string => {
   return new Intl.NumberFormat('en-US').format(amount);
-}; 
+};
 
 export enum PokerPosition {
-  BB = "Big Blind",
-  SB = "Small Blind",
-  BTN = "Button",
-  EP = "Early Position",
-  MP = "Middle Position",
-  CO = "Cut-off",
+  BB = 'Big Blind',
+  SB = 'Small Blind',
+  BTN = 'Button',
+  EP = 'Early Position',
+  MP = 'Middle Position',
+  CO = 'Cut-off',
 }

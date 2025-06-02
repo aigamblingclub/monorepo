@@ -22,4 +22,4 @@ export interface AuthState {
   error: string | null;
   user: User | null;
   apiKey: string | null;
-} 
+}

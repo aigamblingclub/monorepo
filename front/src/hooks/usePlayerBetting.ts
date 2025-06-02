@@ -22,7 +22,7 @@ export const usePlayerBetting = () => {
   const { user, apiKey } = useAuth();
   const [playerBets, setPlayerBets] = useState<PlayerBet[]>([]);
   const [userBalance, setUserBalance] = useState<number>(0);
-  const [usdcBalance, setUsdcBalance] = useState<string>("0");
+  const [usdcBalance, setUsdcBalance] = useState<string>('0');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
@@ -33,7 +33,7 @@ export const usePlayerBetting = () => {
     if (user && apiKey) {
       const data = await fetch('/api/balance', {
         headers: {
-          "x-api-key": apiKey || "",
+          'x-api-key': apiKey || '',
         },
       });
       const balanceData = await data.json();
@@ -45,11 +45,11 @@ export const usePlayerBetting = () => {
     if (accountId && getUsdcWalletBalance) {
       try {
         const balance = await getUsdcWalletBalance(accountId);
-        
+
         // USDC typically has 6 decimal places, so we need to format it properly
-        const balanceStr = balance?.toString() || "0";
+        const balanceStr = balance?.toString() || '0';
         const balanceNum = parseFloat(balanceStr);
-        
+
         // If balance is a large number, assume it's in smallest units (micro USDC)
         // and convert to readable USDC (divide by 1,000,000)
         if (balanceNum > 1000000) {
@@ -60,10 +60,10 @@ export const usePlayerBetting = () => {
           setUsdcBalance(balanceNum.toFixed(2));
         }
       } catch (error) {
-        setUsdcBalance("0.00");
+        setUsdcBalance('0.00');
       }
     } else {
-      setUsdcBalance("0.00");
+      setUsdcBalance('0.00');
     }
   }, [accountId]);
 
@@ -79,15 +79,15 @@ export const usePlayerBetting = () => {
       // Fetch all bets data
       const response = await fetch('/api/bet/all', {
         headers: {
-          "x-api-key": apiKey,
-        }
+          'x-api-key': apiKey,
+        },
       });
       if (!response.ok) {
         throw new Error('Failed to fetch betting data');
       }
 
       const data: AllBetsResponse = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to fetch betting data');
       }
@@ -96,14 +96,13 @@ export const usePlayerBetting = () => {
       const formattedBets: PlayerBet[] = data.playerBets.map(bet => ({
         playerId: bet.playerId,
         totalBet: bet.totalBet,
-        betAmount: bet.totalUserBet
+        betAmount: bet.totalUserBet,
       }));
 
       // Update state with fetched data
       setPlayerBets(formattedBets);
       getBalance();
       getUsdcBalance();
-
     } catch (err) {
       setError('Failed to load betting data');
       setPlayerBets([]);
@@ -114,59 +113,73 @@ export const usePlayerBetting = () => {
     }
   }, [accountId, apiKey, getBalance, getUsdcBalance]);
 
-  const placeBet = useCallback(async (playerId: string, amount: number) => {
-    if (!accountId || !apiKey) {
-      setError('Not connected');
-      return false;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await fetch('/api/bet', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          "x-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          playerId,
-          amount,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to place bet');
+  const placeBet = useCallback(
+    async (playerId: string, amount: number) => {
+      if (!accountId || !apiKey) {
+        setError('Not connected');
+        return false;
       }
 
-      // Refresh data after bet is placed
-      await fetchData();
-      
-      return true;
-    } catch (err) {
-      setError('Failed to place bet');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [accountId, apiKey, fetchData]);
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch('/api/bet', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            playerId,
+            amount,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to place bet');
+        }
+
+        // Refresh data after bet is placed
+        await fetchData();
+
+        return true;
+      } catch (err) {
+        setError('Failed to place bet');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [accountId, apiKey, fetchData]
+  );
 
   useEffect(() => {
     if (accountId && apiKey && !loading && !initialized) {
       getBalance();
       getUsdcBalance();
-      fetchData();  
+      fetchData();
     }
   }, [accountId, apiKey, loading, initialized]);
 
-  return useMemo(() => ({
-    playerBets,
-    userBalance,
-    usdcBalance,
-    loading,
-    error,
-    placeBet,
-    isConnected,
-  }), [playerBets, userBalance, usdcBalance, loading, error, placeBet, isConnected]);
-}; 
+  return useMemo(
+    () => ({
+      playerBets,
+      userBalance,
+      usdcBalance,
+      loading,
+      error,
+      placeBet,
+      isConnected,
+    }),
+    [
+      playerBets,
+      userBalance,
+      usdcBalance,
+      loading,
+      error,
+      placeBet,
+      isConnected,
+    ]
+  );
+};

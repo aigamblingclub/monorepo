@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useNearWallet } from '@/hooks/useNearWallet';
-import { NEXT_PUBLIC_CONTRACT_ID } from "@/utils/env";
+import { NEXT_PUBLIC_CONTRACT_ID } from '@/utils/env';
 
 interface LockOperationsProps {
   startSpinner: () => void;
@@ -10,11 +10,11 @@ interface LockOperationsProps {
   isAccountLocked: boolean;
 }
 
-export function LockOperations({ 
-  startSpinner, 
+export function LockOperations({
+  startSpinner,
   startLockRefresh,
-  stopTransactionState, 
-  isAccountLocked 
+  stopTransactionState,
+  isAccountLocked,
 }: LockOperationsProps) {
   const { accountId, apiKey } = useAuth();
   const { callMethod } = useNearWallet();
@@ -29,18 +29,18 @@ export function LockOperations({
       setErrorLock('No account connected');
       return;
     }
-    
+
     if (isAccountLocked) {
       setErrorLock('Account is already locked');
       return;
     }
-    
+
     let refreshInterval: NodeJS.Timeout | undefined;
-    
+
     try {
       setIsLoadingLock(true);
       setErrorLock(null);
-      
+
       // Start spinner immediately for visual feedback
       startSpinner();
 
@@ -54,7 +54,9 @@ export function LockOperations({
       // Only start lock status refresh after successful transaction
       refreshInterval = startLockRefresh();
     } catch (err) {
-      setErrorLock(err instanceof Error ? err.message : 'Failed to lock account');
+      setErrorLock(
+        err instanceof Error ? err.message : 'Failed to lock account'
+      );
     } finally {
       setIsLoadingLock(false);
       // Stop spinner and pass refresh interval
@@ -62,32 +64,32 @@ export function LockOperations({
     }
   };
 
-  const handleUnlock = async () => {  
+  const handleUnlock = async () => {
     // Check guard conditions and set errors
     if (!accountId) {
       setErrorUnlock('No account connected');
       return;
     }
-    
+
     if (!isAccountLocked) {
       setErrorUnlock('Account is not locked');
       return;
     }
-    
+
     if (!apiKey) {
       setErrorUnlock('Not authenticated');
       return;
     }
-    
+
     let refreshInterval: NodeJS.Timeout | undefined;
-    
+
     try {
       setIsLoadingUnlock(true);
       setErrorUnlock(null);
-      
+
       // Start spinner immediately for visual feedback
       startSpinner();
-      
+
       // 1. Call our unlock API to get signed message from backend
       const unlockResponse = await fetch('/api/unlock', {
         method: 'POST',
@@ -121,7 +123,9 @@ export function LockOperations({
       // Only start lock status refresh after successful operation
       refreshInterval = startLockRefresh();
     } catch (err) {
-      setErrorUnlock(err instanceof Error ? err.message : 'Failed to unlock account');
+      setErrorUnlock(
+        err instanceof Error ? err.message : 'Failed to unlock account'
+      );
     } finally {
       setIsLoadingUnlock(false);
       // Stop spinner and pass refresh interval
@@ -131,23 +135,25 @@ export function LockOperations({
 
   if (isAccountLocked) {
     return (
-      <div className="border-t border-white pt-4">
+      <div className='border-t border-white pt-4'>
         <button
           onClick={handleUnlock}
           disabled={isLoadingUnlock || !accountId}
-          className="w-full bg-black border border-blue-500 rounded px-4 py-3 font-mono text-sm text-blue-400 hover:bg-blue-500 hover:text-white transition-all duration-200 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed"
+          className='w-full bg-black border border-blue-500 rounded px-4 py-3 font-mono text-sm text-blue-400 hover:bg-blue-500 hover:text-white transition-all duration-200 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed'
         >
           {/* Unlock Icon */}
-          <div className="relative">
-            <div className="w-4 h-3 border-2 border-current rounded-sm border-b-0 border-t-0"></div>
-            <div className="w-5 h-3 border-2 border-current rounded-sm -mt-1"></div>
-            <div className="absolute top-1 left-1.5 w-1 h-1 bg-current rounded-full"></div>
+          <div className='relative'>
+            <div className='w-4 h-3 border-2 border-current rounded-sm border-b-0 border-t-0'></div>
+            <div className='w-5 h-3 border-2 border-current rounded-sm -mt-1'></div>
+            <div className='absolute top-1 left-1.5 w-1 h-1 bg-current rounded-full'></div>
           </div>
-          <span>{isLoadingUnlock ? 'Unlocking...' : 'unlock --enable-management'}</span>
+          <span>
+            {isLoadingUnlock ? 'Unlocking...' : 'unlock --enable-management'}
+          </span>
         </button>
         {errorUnlock && (
-          <div className="mt-2 p-2 bg-red-900 border border-red-500 rounded">
-            <p className="text-red-400 font-mono text-xs">{errorUnlock}</p>
+          <div className='mt-2 p-2 bg-red-900 border border-red-500 rounded'>
+            <p className='text-red-400 font-mono text-xs'>{errorUnlock}</p>
           </div>
         )}
       </div>
@@ -155,25 +161,25 @@ export function LockOperations({
   }
 
   return (
-    <div className="border-t border-white pt-4">
+    <div className='border-t border-white pt-4'>
       <button
         onClick={handleLock}
         disabled={isLoadingLock || !accountId}
-        className="w-full bg-black border border-green-500 rounded px-4 py-3 font-mono text-sm text-green-400 hover:bg-green-500 hover:text-white transition-all duration-200 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed"
+        className='w-full bg-black border border-green-500 rounded px-4 py-3 font-mono text-sm text-green-400 hover:bg-green-500 hover:text-white transition-all duration-200 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed'
       >
         {/* Lock Icon */}
-        <div className="relative">
-          <div className="w-4 h-3 border-2 border-current rounded-sm border-b-0"></div>
-          <div className="w-5 h-3 border-2 border-current rounded-sm -mt-1"></div>
-          <div className="absolute top-1 left-1.5 w-1 h-1 bg-current rounded-full"></div>
+        <div className='relative'>
+          <div className='w-4 h-3 border-2 border-current rounded-sm border-b-0'></div>
+          <div className='w-5 h-3 border-2 border-current rounded-sm -mt-1'></div>
+          <div className='absolute top-1 left-1.5 w-1 h-1 bg-current rounded-full'></div>
         </div>
         <span>{isLoadingLock ? 'Locking...' : 'lock --enable-betting'}</span>
       </button>
       {errorLock && (
-        <div className="mt-2 p-2 bg-red-900 border border-red-500 rounded">
-          <p className="text-red-400 font-mono text-xs">{errorLock}</p>
+        <div className='mt-2 p-2 bg-red-900 border border-red-500 rounded'>
+          <p className='text-red-400 font-mono text-xs'>{errorLock}</p>
         </div>
       )}
     </div>
   );
-} 
+}
