@@ -94,7 +94,7 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
   let canBet = false;
   
   try {
-      
+
     // Validation: Verify user exists in database
     const user = await getUserByNearAddress(nearNamedAddress);
     if (!user) {
@@ -154,15 +154,10 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
     if (!lastLockEvent && !lastUnlockEvent) {
       // New user with no history - allow betting
       canBet = true;
-      try {
-        // First create the balance record for the user
-        await updateBalanceOnDB(user.id, user.nearNamedAddress);
-        // Then set the userCanBet status to true
-        await setUserCanBet(user.id, true);
-      } catch (error) {
-        errors.push(`Failed to update userCanBet status after deadline expiry: ${(error as Error).message}`);
-        return { success: false, canBet: false, errors };
-      }
+      // First create the balance record for the user
+      await updateBalanceOnDB(user.id, user.nearNamedAddress);
+      // Then set the userCanBet status to true
+      await setUserCanBet(user.id, true);
       console.log(`User ${user.id} has no transaction history - allowing betting`);
       return { 
         success: true, 
