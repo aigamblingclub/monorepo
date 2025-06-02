@@ -64,7 +64,7 @@ export function AccountManager({
    * Memoized function to fetch balances - prevents infinite re-renders
    */
   const fetchBalances = useCallback(async () => {
-    if (!accountId)   ;
+    if (!accountId) return;
     if (!apiKey) return;
 
     setIsLoadingBalances(true);
