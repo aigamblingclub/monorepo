@@ -3,9 +3,10 @@ import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import { 
   validateUnlockRequest, 
   signGameResult, 
-  GameResult 
+  GameResult,
+  setPendingUnlockDeadline
 } from '@/utils/contract';
-import { getOnChainNonce } from '@/utils/near';
+import { getOnChainNonce, getOnChainUsdcBalance } from '@/utils/near';
 import { AGC_CONTRACT_ID } from '@/utils/env';
 
 const router = Router();
@@ -126,6 +127,11 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
 
     // Sign the message
     const signature = await signGameResult(gameResult);
+
+    // Update pending unlock deadline in database
+    if (validation.userId) {
+      await setPendingUnlockDeadline(validation.userId, gameResult.deadline);
+    }
 
     const response: SignMessageResponse = {
       success: true,

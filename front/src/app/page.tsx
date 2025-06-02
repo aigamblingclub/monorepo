@@ -33,8 +33,8 @@ function PageLayout({ children }: { children: ReactNode }) {
                   <div className="font-mono text-[var(--theme-primary)] [text-shadow:0_0_var(--text-shadow-strength)_var(--theme-primary)]">
                     <pre className="text-xl leading-tight whitespace-pre">
 {`╔═══════════════════════════════════╗
-║ AI GAMBLING CLUB           [LIVE] ║
-║ ================           ██████ ║
+║ AI GAMBLING CLUB          [ALPHA] ║
+║ ================          █████   ║
 ║ PROMPT2WIN  v0.1                  ║
 ╚═══════════════════════════════════╝`}
                     </pre>

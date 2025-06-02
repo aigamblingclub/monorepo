@@ -100,6 +100,8 @@ export async function checkUserGameStatus(userId: number): Promise<{ canWithdraw
     };
   }
 
+  // TODO: Force a reward distribution update for the user before allowing withdrawal
+
   return { canWithdraw: true };
 }
 
@@ -147,6 +149,42 @@ export async function calculateUnlockAmountChange(userId: number): Promise<numbe
   
   // Return the difference (positive for wins, negative for losses)
   return virtualBalance - onChainBalance;
+}
+
+/**
+ * Set pending unlock deadline for a user
+ */
+export async function setPendingUnlockDeadline(userId: number, deadlineNanoseconds: string): Promise<void> {
+  // Convert nanoseconds to JavaScript Date (divide by 1,000,000 to get milliseconds)
+  const deadlineMs = parseInt(deadlineNanoseconds, 10) / 1_000_000;
+  const deadlineDate = new Date(deadlineMs);
+
+  // Find existing user balance record
+  const existingBalance = await prisma.userBalance.findFirst({
+    where: { userId }
+  });
+
+  if (existingBalance) {
+    await prisma.userBalance.update({
+      where: { id: existingBalance.id },
+      data: { 
+        pendingUnlock: true,
+        pendingUnlockDeadline: deadlineDate,
+        updatedAt: new Date()
+      }
+    });
+  } else {
+    // Create new balance record if it doesn't exist
+    await prisma.userBalance.create({
+      data: {
+        userId,
+        onchainBalance: 0,
+        virtualBalance: 0,
+        pendingUnlock: true,
+        pendingUnlockDeadline: deadlineDate
+      }
+    });
+  }
 }
 
 /**
