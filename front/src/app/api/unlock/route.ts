@@ -6,11 +6,11 @@ export async function POST(request: Request) {
   try {
     const userApiKey = (await headers()).get("x-api-key") || "";
     const body = await request.json();
-    const { nearImplicitAddress } = body;
+    const { nearNamedAddress } = body;
 
-    if (!nearImplicitAddress) {
+    if (!nearNamedAddress) {
       return NextResponse.json(
-        { error: "Missing nearImplicitAddress" },
+        { error: "Missing nearNamedAddress" },
         { status: 400 }
       );
     }
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
       },
       body: JSON.stringify({
-        nearImplicitAddress,
+        nearNamedAddress,
         // No unlockUsdcBalance sent - backend will determine based on virtual balance
       }),
     });

@@ -320,9 +320,6 @@ export function AccountManager({
       {/* Available Players for Betting */}
       {bettingAllowed && availableForBetting.length > 0 ? (
         <div className="space-y-3 mb-4">
-          <div className="border-b border-white pb-2 mb-3">
-            <h4 className="text-white font-mono font-semibold text-md">Next Game Players</h4>
-          </div>
           {availableForBetting.map((player: PlayerState) => {
             const playerBet = playerBets.find(
               (bet: PlayerBet) => bet.playerId === player.id

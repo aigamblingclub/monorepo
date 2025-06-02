@@ -1,5 +1,4 @@
 import { PrismaClient } from '@/prisma';
-import { PokerState } from '@/types/schemas';
 import { getOnChainUsdcBalance } from './near';
 
 const prisma = new PrismaClient();
@@ -20,7 +19,7 @@ export async function getUserBalance(userId: number) {
        throw new Error('AGC_CONTRACT_ID not configured');
      }
 
-     const onchainBalance = await getOnChainUsdcBalance(contractId, user.nearImplicitAddress);
+     const onchainBalance = await getOnChainUsdcBalance(contractId, user.nearNamedAddress);
 
      const lastTable = await prisma.table.findFirst({
        orderBy: {

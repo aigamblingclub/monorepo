@@ -43,10 +43,10 @@ export async function signGameResult(gameResult: GameResult): Promise<string> {
 /**
  * Query user by NEAR implicit address
  */
-export async function getUserByNearAddress(nearImplicitAddress: string) {
+export async function getUserByNearAddress(nearNamedAddress: string) {
   return await prisma.user.findUnique({
-    where: { nearImplicitAddress },
-    select: { id: true, nearImplicitAddress: true, nearNamedAddress: true }
+    where: { nearNamedAddress },
+    select: { id: true, nearNamedAddress: true }
   });
 }
 
@@ -108,9 +108,9 @@ export async function checkUserGameStatus(userId: number): Promise<{ canWithdraw
 /**
  * Update user's nonce in User table
  */
-export async function updateUserNonce(nearImplicitAddress: string, newNonce: number): Promise<void> {
+export async function updateUserNonce(userId: number, newNonce: number): Promise<void> {
   await prisma.user.update({
-    where: { nearImplicitAddress },
+    where: { id: userId },
     data: { nonce: newNonce }
   });
 }
@@ -152,50 +152,14 @@ export async function calculateUnlockAmountChange(userId: number): Promise<numbe
 }
 
 /**
- * Set pending unlock deadline for a user
- */
-export async function setPendingUnlockDeadline(userId: number, deadlineNanoseconds: string): Promise<void> {
-  // Convert nanoseconds to JavaScript Date (divide by 1,000,000 to get milliseconds)
-  const deadlineMs = parseInt(deadlineNanoseconds, 10) / 1_000_000;
-  const deadlineDate = new Date(deadlineMs);
-
-  // Find existing user balance record
-  const existingBalance = await prisma.userBalance.findFirst({
-    where: { userId }
-  });
-
-  if (existingBalance) {
-    await prisma.userBalance.update({
-      where: { id: existingBalance.id },
-      data: { 
-        pendingUnlock: true,
-        pendingUnlockDeadline: deadlineDate,
-        updatedAt: new Date()
-      }
-    });
-  } else {
-    // Create new balance record if it doesn't exist
-    await prisma.userBalance.create({
-      data: {
-        userId,
-        onchainBalance: 0,
-        virtualBalance: 0,
-        pendingUnlock: true,
-        pendingUnlockDeadline: deadlineDate
-      }
-    });
-  }
-}
-
-/**
  * Validate unlock request with all business logic
  */
 export async function validateUnlockRequest(
-  nearImplicitAddress: string,
+  nearNamedAddress: string,
 ): Promise<ContractValidationResult> {
   try {
     // 1. Query User table
-    const user = await getUserByNearAddress(nearImplicitAddress);
+    const user = await getUserByNearAddress(nearNamedAddress);
     if (!user) {
       return { isValid: false, error: 'User not found' };
     }
@@ -216,7 +180,7 @@ export async function validateUnlockRequest(
     }
     
     // 4. Check nonce synchronization
-    const onChainNonce = await getOnChainNonce(AGC_CONTRACT_ID, nearImplicitAddress);
+    const onChainNonce = await getOnChainNonce(AGC_CONTRACT_ID, user.nearNamedAddress);
 
     // 5. Get virtual balance
     const virtualBalanceChange = await calculateUnlockAmountChange(user.id);

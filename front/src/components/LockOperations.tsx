@@ -100,7 +100,7 @@ export function LockOperations({
           'x-api-key': apiKey,
         },
         body: JSON.stringify({
-          nearImplicitAddress: accountId,
+          nearNamedAddress: accountId,
         }),
       });
 

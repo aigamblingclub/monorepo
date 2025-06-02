@@ -48,6 +48,7 @@ model UserBalance {
   virtualBalance   Int
   pendingUnlock   Boolean @default(false)
   pendingUnlockDeadline     DateTime?
+  userCanBet      Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

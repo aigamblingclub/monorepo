@@ -3,16 +3,14 @@ import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import { 
   validateUnlockRequest, 
   signGameResult, 
-  GameResult,
-  setPendingUnlockDeadline
+  GameResult
 } from '@/utils/contract';
-import { getOnChainNonce, getOnChainUsdcBalance } from '@/utils/near';
-import { AGC_CONTRACT_ID } from '@/utils/env';
+import { setPendingUnlockDeadline } from '@/utils/security';
 
 const router = Router();
 
 interface SignMessageRequest {
-  nearImplicitAddress: string;
+  nearNamedAddress: string;
 }
 
 interface SignMessageResponse {
@@ -37,10 +35,10 @@ interface SignMessageResponse {
  *           schema:
  *             type: object
  *             required:
- *               - nearImplicitAddress
+ *               - nearNamedAddress
  *               - unlockUsdcBalance
  *             properties:
- *               nearImplicitAddress:
+ *               nearNamedAddress:
  *                 type: string
  *                 description: NEAR wallet implicit address
  *               unlockUsdcBalance:
@@ -78,19 +76,19 @@ interface SignMessageResponse {
  */
 router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, res) => {
   try {
-    const { nearImplicitAddress }: SignMessageRequest = req.body;
+    const { nearNamedAddress }: SignMessageRequest = req.body;
 
     // Validate required fields
-    if (!nearImplicitAddress) {
+    if (!nearNamedAddress) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields: nearImplicitAddress' 
+        error: 'Missing required fields: nearNamedAddress' 
       });
     }
 
     // Validate unlock request with all business logic
     const validation = await validateUnlockRequest(
-      nearImplicitAddress, 
+      nearNamedAddress, 
     );
 
     if (!validation.isValid) {
@@ -117,13 +115,11 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
 
     // Create game result structure
     const gameResult: GameResult = {
-      accountId: nearImplicitAddress,
+      accountId: nearNamedAddress,
       amount: validation.virtualBalanceChange.toString(),
       nonce: validation.currentNonce,
       deadline: (Date.now() * 1_000_000 + 60_000_000_000).toString() // 1 minute from now in nanoseconds
     };
-
-    // TODO: change pendingUnlockDeadline to 1 minute from now in nanoseconds
 
     // Sign the message
     const signature = await signGameResult(gameResult);
