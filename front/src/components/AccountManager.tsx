@@ -73,9 +73,6 @@ export function AccountManager({
         getUsdcWalletBalance(accountId),
         getVirtualUsdcBalance(apiKey)
       ]);
-
-      console.log('[entrou] agcBalance', agcBalance);
-      
       setUserBalanceOnChain(walletBalance);
       setDepositedUsdcBalance(agcBalance);
     } catch (error) {
