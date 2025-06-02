@@ -40,8 +40,8 @@ export function AccountManager({
   onPlaceBet = () => {},
   tableStatus = "WAITING"
 }: AccountManagerProps) {
-  const { accountId } = useAuth();
-  const { getUsdcWalletBalance, getAgcUsdcBalance, getIsUsdcLocked } = useNearWallet();
+  const { accountId, apiKey } = useAuth();
+  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance } = useNearWallet();
   const [userBalanceOnChain, setUserBalanceOnChain] = useState(0);
   const [depositedUsdcBalance, setDepositedUsdcBalance] = useState(0);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
@@ -64,14 +64,17 @@ export function AccountManager({
    * Memoized function to fetch balances - prevents infinite re-renders
    */
   const fetchBalances = useCallback(async () => {
-    if (!accountId) return;
+    if (!accountId)   ;
+    if (!apiKey) return;
 
     setIsLoadingBalances(true);
     try {
       const [walletBalance, agcBalance] = await Promise.all([
         getUsdcWalletBalance(accountId),
-        getAgcUsdcBalance(accountId)
+        getVirtualUsdcBalance(apiKey)
       ]);
+
+      console.log('[entrou] agcBalance', agcBalance);
       
       setUserBalanceOnChain(walletBalance);
       setDepositedUsdcBalance(agcBalance);
@@ -80,7 +83,7 @@ export function AccountManager({
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [accountId, getUsdcWalletBalance, getAgcUsdcBalance]);
+  }, [accountId, getUsdcWalletBalance, getVirtualUsdcBalance]);
 
   /**
    * Memoized function to fetch lock status - prevents infinite re-renders

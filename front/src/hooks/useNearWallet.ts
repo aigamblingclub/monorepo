@@ -28,6 +28,7 @@ import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import { useEffect, useState, useMemo } from "react";
 import { connect, keyStores, Account, Near } from "near-api-js";
 import { NEXT_PUBLIC_USDC_CONTRACT_ID, NEXT_PUBLIC_CONTRACT_ID } from "@/utils/env";
+import { useAuth } from "@/providers/AuthProvider";
 
 type ContractArgs = Record<string, unknown>;
 
@@ -323,6 +324,26 @@ export function useNearWallet() {
     return result;
   };
 
+  const getVirtualUsdcBalance = async (apiKey: string) => {
+    if (!apiKey) {
+      throw new Error("User must be authenticated");
+    }
+    
+    const response = await fetch('/api/balance', {
+      method: 'GET',
+      headers: {
+        'x-api-key': apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch virtual balance");
+    }
+
+    const data = await response.json();
+    return data.balance;
+  };
+
   const getIsUsdcLocked = async (accountId: string) => {
     const agcContract = NEXT_PUBLIC_CONTRACT_ID;
     const result = await callViewMethod(agcContract, "isUsdcLocked", {
@@ -341,6 +362,7 @@ export function useNearWallet() {
       getNearBalance,
       getUsdcWalletBalance,
       getAgcUsdcBalance,
+      getVirtualUsdcBalance,
       getIsUsdcLocked,
       callViewMethod,
       accountId: walletState.accountId,
