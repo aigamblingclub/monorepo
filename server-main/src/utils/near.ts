@@ -1,4 +1,5 @@
 import { providers } from 'near-api-js';
+import { AGC_CONTRACT_ID, NEAR_NODE_URL } from './env';
 
 /**
  * Call a contract view method
@@ -8,7 +9,7 @@ import { providers } from 'near-api-js';
  * @returns Method result
  */
 export async function callViewMethod(contractId: string, methodName: string, args: any = {}): Promise<any> {
-  const nodeUrl = process.env.NEAR_NODE_URL || 'https://rpc.testnet.near.org';
+  const nodeUrl = NEAR_NODE_URL;
   
   const connectionConfig = {
     url: nodeUrl
@@ -33,13 +34,12 @@ export async function callViewMethod(contractId: string, methodName: string, arg
 
 /**
  * Get user's nonce from the AI Gambling Club contract
- * @param contractId Contract ID
  * @param accountId User's NEAR account ID
  * @returns User's current nonce
  */
-export async function getOnChainNonce(contractId: string, accountId: string): Promise<number> {
+export async function getOnChainNonce(accountId: string): Promise<number> {
   try {
-    const nonce = await callViewMethod(contractId, 'getNonce', { account_id: accountId });
+    const nonce = await callViewMethod(AGC_CONTRACT_ID, 'getNonce', { account_id: accountId });
     return nonce;
   } catch (error) {
     console.error(`Error getting on-chain nonce for ${accountId}:`, error);
@@ -49,7 +49,7 @@ export async function getOnChainNonce(contractId: string, accountId: string): Pr
 }
 
 /**
- * Get user's USDC balance from the AI Gambling Club contract
+ * Get user's USDC balance from the AI Gambling Club contract or USDC contract
  * @param contractId Contract ID
  * @param accountId User's NEAR account ID
  * @returns User's USDC balance
@@ -67,13 +67,12 @@ export async function getOnChainUsdcBalance(contractId: string, accountId: strin
 
 /**
  * Check if user's account is locked on the AI Gambling Club contract
- * @param contractId Contract ID
  * @param accountId User's NEAR account ID
  * @returns Whether the account is locked
  */
-export async function isAccountLocked(contractId: string, accountId: string): Promise<boolean> {
+export async function isAccountLocked(accountId: string): Promise<boolean> {
   try {
-    const isLocked = await callViewMethod(contractId, 'isUsdcLocked', { account_id: accountId });
+    const isLocked = await callViewMethod(AGC_CONTRACT_ID, 'isUsdcLocked', { account_id: accountId });
     return isLocked;
   } catch (error) {
     console.error(`Error checking if account is locked for ${accountId}:`, error);

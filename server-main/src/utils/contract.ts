@@ -1,7 +1,6 @@
 import { ethers } from 'ethers';
 import { PrismaClient } from '@/prisma';
-import { getOnChainNonce, getOnChainUsdcBalance } from '@/utils/near';
-import { AGC_CONTRACT_ID } from './env';
+import { getOnChainNonce } from '@/utils/near';
 
 const prisma = new PrismaClient();
 
@@ -180,7 +179,7 @@ export async function validateUnlockRequest(
     }
     
     // 4. Check nonce synchronization
-    const onChainNonce = await getOnChainNonce(AGC_CONTRACT_ID, user.nearNamedAddress);
+    const onChainNonce = await getOnChainNonce(user.nearNamedAddress);
 
     // 5. Get virtual balance
     const virtualBalanceChange = await calculateUnlockAmountChange(user.id);

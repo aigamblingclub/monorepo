@@ -7,6 +7,8 @@
 import { getUserByNearAddress } from './contract';
 import { getLastLockEvent, getLastUnlockEvent, isLockMoreRecentThanUnlock, LockEvent, UnlockEvent } from './events';
 import { PrismaClient, Prisma } from '@/prisma';
+import { getOnChainUsdcBalance, isAccountLocked } from './near';
+import { AGC_CONTRACT_ID } from './env';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +28,7 @@ interface SecurityValidationResult {
 /**
  * Main security validation function
  * Determines if a user can place bets based on their lock/unlock transaction history
+ * and update balances when needed
  */
 export async function validateUserCanBet(nearNamedAddress: string): Promise<SecurityValidationResult> {
   const errors: string[] = [];
@@ -42,13 +45,15 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
     // Step 1: Get current timestamp in nanoseconds
     const currentTimestamp = BigInt(Date.now() * 1_000_000);
     
-    // Step 2: Get user's current betting status and pending unlock deadline
+    // Step 2: Get user's current betting status and pending unlock deadline (in parallel)
     let userCanBet: boolean;
     let pendingUnlockDeadline: string | null;
     
     try {
-      userCanBet = await getUserCanBet(user.id);
-      pendingUnlockDeadline = await getPendingUnlockDeadline(user.id);
+      [userCanBet, pendingUnlockDeadline] = await Promise.all([
+        getUserCanBet(user.id),
+        getPendingUnlockDeadline(user.id)
+      ]);
     } catch (error) {
       errors.push(`Failed to get user status: ${(error as Error).message}`);
       return { success: false, canBet: false, errors };
@@ -138,14 +143,13 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
                 console.log(`Starting atomic balance sync transaction (attempt ${balanceSyncAttempts})`);
                 
                 // Update both balances to match contract within transaction
-                await updateOnChainBalanceFromContract(user.id, tx);
-                await updateVirtualBalanceFromContract(user.id, tx);
+                await updateBalanceOnDB(user.id, user.nearNamedAddress, tx);
                 
-                // Check if balances are now the same (within transaction)
-                const balancesAreSynced = await checkBalancesAreSynced(user.id, tx);
-                
-                // Check if account is still locked on contract
-                const accountIsStillLocked = await checkAccountIsLocked(user.id);
+                // Check if balances are synced and if account is still locked (in parallel)
+                const [balancesAreSynced, accountIsStillLocked] = await Promise.all([
+                  checkBalancesAreSynced(user.id, user.nearNamedAddress, tx),
+                  isAccountLocked(user.nearNamedAddress)
+                ]);
                 
                 console.log(`Sync attempt ${balanceSyncAttempts}: balancesAreSynced=${balancesAreSynced}, accountIsStillLocked=${accountIsStillLocked}`);
                 
@@ -180,11 +184,13 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
           }
           
           if (syncSuccessful) {
-            // Successful synchronization - cleanup and allow betting
+            // Successful synchronization - cleanup and allow betting (in parallel)
             console.log(`Balance synchronization successful - cleaning up and allowing betting`);
             
-            await clearPendingUnlockDeadline(user.id);
-            await setUserCanBet(user.id, true);
+            await Promise.all([
+              clearPendingUnlockDeadline(user.id),
+              setUserCanBet(user.id, true)
+            ]);
             canBet = true;
           } else {
             // This shouldn't happen due to the loop logic, but safety check
@@ -356,33 +362,64 @@ export async function clearPendingUnlockDeadline(userId: number): Promise<void> 
 }
 
 /**
- * Update user's on-chain balance to match contract balance
+ * Update user's balances (both onchain and virtual) from contract
  */
-async function updateOnChainBalanceFromContract(userId: number, tx?: Prisma.TransactionClient): Promise<void> {
-  // TODO: Implement contract query and database update
-  throw new Error('updateOnChainBalanceFromContract not implemented');
+async function updateBalanceOnDB(userId: number, nearNamedAddress: string, tx?: Prisma.TransactionClient): Promise<void> {
+  try {
+    // Get balance from contract
+    const contractBalance = await getOnChainUsdcBalance(AGC_CONTRACT_ID, nearNamedAddress);
+
+    // Update both balances in single upsert
+    const prismaClient = tx || prisma;
+    await prismaClient.userBalance.upsert({
+      where: { userId: userId },
+      update: { 
+        onchainBalance: contractBalance,
+        virtualBalance: contractBalance
+      },
+      create: {
+        userId: userId,
+        onchainBalance: contractBalance,
+        virtualBalance: contractBalance,
+        userCanBet: false
+      }
+    });
+  } catch (error) {
+    console.error(`Error updating balances for ${nearNamedAddress}:`, error);
+    throw new Error(`Failed to update balances: ${(error as Error).message}`);
+  }
 }
 
 /**
- * Update user's virtual balance to match contract balance
+ * Check if user's on-chain and db balancess are synchronized
  */
-async function updateVirtualBalanceFromContract(userId: number, tx?: Prisma.TransactionClient): Promise<void> {
-  // TODO: Implement contract query and database update
-  throw new Error('updateVirtualBalanceFromContract not implemented');
-}
+async function checkBalancesAreSynced(userId: number, nearNamedAddress: string, tx?: Prisma.TransactionClient): Promise<boolean> {
+  try {
+    // Get balance from contract
+    const contractBalance = await getOnChainUsdcBalance(AGC_CONTRACT_ID, nearNamedAddress);
 
-/**
- * Check if user's on-chain and virtual balances are synchronized
- */
-async function checkBalancesAreSynced(userId: number, tx?: Prisma.TransactionClient): Promise<boolean> {
-  // TODO: Implement database query to compare balances
-  throw new Error('checkBalancesAreSynced not implemented');
-}
+    // Get balances from database
+    const prismaClient = tx || prisma;
+    const userBalance = await prismaClient.userBalance.findUnique({
+      where: { userId },
+      select: { 
+        onchainBalance: true,
+        virtualBalance: true 
+      }
+    });
 
-/**
- * Check if user's account is still locked on the contract
- */
-async function checkAccountIsLocked(userId: number): Promise<boolean> {
-  // TODO: Implement contract query for lock status
-  throw new Error('checkAccountIsLocked not implemented');
-} 
+    if (!userBalance) {
+      // No database record means not synced
+      return false;
+    }
+
+    // Check if both database balances match the contract balance
+    const onchainSynced = userBalance.onchainBalance === contractBalance;
+    const virtualSynced = userBalance.virtualBalance === contractBalance;
+
+    return onchainSynced && virtualSynced;
+  } catch (error) {
+    console.error(`Error checking balance sync for user ${userId}:`, error);
+    throw new Error(`Failed to check balance synchronization: ${(error as Error).message}`);
+  }
+}
