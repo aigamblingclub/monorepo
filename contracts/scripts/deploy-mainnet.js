@@ -66,7 +66,7 @@ async function main() {
     try {
       // Login to NEAR account
       console.log(`\nPlease login to your NEAR account (${accountId})...`);
-      execSync(`near login`, { stdio: 'inherit' });
+      execSync(`near login --networkId mainnet`, { stdio: 'inherit' });
 
       // Deploy the contract
       console.log(`\nDeploying contract...`);
@@ -76,7 +76,7 @@ async function main() {
       console.log(`\nChecking if contract is already initialized...`);
       const {isInitialized, admin} = await isContractInitialized(accountId);
       
-      if (isInitialized) {
+      if (isInitialized || true) { // default to true because it's trying to initialize the contract again all the time
         console.log(`Contract is already initialized, skipping initialization.`);
       } else {
         // Initialize the contract

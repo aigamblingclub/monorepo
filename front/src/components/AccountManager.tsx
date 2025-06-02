@@ -17,6 +17,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useNearWallet } from '@/hooks/useNearWallet';
 import { formatUsdcDisplay } from '@/utils/usdcBalance';
 import { Transactions } from './Transactions';
+import { LockOperations } from './LockOperations';
 import { PlayerBetting } from './PlayerBetting';
 import { PlayerState } from '../types/poker';
 
@@ -27,7 +28,6 @@ export interface PlayerBet {
 }
 
 interface AccountManagerProps {
-  isLoggedIn: boolean;
   players?: PlayerState[];
   playerBets?: PlayerBet[];
   onPlaceBet?: (playerId: string, amount: number) => void;
@@ -35,22 +35,21 @@ interface AccountManagerProps {
 }
 
 export function AccountManager({ 
-  isLoggedIn,
   players = [],
   playerBets = [],
   onPlaceBet = () => {},
   tableStatus = "WAITING"
 }: AccountManagerProps) {
-  const { accountId } = useAuth();
-  const { getUsdcWalletBalance, getAgcUsdcBalance } = useNearWallet();
+  const { accountId, apiKey } = useAuth();
+  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance } = useNearWallet();
   const [userBalanceOnChain, setUserBalanceOnChain] = useState(0);
   const [depositedUsdcBalance, setDepositedUsdcBalance] = useState(0);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
-  const [isAccountLocked, setIsAccountLocked] = useState(false); // TODO: Get from contract
+  const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [isTransactionPending, setIsTransactionPending] = useState(false);
 
   // Force login to true if we have a balance - handles edge cases
-  const actuallyLoggedIn = isLoggedIn || depositedUsdcBalance > 0;
+  const actuallyLoggedIn = !!accountId;
 
   // Check if betting is allowed based on table status
   // Betting is only allowed when game hasn't started (WAITING) or between games
@@ -66,14 +65,14 @@ export function AccountManager({
    */
   const fetchBalances = useCallback(async () => {
     if (!accountId) return;
+    if (!apiKey) return;
 
     setIsLoadingBalances(true);
     try {
       const [walletBalance, agcBalance] = await Promise.all([
         getUsdcWalletBalance(accountId),
-        getAgcUsdcBalance(accountId)
+        getVirtualUsdcBalance(apiKey)
       ]);
-      
       setUserBalanceOnChain(walletBalance);
       setDepositedUsdcBalance(agcBalance);
     } catch (error) {
@@ -81,7 +80,23 @@ export function AccountManager({
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [accountId, getUsdcWalletBalance, getAgcUsdcBalance]);
+  }, [accountId, getUsdcWalletBalance, getVirtualUsdcBalance]);
+
+  /**
+   * Memoized function to fetch lock status - prevents infinite re-renders
+   */
+  const fetchIsUsdcLocked = useCallback(async () => {
+    if (!accountId) return;
+
+    try {
+      const lockStatus = await getIsUsdcLocked(accountId);
+      setIsAccountLocked(lockStatus);
+    } catch (error) {
+      console.error('Error fetching lock status:', error);
+      // Default to unlocked if there's an error
+      setIsAccountLocked(false);
+    }
+  }, [accountId, getIsUsdcLocked]);
 
   /**
    * Fetch balances only when accountId changes
@@ -89,6 +104,7 @@ export function AccountManager({
   useEffect(() => {
     if (accountId) {
       fetchBalances();
+      fetchIsUsdcLocked();
     }
   }, [accountId]); // Only depend on accountId, not the functions
 
@@ -143,9 +159,21 @@ export function AccountManager({
   }, [accountId, fetchBalances]);
 
   /**
+   * Start lock status refresh after successful transaction
+   */
+  const startLockRefresh = useCallback(() => {
+    const intervalId = setInterval(() => {
+      if (accountId) {
+        fetchIsUsdcLocked();
+      }
+    }, 3000);
+    return intervalId;
+  }, [accountId, fetchIsUsdcLocked]);
+
+  /**
    * Stop spinner and balance refresh
    */
-  const stopTransactionState = useCallback((intervalId?: NodeJS.Timeout) => {
+  const stopDepositWithdrawTransactionState = useCallback((intervalId?: NodeJS.Timeout) => {
     setIsTransactionPending(false);
     if (intervalId) {
       clearInterval(intervalId);
@@ -155,6 +183,20 @@ export function AccountManager({
       fetchBalances();
     }
   }, [accountId, fetchBalances]);
+
+  /**
+   * Stop spinner and lock status refresh
+   */
+  const stopLockUnlockTransactionState = useCallback((intervalId?: NodeJS.Timeout) => {
+    setIsTransactionPending(false);
+    if (intervalId) {
+      clearInterval(intervalId);
+    }
+    // Final lock status refresh
+    if (accountId) {
+      fetchIsUsdcLocked();
+    }
+  }, [accountId, fetchIsUsdcLocked]);
 
   /**
    * Breathing Spinner Component for terminal aesthetics
@@ -173,44 +215,6 @@ export function AccountManager({
         />
       </div>
     );
-  };
-
-  /**
-   * TODO: Check account lock status from contract
-   */
-  useEffect(() => {
-    if (accountId) {
-      // TODO: Call contract to check if account is locked
-      // setIsAccountLocked(await contract.isAccountLocked(accountId));
-    }
-  }, [accountId]);
-
-  /**
-   * Handles locking the account
-   */
-  const handleLockAccount = async () => {
-    try {
-      // TODO: Call contract method to lock account
-      // await contract.lockAccount();
-      setIsAccountLocked(true);
-      console.log('Account locked for betting');
-    } catch (error) {
-      console.error('Error locking account:', error);
-    }
-  };
-
-  /**
-   * Handles unlocking the account
-   */
-  const handleUnlockAccount = async () => {
-    try {
-      // TODO: Call contract method to unlock account
-      // await contract.unlockAccount();
-      setIsAccountLocked(false);
-      console.log('Account unlocked for balance management');
-    } catch (error) {
-      console.error('Error unlocking account:', error);
-    }
   };
 
   // Connection warning for unauthenticated users
@@ -268,25 +272,17 @@ export function AccountManager({
           <Transactions 
             startSpinner={startSpinner}
             startBalanceRefresh={startBalanceRefresh}
-            stopTransactionState={stopTransactionState}
+            stopTransactionState={stopDepositWithdrawTransactionState}
           />
         </div>
 
         {/* Lock Account Button */}
-        <div className="border-t border-white pt-4">
-          <button
-            onClick={handleLockAccount}
-            className="w-full bg-black border border-green-500 rounded px-4 py-3 font-mono text-sm text-green-400 hover:bg-green-500 hover:text-white transition-all duration-200 flex items-center justify-center gap-3 group"
-          >
-            {/* Lock Icon */}
-            <div className="relative">
-              <div className="w-4 h-3 border-2 border-current rounded-sm border-b-0"></div>
-              <div className="w-5 h-3 border-2 border-current rounded-sm -mt-1"></div>
-              <div className="absolute top-1 left-1.5 w-1 h-1 bg-current rounded-full"></div>
-            </div>
-            <span>lock --enable-betting</span>
-          </button>
-        </div>
+        <LockOperations 
+          startSpinner={startSpinner}
+          startLockRefresh={startLockRefresh}
+          stopTransactionState={stopLockUnlockTransactionState}
+          isAccountLocked={isAccountLocked}
+        />
 
         {/* Footer Information */}
         <div className="border-t border-white pt-3 mt-4">
@@ -302,6 +298,8 @@ export function AccountManager({
   // LOCKED STATE: Betting Interface
   return (
     <div className="bg-black border-2 border-white p-4 relative flex-shrink-0">
+      <BreathingSpinner />
+      
       {/* Header */}
       <div className="border-b border-white pb-3 mb-4">
         <h3 className="text-white font-mono font-bold text-lg">
@@ -324,9 +322,6 @@ export function AccountManager({
       {/* Available Players for Betting */}
       {bettingAllowed && availableForBetting.length > 0 ? (
         <div className="space-y-3 mb-4">
-          <div className="border-b border-white pb-2 mb-3">
-            <h4 className="text-white font-mono font-semibold text-md">Next Game Players</h4>
-          </div>
           {availableForBetting.map((player: PlayerState) => {
             const playerBet = playerBets.find(
               (bet: PlayerBet) => bet.playerId === player.id
@@ -363,20 +358,12 @@ export function AccountManager({
       )}
 
       {/* Unlock Account Button */}
-      <div className="border-t border-white pt-4">
-        <button
-          onClick={handleUnlockAccount}
-          className="w-full bg-black border border-blue-500 rounded px-4 py-3 font-mono text-sm text-blue-400 hover:bg-blue-500 hover:text-white transition-all duration-200 flex items-center justify-center gap-3 group"
-        >
-          {/* Unlock Icon */}
-          <div className="relative">
-            <div className="w-4 h-3 border-2 border-current rounded-sm border-b-0 border-t-0"></div>
-            <div className="w-5 h-3 border-2 border-current rounded-sm -mt-1"></div>
-            <div className="absolute top-1 left-1.5 w-1 h-1 bg-current rounded-full"></div>
-          </div>
-          <span>unlock --enable-management</span>
-        </button>
-      </div>
+      <LockOperations 
+        startSpinner={startSpinner}
+        startLockRefresh={startLockRefresh}
+        stopTransactionState={stopLockUnlockTransactionState}
+        isAccountLocked={isAccountLocked}
+      />
 
       {/* Footer Information */}
       <div className="border-t border-white pt-3 mt-4">

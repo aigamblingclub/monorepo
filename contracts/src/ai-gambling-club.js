@@ -198,6 +198,11 @@ export class AIGamblingClub {
   lockUsdcBalance() { 
     const account_id = near.predecessorAccountId();
 
+    // Check if account is already locked
+    if (this._isUsdcLocked(account_id)) {
+      throw new Error("Account is already locked");
+    }
+
     // Check if withdrawal is pending
     if (this._isWithdrawalPending(account_id)) {
       throw new Error("Cannot lock account with pending withdrawal");
@@ -242,6 +247,15 @@ export class AIGamblingClub {
     }
     this.nonces.set(gameResult.accountId, (gameResult.nonce + 1).toString());
     
+    // Check if deadline has passed (with 5-second safety buffer)
+    const currentTimestamp = this._getCurrentTimestamp();
+    const safetyBufferNs = BigInt(5_000_000_000); // 5 seconds in nanoseconds
+    const adjustedDeadline = BigInt(gameResult.deadline) - safetyBufferNs;
+    
+    if (BigInt(currentTimestamp) > adjustedDeadline) {
+      throw new Error(`Unlock deadline has expired. Current: ${currentTimestamp}, Deadline: ${gameResult.deadline}, Adjusted: ${adjustedDeadline.toString()}`);
+    }
+    
     // Check if account is locked
     if (!this._isUsdcLocked(gameResult.accountId)) {
       throw new Error("Account is not locked");
@@ -268,7 +282,6 @@ export class AIGamblingClub {
     // Emit unlock event with more descriptive data
     this._emitEvent("USDC_BALANCE_UNLOCKED", {
       account_id: gameResult.accountId,
-      admin: near.predecessorAccountId(),
       amount_change: gameResult.amount,
       is_win: amountChange > BigInt(0),
       final_balance: finalBalance.toString(),

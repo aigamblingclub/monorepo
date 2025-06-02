@@ -1,12 +1,14 @@
+import { isDev } from "@/utils/env";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { NEXT_PUBLIC_SERVER_MAIN } from "@/utils/env";
 
 export async function GET() {
   try {
     const userApiKey = (await headers()).get("x-api-key") || "";
 
-    const response = await fetch(`${NEXT_PUBLIC_SERVER_MAIN}/api/user/bet`, {
+    const serverMainUrl = isDev ? process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL : process.env.NEXT_PUBLIC_SERVER_MAIN;
+
+    const response = await fetch(`${serverMainUrl}/api/user/bet`, {
       headers: {
         "x-api-key": userApiKey,
         "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
@@ -42,7 +44,9 @@ export async function POST(request: Request) {
   try {
     const userApiKey = (await headers()).get("x-api-key") || "";
 
-    const response = await fetch(`${NEXT_PUBLIC_SERVER_MAIN}/api/bet`, {
+    const serverMainUrl = isDev ? process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL : process.env.NEXT_PUBLIC_SERVER_MAIN;
+
+    const response = await fetch(`${serverMainUrl}/api/bet`, {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",

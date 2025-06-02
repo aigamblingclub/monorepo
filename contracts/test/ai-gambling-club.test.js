@@ -348,6 +348,7 @@ describe('AI Gambling Club Contract Tests', function() {
         accountId: bobAddress,
         amount: "1000000", // 1 USDC win
         nonce: initialNonce, // nonce is already an integer from the contract
+        deadline: (Date.now() * 1_000_000 + 60_000_000_000).toString(), // 1 minute from now in nanoseconds
       };
       
       // Generate signature using ethers wallet
@@ -463,6 +464,7 @@ describe('AI Gambling Club Contract Tests', function() {
         accountId: bobAddress,
         amount: "-1000000", // 1 USDC loss (negative amount)
         nonce: initialNonce, // nonce is already an integer from the contract
+        deadline: (Date.now() * 1_000_000 + 60_000_000_000).toString(), // 1 minute from now in nanoseconds
       };
       
       // Generate signature using ethers wallet
@@ -579,6 +581,7 @@ describe('AI Gambling Club Contract Tests', function() {
       accountId: bobAddress,
       amount: "-1000000", // 1 USDC loss (negative amount)
       nonce: initialNonce, // nonce is already an integer from the contract
+      deadline: (Date.now() * 1_000_000 + 60_000_000_000).toString(), // 1 minute from now in nanoseconds
     };
     
     // Generate signature using ethers wallet
@@ -645,6 +648,7 @@ describe('AI Gambling Club Contract Tests', function() {
           accountId: bobAddress,
           amount: "1000000", // 1 USDC win
           nonce: initialNonce, // nonce is already an integer from the contract
+          deadline: (Date.now() * 1_000_000 + 60_000_000_000).toString(), // 1 minute from now in nanoseconds
         };
         
         const message = JSON.stringify(gameResult);

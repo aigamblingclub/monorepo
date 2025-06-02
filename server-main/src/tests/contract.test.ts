@@ -25,7 +25,7 @@ describe('Contract Integration Tests', () => {
 
     it('should get on-chain nonce', async () => {
       try {
-        const nonce = await getOnChainNonce(testContractId, testAccountId);
+        const nonce = await getOnChainNonce(testAccountId);
         expect(typeof nonce).toBe('number');
         expect(nonce).toBeGreaterThanOrEqual(0);
         console.log('On-chain nonce:', nonce);

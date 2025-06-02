@@ -126,13 +126,13 @@ router.post('/near/verify', async (req, res) => {
         // Find or create user
         const user = await prisma.user.upsert({
             where: {
-                nearImplicitAddress: accountId,
+                nearNamedAddress: accountId,
             },
             update: {
                 lastActiveAt: new Date(),
             },
             create: {
-                nearImplicitAddress: accountId,
+                nearImplicitAddress: publicKey,
                 nearNamedAddress: accountId, // You might want to handle this differently
                 lastActiveAt: new Date(),
                 nonce: 0,
@@ -214,7 +214,7 @@ router.post('/login', async (req, res) => {
     // Find or create user
     const user = await prisma.user.upsert({
       where: {
-        nearImplicitAddress,
+        nearNamedAddress,
       },
       update: {
         nearNamedAddress,
@@ -283,7 +283,7 @@ router.post('/generate', async (req, res) => {
     // Create a test user if needed
     const user = await prisma.user.upsert({
       where: {
-        nearImplicitAddress: 'test.implicit.near',
+        nearNamedAddress: 'test.implicit.near',
       },
       update: {
         lastActiveAt: new Date(),
