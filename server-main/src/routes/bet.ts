@@ -275,7 +275,7 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
     }
 
     // Get all bets for the table with aggregations
-    const [allBets, totalBetsResult, betsByPlayerResult] = await Promise.all([
+    const [allBets, totalBetsResult] = await Promise.all([
       // Get all bets for the table
       prisma.userBet.findMany({
         where: {
@@ -291,17 +291,18 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
           amount: true,
         },
       }),
-      // Get total bets by player
-      prisma.userBet.groupBy({
-        by: ['playerId'],
-        where: {
-          tableId: table.tableId,
-        },
-        _sum: {
-          amount: true,
-        },
-      }),
     ]);
+
+    // Get total bets by player (separate from Promise.all to avoid TS issues)
+    const betsByPlayerResult = await prisma.userBet.groupBy({
+      by: ['playerId'],
+      where: {
+        tableId: table.tableId,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
 
     // Get user's bets by player
     const userBetsByPlayer = await prisma.userBet.groupBy({
@@ -325,15 +326,6 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
     );
 
     // Convert bets by player to the required format
-    const totalBetsByPlayer = betsByPlayerResult.reduce(
-      (acc, bet) => {
-        acc[bet.playerId] = bet._sum.amount || 0;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    // Format response according to BetResponse interface
     const playerBets: BetResponse[] = betsByPlayerResult.map(bet => ({
       playerId: bet.playerId,
       totalBet: bet._sum.amount || 0,
@@ -343,7 +335,13 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
     const response: AllBetsResponse = {
       success: true,
       playerBets,
-      totalBetsByPlayer,
+      totalBetsByPlayer: betsByPlayerResult.reduce(
+        (acc, bet) => {
+          acc[bet.playerId] = bet._sum.amount || 0;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
       totalBets: totalBetsResult._sum.amount || 0,
     };
 

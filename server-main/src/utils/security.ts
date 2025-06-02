@@ -131,8 +131,9 @@ export async function validateUserCanBet(
       const deadlineTimestamp = BigInt(pendingUnlockDeadline);
       if (currentTimestamp > deadlineTimestamp) {
         try {
-          await setUserCanBet(user.id, false);
           userCanBet = false;
+          await setUserCanBet(user.id, false);
+          return { success: false, canBet: false, errors };
         } catch (error) {
           errors.push(
             `Failed to update userCanBet status after deadline expiry: ${(error as Error).message}`,
@@ -189,6 +190,7 @@ export async function validateUserCanBet(
       } else {
         // User can bet but unlock is more recent - this shouldn't happen in normal flow
         canBet = false;
+        await setUserCanBet(user.id, false);
       }
     } else {
       // userCanBet === false
@@ -263,6 +265,7 @@ export async function validateUserCanBet(
             errors.push(
               `Balance synchronization failed to complete after ${maxSyncAttempts} attempts`,
             );
+            await setUserCanBet(user.id, false);
             return { success: false, canBet: false, errors };
           }
         } catch (error) {
@@ -272,6 +275,7 @@ export async function validateUserCanBet(
       } else {
         // User cannot bet and unlock is more recent - keep userCanBet as false
         canBet = false;
+        await setUserCanBet(user.id, false);
       }
     }
 
