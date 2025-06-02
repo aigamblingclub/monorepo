@@ -12,7 +12,6 @@ const router = Router();
 
 interface SignMessageRequest {
   nearImplicitAddress: string;
-  unlockUsdcBalance: number;
 }
 
 interface SignMessageResponse {
@@ -101,12 +100,29 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
       });
     }
 
+    if (!validation.virtualBalanceChange) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Virtual balance is not available' 
+      });
+    }
+
+    if (!validation.currentNonce) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Current nonce is not available' 
+      });
+    }
+
     // Create game result structure
     const gameResult: GameResult = {
       accountId: nearImplicitAddress,
-      amount: `-${unlockUsdcBalance}`, // Negative for unlock/withdrawal
-      nonce: validation.currentNonce || 0
+      amount: validation.virtualBalanceChange.toString(),
+      nonce: validation.currentNonce,
+      deadline: (Date.now() * 1_000_000 + 60_000_000_000).toString() // 1 minute from now in nanoseconds
     };
+
+    // TODO: change pendingUnlockDeadline to 1 minute from now in nanoseconds
 
     // Sign the message
     const signature = await signGameResult(gameResult);

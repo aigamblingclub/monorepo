@@ -242,10 +242,13 @@ export class AIGamblingClub {
     }
     this.nonces.set(gameResult.accountId, (gameResult.nonce + 1).toString());
     
-    // Check if deadline has passed
+    // Check if deadline has passed (with 5-second safety buffer)
     const currentTimestamp = this._getCurrentTimestamp();
-    if (currentTimestamp > gameResult.deadline) {
-      throw new Error(`Unlock deadline has expired. Current: ${currentTimestamp}, Deadline: ${gameResult.deadline}`);
+    const safetyBufferNs = BigInt(5_000_000_000); // 5 seconds in nanoseconds
+    const adjustedDeadline = BigInt(gameResult.deadline) - safetyBufferNs;
+    
+    if (BigInt(currentTimestamp) > adjustedDeadline) {
+      throw new Error(`Unlock deadline has expired. Current: ${currentTimestamp}, Deadline: ${gameResult.deadline}, Adjusted: ${adjustedDeadline.toString()}`);
     }
     
     // Check if account is locked

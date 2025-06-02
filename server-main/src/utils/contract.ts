@@ -9,6 +9,7 @@ export interface GameResult {
   accountId: string;
   amount: string;
   nonce: number;
+  deadline: string;
 }
 
 export interface ContractValidationResult {
@@ -16,7 +17,7 @@ export interface ContractValidationResult {
   error?: string;
   userId?: number;
   currentNonce?: number;
-  virtualBalance?: number;
+  virtualBalanceChange?: number;
 }
 
 /**
@@ -103,18 +104,6 @@ export async function checkUserGameStatus(userId: number): Promise<{ canWithdraw
 }
 
 /**
- * Get user's current nonce from User table
- */
-export async function getUserNonce(nearImplicitAddress: string): Promise<number> {
-  const user = await prisma.user.findUnique({
-    where: { nearImplicitAddress },
-    select: { nonce: true }
-  });
-
-  return user?.nonce || 0;
-}
-
-/**
  * Update user's nonce in User table
  */
 export async function updateUserNonce(nearImplicitAddress: string, newNonce: number): Promise<void> {
@@ -137,32 +126,27 @@ export async function getUserVirtualBalance(userId: number): Promise<number> {
 }
 
 /**
- * Update user's balances in UserBalance table
+ * Get user's on-chain balance from database
  */
-export async function updateUserBalances(userId: number, onchainBalance: number, virtualBalance: number): Promise<void> {
-  // First try to find existing user balance
-  const existingBalance = await prisma.userBalance.findFirst({
-    where: { userId }
+export async function getUserOnChainBalance(userId: number): Promise<number> {
+  const userBalance = await prisma.userBalance.findFirst({
+    where: { userId },
+    select: { onchainBalance: true }
   });
 
-  if (existingBalance) {
-    await prisma.userBalance.update({
-      where: { id: existingBalance.id },
-      data: { 
-        onchainBalance, 
-        virtualBalance,
-        updatedAt: new Date()
-      }
-    });
-  } else {
-    await prisma.userBalance.create({
-      data: {
-        userId,
-        onchainBalance,
-        virtualBalance
-      }
-    });
-  }
+  return userBalance?.onchainBalance || 0;
+}
+
+/**
+ * Calculate the amount change for unlock operation
+ * Returns the difference between virtual balance and on-chain balance
+ */
+export async function calculateUnlockAmountChange(userId: number): Promise<number> {
+  const virtualBalance = await getUserVirtualBalance(userId);
+  const onChainBalance = await getUserOnChainBalance(userId);
+  
+  // Return the difference (positive for wins, negative for losses)
+  return virtualBalance - onChainBalance;
 }
 
 /**
@@ -195,27 +179,15 @@ export async function validateUnlockRequest(
     
     // 4. Check nonce synchronization
     const onChainNonce = await getOnChainNonce(AGC_CONTRACT_ID, nearImplicitAddress);
-    const dbNonce = await getUserNonce(nearImplicitAddress);
-    if (onChainNonce > dbNonce) {      
-      const onChainBalance = await getOnChainUsdcBalance(AGC_CONTRACT_ID, nearImplicitAddress);
-      
-      // Update both nonce and balances in database
-      await updateUserNonce(nearImplicitAddress, onChainNonce);
-      await updateUserBalances(user.id, onChainBalance, onChainBalance);
-      
-      console.log(`Synced data for ${nearImplicitAddress}:`);
-      console.log(`  Nonce: ${dbNonce} -> ${onChainNonce}`);
-      console.log(`  Balance: synced to ${onChainBalance}`);
-    }
 
     // 5. Get virtual balance
-    const virtualBalance = await getUserVirtualBalance(user.id);
+    const virtualBalanceChange = await calculateUnlockAmountChange(user.id);
 
     return {
       isValid: true,
       userId: user.id,
-      currentNonce: Math.max(dbNonce, onChainNonce),
-      virtualBalance
+      currentNonce: onChainNonce,
+      virtualBalanceChange
     };
 
   } catch (error) {
