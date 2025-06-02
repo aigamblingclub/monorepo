@@ -100,49 +100,83 @@ function HomeContent() {
 
   if (loading) {
     return (
-      <div className="text-neon-green text-2xl">Loading game state...</div>
+      <div className="flex items-center justify-center pt-20 bg-black">
+        <div className="bg-black border-2 border-white rounded p-6">
+          <div className="text-white font-mono text-lg mb-4">
+            Loading game state...
+          </div>
+          <div className="flex items-center justify-center">
+            <div className="animate-pulse w-4 h-4 bg-green-400 rounded mr-2"></div>
+            <div className="animate-pulse w-4 h-4 bg-green-400 rounded mr-2" style={{ animationDelay: '0.2s' }}></div>
+            <div className="animate-pulse w-4 h-4 bg-green-400 rounded" style={{ animationDelay: '0.4s' }}></div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-neon-red text-2xl">Error: {error}</div>
+      <div className="flex items-center justify-center pt-20 bg-black">
+        <div className="bg-black border-2 border-red-500 rounded p-6 max-w-md">
+          <div className="text-red-400 font-mono text-lg mb-2">
+            System Error
+          </div>
+          <div className="text-white font-mono text-sm border-t border-red-500 pt-3">
+            {error}
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!gameState) {
     return (
-      <div className="text-neon-yellow text-2xl flex justify-center items-center" style={{ marginTop: '200px' }}>
-        Waiting for game...
+      <div className="flex items-center justify-center pt-20 bg-black">
+        <div className="bg-black border-2 border-white rounded p-6">
+          <div className="text-white font-mono text-lg mb-4">
+            Waiting for game...
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <div className="text-green-400 font-mono text-sm">
+              {"> Connecting to server"}
+            </div>
+            <div className="animate-pulse text-green-400">_</div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-      {/* Main Content Area - Simple centered layout */}
+      {/* Main Content Area - Balanced three-column layout */}
       <div className="flex justify-center px-4">
-        <div className="flex gap-6 items-start">
+        <div className="flex items-start max-w-[1400px] w-full">
           {/* Left Side - Move History */}
-          <div className="w-80">
+          <div className="w-80 flex-shrink-0">
             <MoveHistoryPanel gameState={gameState} />
           </div>
           
-          {/* Center - Poker Table + AAT (main focus) */}
-          <div className="flex flex-col gap-6">
-            <PokerTable 
-              gameState={gameState} 
-              playerBets={playerBets.map(bet => ({
-                playerId: bet.playerId,
-                totalBet: bet.totalBet,
-                betAmount: bet.betAmount
-              }))} 
-            />
-            <Chat gameState={gameState} />
+          {/* Center - Poker Table + Chat (flexible space) */}
+          <div className="flex-1 flex flex-col gap-6 px-6 min-w-0">
+            <div className="flex justify-center">
+              <PokerTable 
+                gameState={gameState} 
+                playerBets={playerBets.map(bet => ({
+                  playerId: bet.playerId,
+                  totalBet: bet.totalBet,
+                  betAmount: bet.betAmount
+                }))} 
+              />
+            </div>
+            <div className="flex justify-center">
+              <Chat gameState={gameState} />
+            </div>
           </div>
 
           {/* Right Side - Account Manager */}
-          <div className="w-80">
+          <div className="w-80 flex-shrink-0">
             <AccountManager
               isLoggedIn={isConnected}
               players={
@@ -184,7 +218,7 @@ export default function Home() {
 const fakeData: PokerState[] = [
   {
     "tableId": "1",
-    "tableStatus": "WAITING",
+    "tableStatus": "GAME_OVER",
     "players": [
       {
         "id": "472a3913-2ead-05b5-9ee2-1693304f5862",
@@ -192,10 +226,19 @@ const fakeData: PokerState[] = [
         "status": "PLAYING",
         "playedThisPhase": false,
         "position": "SB",
-        "hand": [],
+        "hand": [
+          {
+            "rank": 1,
+            "suit": "hearts"
+          },
+          {
+            "rank": 13,
+            "suit": "diamonds"
+          }
+        ],
         "chips": 1000,
         "bet": {
-          "amount": 0,
+          "amount": 50,
           "volume": 0
         }
       },
@@ -205,8 +248,17 @@ const fakeData: PokerState[] = [
         "status": "PLAYING",
         "playedThisPhase": false,
         "position": "BB",
-        "hand": [],
-        "chips": 800,
+        "hand": [
+          {
+            "rank": 5,
+            "suit": "spades"
+          },
+          {
+            "rank": 10,
+            "suit": "clubs"
+          }
+        ],
+        "chips": 1000,
         "bet": {
           "amount": 0,
           "volume": 0
@@ -214,23 +266,44 @@ const fakeData: PokerState[] = [
       }
     ],
     "lastMove": null,
-    "currentPlayerIndex": -1,
+    "currentPlayerIndex": 0,
     "deck": [],
-    "community": [],
+    "community": [
+      {
+        "rank": 11,
+        "suit": "clubs"
+      },
+      {
+        "rank": 12,
+        "suit": "clubs"
+      },
+      {
+        "rank": 13,
+        "suit": "clubs"
+      },
+      {
+        "rank": 1,
+        "suit": "diamonds"
+      },
+      {
+        "rank": 1,
+        "suit": "spades"
+      }
+    ],
     "phase": {
-      "street": "PRE_FLOP",
+      "street": "SHOWDOWN",
       "actionCount": 0,
       "volume": 0
     },
     "round": {
       "roundNumber": 1,
       "volume": 0,
-      "currentBet": 0,
+      "currentBet": 50,
       "foldedPlayers": [],
       "allInPlayers": []
     },
     "dealerId": "",
-    "winner": null,
+    "winner": "The Showman",
     "config": {
       "maxRounds": null,
       "startingChips": 1000,

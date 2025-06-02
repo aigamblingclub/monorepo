@@ -34,7 +34,7 @@ export const getCardLabel = (rank: CV): string => {
 // Utility function to get card suit symbol
 export const getCardSuitSymbol = (suit: CardSuit): string => {
   switch (suit) {
-    case 'hearts': return '♥';
+    case 'hearts': return '❤';
     case 'diamonds': return '♦';
     case 'clubs': return '♣';
     case 'spades': return '♠';
