@@ -298,6 +298,8 @@ export function AccountManager({
   // LOCKED STATE: Betting Interface
   return (
     <div className="bg-black border-2 border-white p-4 relative flex-shrink-0">
+      <BreathingSpinner />
+      
       {/* Header */}
       <div className="border-b border-white pb-3 mb-4">
         <h3 className="text-white font-mono font-bold text-lg">

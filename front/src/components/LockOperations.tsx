@@ -64,7 +64,7 @@ export function LockOperations({
     }
   };
 
-  const handleUnlock = async () => {
+  const handleUnlock = async () => {  
     // Check guard conditions and set errors
     if (!accountId) {
       setErrorUnlock('No account connected');

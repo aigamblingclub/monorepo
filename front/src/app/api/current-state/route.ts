@@ -1,9 +1,11 @@
+import { isDev } from "@/utils/env";
 import { NextResponse } from "next/server";
-import { NEXT_PUBLIC_SERVER_MAIN } from "@/utils/env";
 
 export async function GET() {
   try {
-    const response = await fetch(`${NEXT_PUBLIC_SERVER_MAIN}/api/game/current-state`, {
+    const serverMainUrl = isDev ? process.env.NEXT_PUBLIC_SERVER_MAIN_LOCAL : process.env.NEXT_PUBLIC_SERVER_MAIN;
+
+    const response = await fetch(`${serverMainUrl}/api/game/current-state`, {
       headers: {
         "API-KEY": process.env.SERVER_MAIN_API_KEY || "",
       },
