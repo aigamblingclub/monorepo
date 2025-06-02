@@ -15,7 +15,6 @@
 import { useState, useEffect } from 'react';
 import { useNearWallet } from './useNearWallet';
 import { AuthState } from '@/types/auth';
-import { isDev } from '@/utils/env';
 
 /**
  * Custom hook for NEAR Protocol authentication with backend integration
@@ -117,10 +116,8 @@ export function useNearAuth() {
         nonce: Buffer.from(challenge, 'base64')
       });
 
-      let verifyResponse; 
-      try {
-        // 3. Verify signature with Next.js API
-        verifyResponse = await fetch(`/api/auth/near`, {
+      // 3. Verify signature with Next.js API
+      const verifyResponse = await fetch(`/api/auth/near`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -132,17 +129,8 @@ export function useNearAuth() {
           publicKey: signatureObj?.publicKey,
         }),
       });
-      } catch (error) {
-        if(isDev) {
-          console.error('[ERROR][AUTH][BACKEND] Failed to verify signature', error);
-        }
-        throw error;
-      }
 
       if (!verifyResponse.ok) {
-        if(isDev) {
-          console.error('[ERROR][AUTH][BACKEND] Failed to verify signature', verifyResponse);
-        }
         throw new Error('Failed to verify signature');
       }
 
@@ -161,7 +149,6 @@ export function useNearAuth() {
 
       return true;
     } catch (error) {
-      console.error('Login error:', error);
       setAuthState(prev => ({
         ...prev,
         isLoading: false,
@@ -217,7 +204,6 @@ export function useNearAuth() {
         apiKey: null,
       });
     } catch (error) {
-      console.error('Logout error:', error);
       setAuthState(prev => ({
         ...prev,
         isLoading: false,

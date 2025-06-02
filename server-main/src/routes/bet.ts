@@ -202,7 +202,6 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
 
     return res.json(response);
   } catch (error) {
-    console.error('Create bet error:', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error'
@@ -242,7 +241,6 @@ router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) =
       bets: userBets
     });
   } catch (error) {
-    console.error('Get bet error:', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error'
@@ -345,7 +343,6 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
 
     return res.json(response);
   } catch (error) {
-    console.error('Get all bets error:', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error'

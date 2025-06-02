@@ -100,7 +100,6 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
     if (!user) {
         return { success: false, canBet: false, errors: ['User not found'] };
     }
-    console.log(`Starting security validation for user: ${user.nearNamedAddress}`);
     
     // Step 1: Get current timestamp in nanoseconds
     const currentTimestamp = BigInt(Date.now() * 1_000_000);
@@ -124,7 +123,6 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
     if (pendingUnlockDeadline) {
       const deadlineTimestamp = BigInt(pendingUnlockDeadline);
       if (currentTimestamp > deadlineTimestamp) {
-        console.log(`DEADLINE EXPIRED: Current time (${currentTimestamp}) > deadline (${deadlineTimestamp}) - setting userCanBet to false`);
         try {
           await setUserCanBet(user.id, false);
           userCanBet = false;
@@ -158,7 +156,6 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
       await updateBalanceOnDB(user.id, user.nearNamedAddress);
       // Then set the userCanBet status to true
       await setUserCanBet(user.id, true);
-      console.log(`User ${user.id} has no transaction history - allowing betting`);
       return { 
         success: true, 
         canBet: true, 
@@ -173,28 +170,21 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
     // Step 6: Determine which event is more recent
     const lockIsMoreRecent = isLockMoreRecentThanUnlock(lastLockEvent, lastUnlockEvent);
     
-    console.log(`Lock is more recent: ${lockIsMoreRecent}`);
-    console.log(`Current userCanBet status: ${userCanBet}`);
-    console.log(`Pending unlock deadline: ${pendingUnlockDeadline}`);
-    
     // Step 7: Main validation logic
     // Validation: User has betting permission enabled
     if (userCanBet === true) {
       // Validation: Lock transaction is more recent than unlock
       if (lockIsMoreRecent) {
         // User can bet and lock is more recent - do nothing, allow betting
-        console.log(`User can bet and lock is more recent - allowing betting`);
         canBet = true;
       } else {
         // User can bet but unlock is more recent - this shouldn't happen in normal flow
-        console.log(`User can bet but unlock is more recent - allowing betting (normal post-unlock state)`);
         canBet = false;
       }
     } else { // userCanBet === false
       // Validation: Lock transaction is more recent than unlock (balance sync needed)
       if (lockIsMoreRecent) {
         // User cannot bet but lock is more recent - need to sync balances and cleanup
-        console.log(`User cannot bet but lock is more recent - starting balance synchronization`);
         
         try {
           // Enter balance synchronization loop with atomic transactions
@@ -205,12 +195,10 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
           // Validation: Balance synchronization retry loop with maximum attempts
           while (!syncSuccessful && balanceSyncAttempts < maxSyncAttempts) {
             balanceSyncAttempts++;
-            console.log(`Balance sync attempt ${balanceSyncAttempts}/${maxSyncAttempts}`);
             
             try {
               // Use Prisma transaction for atomic balance updates
               await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-                console.log(`Starting atomic balance sync transaction (attempt ${balanceSyncAttempts})`);
                 
                 // Update both balances to match contract within transaction
                 await updateBalanceOnDB(user.id, user.nearNamedAddress, tx);
@@ -220,8 +208,6 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
                   checkBalancesAreSynced(user.id, user.nearNamedAddress, tx),
                   isAccountLocked(user.nearNamedAddress)
                 ]);
-                
-                console.log(`Sync attempt ${balanceSyncAttempts}: balancesAreSynced=${balancesAreSynced}, accountIsStillLocked=${accountIsStillLocked}`);
                 
                 // Validation: Database balances match contract balances
                 if (!balancesAreSynced) {
@@ -234,16 +220,13 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
                 }
                 
                 // If we reach here, both conditions are met - transaction will commit
-                console.log(`Balance synchronization transaction ${balanceSyncAttempts} successful - committing`);
               });
               
               // If transaction completed successfully, we're done
               syncSuccessful = true;
               break;
               
-            } catch (syncError) {
-              console.error(`Balance sync transaction attempt ${balanceSyncAttempts} failed (automatic rollback):`, syncError);
-              
+            } catch (syncError) {            
               // Validation: Maximum synchronization attempts reached
               if (balanceSyncAttempts >= maxSyncAttempts) {
                 errors.push(`Balance synchronization failed after ${maxSyncAttempts} attempts with automatic rollbacks: ${(syncError as Error).message}`);
@@ -251,7 +234,6 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
               }
               
               // Wait before next attempt
-              console.log(`Waiting 1 second before retry attempt ${balanceSyncAttempts + 1}...`);
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
@@ -259,7 +241,6 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
           // Validation: Balance synchronization completed successfully
           if (syncSuccessful) {
             // Successful synchronization - cleanup and allow betting (in parallel)
-            console.log(`Balance synchronization successful - cleaning up and allowing betting`);
             
             await Promise.all([
               clearPendingUnlockDeadline(user.id),
@@ -279,13 +260,9 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
         
       } else {
         // User cannot bet and unlock is more recent - keep userCanBet as false
-        console.log(`User cannot bet and unlock is more recent - denying betting`);
         canBet = false;
       }
     }
-    
-    // Step 8: Final result
-    console.log(`Security validation complete for ${nearNamedAddress}: canBet=${canBet}`);
     
     return {
       success: true,
@@ -301,7 +278,6 @@ export async function validateUserCanBet(nearNamedAddress: string): Promise<Secu
     };
     
   } catch (error) {
-    console.error(`Security validation failed for ${nearNamedAddress}:`, error);
     errors.push(`Validation process failed: ${(error as Error).message}`);
     return { success: false, canBet: false, errors };
   }
@@ -340,7 +316,6 @@ export async function getUserCanBet(userId: number): Promise<boolean> {
     // If no UserBalance record exists, default to false for safety
     return userBalance?.userCanBet ?? false;
   } catch (error) {
-    console.error(`Error fetching userCanBet for user ${userId}:`, error);
     throw new Error(`Failed to fetch userCanBet status: ${(error as Error).message}`);
   }
 }
@@ -384,7 +359,6 @@ export async function setUserCanBet(userId: number, canBet: boolean): Promise<vo
       }
     });
   } catch (error) {
-    console.error(`Error setting userCanBet for user ${userId} to ${canBet}:`, error);
     throw new Error(`Failed to set userCanBet status: ${(error as Error).message}`);
   }
 }
@@ -431,7 +405,6 @@ export async function getPendingUnlockDeadline(userId: number): Promise<string |
 
     return null;
   } catch (error) {
-    console.error(`Error fetching pendingUnlockDeadline for user ${userId}:`, error);
     throw new Error(`Failed to fetch pendingUnlockDeadline: ${(error as Error).message}`);
   }
 }
@@ -482,7 +455,6 @@ export async function setPendingUnlockDeadline(userId: number, deadlineNanosecon
       }
     });
   } catch (error) {
-    console.error(`Error setting pendingUnlockDeadline for user ${userId}:`, error);
     throw new Error(`Failed to set pendingUnlockDeadline: ${(error as Error).message}`);
   }
 }
@@ -519,7 +491,6 @@ export async function clearPendingUnlockDeadline(userId: number): Promise<void> 
       }
     });
   } catch (error) {
-    console.error(`Error clearing pendingUnlockDeadline for user ${userId}:`, error);
     throw new Error(`Failed to clear pendingUnlockDeadline: ${(error as Error).message}`);
   }
 }
@@ -568,7 +539,6 @@ async function updateBalanceOnDB(userId: number, nearNamedAddress: string, tx?: 
       }
     });
   } catch (error) {
-    console.error(`Error updating balances for ${nearNamedAddress}:`, error);
     throw new Error(`Failed to update balances: ${(error as Error).message}`);
   }
 }
@@ -623,7 +593,6 @@ async function checkBalancesAreSynced(userId: number, nearNamedAddress: string, 
 
     return onchainSynced && virtualSynced;
   } catch (error) {
-    console.error(`Error checking balance sync for user ${userId}:`, error);
     throw new Error(`Failed to check balance synchronization: ${(error as Error).message}`);
   }
 }

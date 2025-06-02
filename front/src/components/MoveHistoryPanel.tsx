@@ -24,7 +24,6 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({ gameState })
 
   const getMoveDescription = (move: NonNullable<PokerState["lastMove"]>) => {
     const { playerId, move: playerMove } = move;
-    console.log("🔍 Move:", move);
     const playerName =
       gameState.players.find((p: PlayerState) => p.id === playerId)
         ?.playerName ?? playerId;

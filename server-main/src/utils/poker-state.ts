@@ -19,7 +19,6 @@ export const updatePokerState = async (interval: number) => {
   }
   setInterval(async () => {
     if (!SERVER_POKER) {
-      console.log(' is not set');
       return;
     }
 
@@ -32,9 +31,6 @@ export const updatePokerState = async (interval: number) => {
     // Only update the state if the data is different
 
     if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
-      if(isDev) {
-        console.log('[SUCCESS][TABLE][STATE] Saved new state', currentState);
-      }
       currentStatePoker = currentState;
       await saveCurrentStateToDatabase(currentState);
     }
@@ -61,7 +57,6 @@ const getCurrentStatePoker = async () => {
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch current state from poker server');
       return;
     }
 
@@ -77,10 +72,8 @@ const getCurrentStatePoker = async () => {
       }
     }
 
-    console.error('ERROR: ', data);
     return null;
   } catch (error) {
-    console.error('Error fetching current state from poker server', error);
     return null;
   }
 };

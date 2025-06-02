@@ -3,7 +3,7 @@ import { PrismaClient } from '@/prisma';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
 import { authenticate, AUTH_MESSAGE, generateChallenge } from '../utils/near-auth';
-import { getUserBalance } from '@/utils/balance';
+import { getUserVirtualBalance } from '@/utils/contract';
 import { FRONTEND_URL } from '@/utils/env';
 
 const router = Router();
@@ -148,23 +148,21 @@ router.post('/near/verify', async (req, res) => {
                 isActive: true,
             },
         });
-        let balance 
+        let virtualBalance;
         try {
-            balance = await getUserBalance(user.id);
+            virtualBalance = await getUserVirtualBalance(user.id);
         } catch (error) {
-            console.error('Error getting user balance:', error);
-            balance = { virtualBalance: 0 };
+            virtualBalance = 0;
         }
         
         return res.json({
             success: true,
-            balance: balance.virtualBalance,
+            balance: virtualBalance,
             user,
             apiKey: { ...apiKey, keyValue },
             message: 'Authentication successful'
         });
     } catch (error) {
-        console.error('Authentication error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -242,7 +240,6 @@ router.post('/login', async (req, res) => {
       apiKey: { ...apiKey, keyValue },
     });
   } catch (error) {
-    console.error('Login error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -305,7 +302,6 @@ router.post('/generate', async (req, res) => {
 
     return res.json({ apiKey: { ...apiKey, keyValue } });
   } catch (error) {
-    console.error('API key generation error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -350,7 +346,6 @@ router.get('/api-keys', validateApiKey, async (req: AuthenticatedRequest, res) =
 
     return res.json({ apiKeys });
   } catch (error) {
-    console.error('Error fetching API keys:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

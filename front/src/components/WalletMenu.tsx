@@ -29,7 +29,6 @@ function formatNearBalance(yoctoNearBalance: string): string {
     const nearAmount = balance / Math.pow(10, 24);
     return nearAmount.toFixed(4);
   } catch (error) {
-    console.error('Error formatting NEAR balance:', error);
     return "0.0000";
   }
 }
@@ -78,7 +77,6 @@ export function WalletMenu() {
       const agcBal = await getAgcUsdcBalance(accountId);
       setAgcUsdcBalance(agcBal);
     } catch (error) {
-      console.error('Error fetching balances:', error);
     } finally {
       setIsLoadingBalances(false);
     }

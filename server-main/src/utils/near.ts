@@ -27,8 +27,7 @@ export async function callViewMethod(contractId: string, methodName: string, arg
     
     return JSON.parse(Buffer.from(result.result).toString());
   } catch (error) {
-    console.error(`Error calling view method ${methodName}:`, error);
-    throw error;
+    throw new Error(`Error calling view method ${methodName}`);
   }
 }
 
@@ -42,8 +41,7 @@ export async function getOnChainNonce(accountId: string): Promise<number> {
     const nonce = await callViewMethod(AGC_CONTRACT_ID, 'getNonce', { account_id: accountId });
     return nonce;
   } catch (error) {
-    console.error(`Error getting on-chain nonce for ${accountId}:`, error);
-    // Return 0 if there's an error (user might not exist on-chain yet)
+    // Return 0 if there's an error
     return 0;
   }
 }
@@ -59,8 +57,7 @@ export async function getOnChainUsdcBalance(contractId: string, accountId: strin
     const balance = await callViewMethod(contractId, 'getUsdcBalance', { account_id: accountId });
     return parseInt(balance);
   } catch (error) {
-    console.error(`Error getting on-chain USDC balance for ${accountId}:`, error);
-    // Return 0 if there's an error (user might not exist on-chain yet)
+    // Return 0 if there's an error
     return 0;
   }
 }
@@ -75,7 +72,6 @@ export async function isAccountLocked(accountId: string): Promise<boolean> {
     const isLocked = await callViewMethod(AGC_CONTRACT_ID, 'isUsdcLocked', { account_id: accountId });
     return isLocked;
   } catch (error) {
-    console.error(`Error checking if account is locked for ${accountId}:`, error);
     // Return false if there's an error (assume not locked)
     return false;
   }

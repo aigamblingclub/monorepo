@@ -184,7 +184,6 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
     return res.json(response);
 
   } catch (error) {
-    console.error('Sign message error:', error);
     return res.status(500).json({ 
       success: false, 
       error: 'Internal server error' 

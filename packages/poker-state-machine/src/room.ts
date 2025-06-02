@@ -69,7 +69,6 @@ function computeNextState(
             );
         }
         case 'start': {
-            // console.log('computeNextState', { event })
             const next = startRound(state)
             return Effect.succeed<PokerState>({...next})
             // TODO: sanity check for status?

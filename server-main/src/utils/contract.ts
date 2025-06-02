@@ -93,8 +93,7 @@ export function initializeBackendWallet(): ethers.Wallet {
     }
     return new ethers.Wallet(backendPrivateKey);
   } catch (error) {
-    console.error('Error initializing backend wallet:', error);
-    throw error;
+    throw new Error('Error initializing backend wallet');
   }
 }
 
@@ -131,7 +130,6 @@ export async function signGameResult(gameResult: GameResult): Promise<string> {
     const message = JSON.stringify(gameResult);
     return await wallet.signMessage(message);
   } catch (error) {
-    console.error('Error signing game result:', error);
     throw error;
   }
 }
@@ -164,8 +162,7 @@ export async function getUserByNearAddress(nearNamedAddress: string) {
       select: { id: true, nearNamedAddress: true }
     });
   } catch (error) {
-    console.error('Error getting user by NEAR address:', error);
-    throw error;
+    throw new Error('Error getting user by NEAR address');
   }
 }
 
@@ -212,8 +209,7 @@ export async function checkPendingUnlock(userId: number): Promise<{ hasPendingUn
 
     return { hasPendingUnlock: false };
   } catch (error) {
-    console.error('Error checking pending unlock:', error);
-    throw error;
+    throw new Error('Error checking pending unlock');
   }
 }
 
@@ -268,8 +264,7 @@ export async function checkUserGameStatus(userId: number): Promise<{ canWithdraw
 
     return { canWithdraw: true };
   } catch (error) {
-    console.error('Error checking user game status:', error);
-    throw error;
+    throw new Error('Error checking user game status');
   }
 }
 
@@ -302,8 +297,7 @@ export async function updateUserNonce(userId: number, newNonce: number): Promise
       data: { nonce: newNonce }
     });
   } catch (error) {
-    console.error('Error updating user nonce:', error);
-    throw error;
+    throw new Error('Error updating user nonce');
   }
 }
 
@@ -335,8 +329,7 @@ export async function getUserVirtualBalance(userId: number): Promise<number> {
 
     return userBalance?.virtualBalance || 0;
   } catch (error) {
-    console.error('Error getting user virtual balance:', error);
-    throw error;
+    throw new Error('Error getting user virtual balance');
   }
 }
 
@@ -368,8 +361,7 @@ export async function getUserOnChainBalance(userId: number): Promise<number> {
 
     return userBalance?.onchainBalance || 0;
   } catch (error) {
-    console.error('Error getting user on-chain balance:', error);
-    throw error;
+    throw new Error('Error getting user on-chain balance');
   }
 }
 
@@ -402,8 +394,7 @@ export async function calculateUnlockAmountChange(userId: number): Promise<numbe
     // Return the difference (positive for wins, negative for losses)
     return virtualBalance - onChainBalance;
   } catch (error) {
-    console.error('Error calculating unlock amount change:', error);
-    throw error;
+    throw new Error('Error calculating unlock amount change');
   }
 }
 
@@ -479,7 +470,6 @@ export async function validateUnlockRequest(
     };
 
   } catch (error) {
-    console.error('Validation error:', error);
     return { isValid: false, error: 'Internal validation error' };
   }
 } 

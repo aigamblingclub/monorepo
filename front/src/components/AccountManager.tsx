@@ -76,7 +76,6 @@ export function AccountManager({
       setUserBalanceOnChain(walletBalance);
       setDepositedUsdcBalance(agcBalance);
     } catch (error) {
-      console.error('Error fetching balances:', error);
     } finally {
       setIsLoadingBalances(false);
     }
@@ -92,8 +91,6 @@ export function AccountManager({
       const lockStatus = await getIsUsdcLocked(accountId);
       setIsAccountLocked(lockStatus);
     } catch (error) {
-      console.error('Error fetching lock status:', error);
-      // Default to unlocked if there's an error
       setIsAccountLocked(false);
     }
   }, [accountId, getIsUsdcLocked]);

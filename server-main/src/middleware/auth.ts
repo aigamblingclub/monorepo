@@ -67,7 +67,6 @@ export const validateApiKey = async (
     
     return next();
   } catch (error) {
-    console.error('Error validating API key:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

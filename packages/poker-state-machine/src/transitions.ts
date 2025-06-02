@@ -302,13 +302,11 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
 
     // Se só resta um jogador ativo ou todos os jogadores ativos estão all-in, vamos para showdown
     if (playersLeft.length <= 1 && allInPlayers.length === 0) {
-        console.log('Finalizing round due to only one active player or no all-in players')
         return finalizeRound(state)
     }
 
     // Se não tem jogadores ativos mas tem 2+ all-in, distribui cartas restantes
     if (playersLeft.length === 0 && allInPlayers.length >= 2 && state.community.length <= 5) {
-        console.log('Distributing remaining cards')
         return nextPhase(state)
     }
 
@@ -397,7 +395,6 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
 // precondition: betting round is over
 export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
     if (state.community.length === 5) {
-        console.log('Five community cards dealt, moving to showdown')
         return finalizeRound(state)
     }
 
@@ -439,7 +436,6 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
 
     const allInPlayers = state.players.filter(p => p.status === "ALL_IN")
     if (allInPlayers.length > 0) {
-        console.log('Distributing remaining cards')
         return transition(nextState)
     }
 
@@ -561,7 +557,6 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
     
     // Validate state: all active players should have the same bet
     const playingPotBets = getPotBets(playingPlayers)
-    console.log('playingPotBets', playingPotBets, playingPlayers)
     if (playingPotBets.length !== 1) {
         return Effect.fail({
             type: 'inconsistent_state',
@@ -576,7 +571,6 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
     
     // Process each pot level
     for (const [bet, pot] of pots) {
-        console.log({ 'bet': bet, 'pot': pot, 'inPlayers': inPlayers, 'community': state.community })
         const winnerIds = determinePotWinner(bet, inPlayers, state.community as RiverCommunity)
         
         if (winnerIds.length === 0) continue;
@@ -615,7 +609,6 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
             rewards.set(winnerId, current + 1)
         }
     }
-    console.log('rewards', rewards)
     return Effect.succeed<PokerState>({
         ...state,
         tableStatus: "ROUND_OVER",

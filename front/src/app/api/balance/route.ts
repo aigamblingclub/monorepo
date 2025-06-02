@@ -25,7 +25,6 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching balance:", error);
     return NextResponse.json(
       { error: "Failed to fetch balance" },
       { status: 500 }

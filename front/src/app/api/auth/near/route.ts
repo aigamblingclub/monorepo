@@ -34,7 +34,6 @@ export async function GET(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error getting challenge:", error);
     return NextResponse.json(
       { error: "Failed to get challenge" },
       { status: 500 }
@@ -83,7 +82,6 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error verifying signature:", error);
     return NextResponse.json(
       { error: "Failed to verify signature" },
       { status: 500 }
