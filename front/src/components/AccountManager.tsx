@@ -81,7 +81,7 @@ export function AccountManager({
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [accountId, getUsdcWalletBalance, getVirtualUsdcBalance]);
+  }, [accountId, apiKey, getUsdcWalletBalance, getVirtualUsdcBalance]);
 
   /**
    * Memoized function to fetch lock status - prevents infinite re-renders
@@ -95,7 +95,7 @@ export function AccountManager({
     } catch (error) {
       setIsAccountLocked(false);
     }
-  }, [accountId, getIsUsdcLocked]);
+  }, [accountId, apiKey, getIsUsdcLocked]);
 
   /**
    * Fetch balances only when accountId changes
