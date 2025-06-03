@@ -1,9 +1,16 @@
 import { FRONTEND_URL } from '@/utils/env';
 import { authenticate } from '../utils/near-auth';
 
+// Set up test environment variables
+process.env.NODE_ENV = 'test';
+process.env.FRONTEND_URL_LOCAL = 'http://localhost:3000';
+
 // Constants for authentication
 const AUTH_MESSAGE = 'log me in';
 const AUTH_CHALLENGE = Buffer.from(Array.from(Array(32).keys()));
+
+// Ensure FRONTEND_URL is defined for tests
+const TEST_FRONTEND_URL = FRONTEND_URL || 'http://localhost:3000';
 
 describe('NEAR Authentication', () => {
   // This is a sample message that would be signed by the NEAR wallet
@@ -20,7 +27,7 @@ describe('NEAR Authentication', () => {
       publicKey: sampleMessage.publicKey,
       signature: sampleMessage.signature,
       message: AUTH_MESSAGE,
-      recipient: FRONTEND_URL,
+      recipient: TEST_FRONTEND_URL,
       nonce: AUTH_CHALLENGE,
     });
 
@@ -33,7 +40,7 @@ describe('NEAR Authentication', () => {
       publicKey: sampleMessage.publicKey,
       signature: 'invalid_signature',
       message: AUTH_MESSAGE,
-      recipient: FRONTEND_URL,
+      recipient: TEST_FRONTEND_URL,
       nonce: AUTH_CHALLENGE,
     });
 
@@ -46,7 +53,7 @@ describe('NEAR Authentication', () => {
       publicKey: sampleMessage.publicKey,
       signature: sampleMessage.signature,
       message: AUTH_MESSAGE,
-      recipient: FRONTEND_URL,
+      recipient: TEST_FRONTEND_URL,
       nonce: AUTH_CHALLENGE,
     });
 
