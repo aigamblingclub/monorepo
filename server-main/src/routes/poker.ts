@@ -5,23 +5,23 @@ import { SERVER_POKER } from '@/utils/env';
 const router = Router();
 
 router.post('/start', async (req: any, res: any) => {
-  const response = await fetch(`${SERVER_POKER}/api`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      _tag: 'Request',
-      id: `${Date.now()}`,
-      tag: 'startGame',
-      payload: {},
-      traceId: 'traceId',
-      spanId: 'spanId',
-      sampled: true,
-      headers: {},
-    }),
-  });
   try {
+    const response = await fetch(`${SERVER_POKER}/api`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        _tag: 'Request',
+        id: `${Date.now()}`,
+        tag: 'startGame',
+        payload: {},
+        traceId: 'traceId',
+        spanId: 'spanId',
+        sampled: true,
+        headers: {},
+      }),
+    });
     const data = await response.json();
     res.json(data);
   } catch (error) {
