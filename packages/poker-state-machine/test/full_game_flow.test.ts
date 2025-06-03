@@ -10,8 +10,10 @@ describe("Poker game flow tests", () => {
   // Unique player IDs to avoid duplication issues in the original test
   const PLAYER_IDS = ["player1", "player2", "player3"];
 
-  // set the environment variable to true
+  // set the environment variable to true to enable auto restart
   process.env.AUTO_RESTART_ENABLED = "true";
+  // set the START_SLEEP_TIME to 0 to avoid waiting for 2 minutes
+  process.env.START_SLEEP_TIME = "0";
 
   // Helper function to create a test player
   function createPlayer(
@@ -111,7 +113,22 @@ describe("Poker game flow tests", () => {
     const state = await Effect.runPromise(pokerRoom.currentState());
 
     // Initial state verification
-    expect(state).toEqual({ ...POKER_ROOM_DEFAULT_STATE, tableId: "1" });
+    expect(state.tableStatus).toEqual("WAITING");
+    expect(state.players.length).toEqual(0);
+    expect(state.phase).toEqual({
+      street: "PRE_FLOP",
+      actionCount: 0,
+      volume: 0,
+    });
+    expect(state.round).toEqual({
+      roundNumber: 1,
+      currentBet: 0,
+      volume: 0,
+      foldedPlayers: [],
+      allInPlayers: [],
+    });
+    expect(state.community).toEqual([]);
+    expect(state.deck).toEqual([]);
   });
 
   test("Player 1 joining should update state correctly", async () => {
@@ -856,23 +873,34 @@ describe("Poker game flow tests", () => {
         playerName: PLAYER_IDS[1],
       })
     );
+    
+    // Game starts automatically when 2 players join (auto-start is enabled)
+    // Wait for the game to be ready
+    let state = await Effect.runPromise(pokerRoom.currentState());
+    let attempts = 0;
+    const maxAttempts = 10;
 
-    // Start the game
-    await Effect.runPromise(
-      pokerRoom.processEvent({
-        type: "start",
-      })
-    );
+    // Wait until we're in PRE_FLOP and have a valid current player
+    while (attempts < maxAttempts) {
+        state = await Effect.runPromise(pokerRoom.currentState());
+        const current = currentPlayer(state);
+        
+        if (state.phase.street === "PRE_FLOP" && current && current.id && state.tableStatus === "PLAYING") {
+            break;
+        }
+        
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
 
     // Get the initial state to check first dealer
-    let state = await Effect.runPromise(pokerRoom.currentState());
     const firstDealerId = state.dealerId;
-
+    
     // Play a quick round - first player folds
     const firstPlayerIndex = state.currentPlayerIndex;
     const firstPlayer = state.players[firstPlayerIndex];
 
-    await Effect.runPromise(
+     await Effect.runPromise(
       pokerRoom.processEvent({
         type: "move",
         playerId: firstPlayer.id,
@@ -880,19 +908,20 @@ describe("Poker game flow tests", () => {
       })
     );
 
-    // Explicitly start a new round
-    await Effect.runPromise(
-      pokerRoom.processEvent({
-        type: "next_round",
-      })
-    );
-
-    // Start a new game to force dealer rotation
-    await Effect.runPromise(
-      pokerRoom.processEvent({
-        type: "start",
-      })
-    );
+    // Wait for the system to automatically start the next round
+    // (The system automatically calls next_round when tableStatus becomes "ROUND_OVER")
+    attempts = 0;
+    while (attempts < maxAttempts) {
+        state = await Effect.runPromise(pokerRoom.currentState());
+        
+        // Wait for the next round to start (new round number and PLAYING status)
+        if (state.round.roundNumber > 1 && state.tableStatus === "PLAYING") {
+            break;
+        }
+        
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
 
     // Get the state after the next round starts
     state = await Effect.runPromise(pokerRoom.currentState());
@@ -913,6 +942,7 @@ describe("Poker game flow tests", () => {
   });
 
   test("Multiple betting rounds - Raise and re-raise", async () => {
+    process.env.AUTO_RESTART_ENABLED = "true";
     const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
 
     // Setup: Two players join

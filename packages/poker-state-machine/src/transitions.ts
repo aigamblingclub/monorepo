@@ -111,8 +111,18 @@ export const startRound: StateTransition = (state: PokerState): PokerState => {
     // First deal cards
     const dealtState = dealCards(state);
     
-    // Then rotate blinds and get dealer position
-    const withBlinds = rotateBlinds(dealtState);
+    // Only rotate blinds if we don't have a dealer set (initial game start)
+    // If dealer is already set (from nextRound), don't rotate again
+    let withBlinds: PokerState;
+    if (!state.dealerId) {
+        withBlinds = rotateBlinds(dealtState);
+    } else {
+        withBlinds = {
+            ...dealtState,
+            currentPlayerIndex: firstPlayerIndex(dealtState)
+        };
+    }
+    
     
     // Finally collect blinds and set initial state
     const withCollectedBlinds = collectBlinds(withBlinds);
@@ -648,8 +658,8 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
 
     // Move dealer button to next active player
     const activePlayers = state.players.filter(p => p.chips > 0);
+
     if (activePlayers.length < 2) {
-        // Game is over - we have a winner
         Effect.log('Game is over - no active players, we have a winner')
         return endGame({
             ...state,
