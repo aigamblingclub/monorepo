@@ -26,7 +26,6 @@ export const validateApiKey = async (
   next: NextFunction,
 ) => {
   const apiKey = req.headers['x-api-key'] as string;
-
   if (!apiKey) {
     return res.status(401).json({ error: 'API key is required' });
   }
@@ -66,6 +65,6 @@ export const validateApiKey = async (
 
     return next();
   } catch (error) {
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: `Internal server error: ${error}` });
   }
 };

@@ -23,7 +23,7 @@
 import { Router } from 'express';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import { validateUnlockRequest, signGameResult, GameResult } from '@/utils/contract';
-import { setPendingUnlockDeadline, validateUserCanBet } from '@/utils/security';
+import { getPendingUnlockDeadline, setPendingUnlockDeadline, validateUserCanBet } from '@/utils/security';
 
 /**
  * @type {Router}
@@ -111,17 +111,6 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
       });
     }
 
-    // Security middleware for betting
-    const criticalValidation = await validateUserCanBet(nearNamedAddress);
-
-    // Validation: Check if user has betting permissions (security-critical)
-    if (!criticalValidation.canBet) {
-      return res.status(403).json({
-        success: false,
-        error: criticalValidation.errors[0],
-      });
-    }
-
     // Validate unlock request with all business logic
     const validation = await validateUnlockRequest(nearNamedAddress);
 
@@ -143,7 +132,7 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
     }
 
     // Validation: Check if current nonce data is available for transaction ordering
-    if (!validation.currentNonce) {
+    if (!validation.currentNonce && validation.currentNonce !== 0) {
       return res.status(400).json({
         success: false,
         error: 'Current nonce is not available',

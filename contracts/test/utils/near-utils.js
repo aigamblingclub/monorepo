@@ -321,7 +321,7 @@ export async function mintUSDCTokens(account, amountInUSD = 100) {
       'ft_balance_of',
       { account_id: account.accountId }
     );
-    console.log(`Initial USDC balance: ${currentBalance}`);
+    console.info(`Initial USDC balance: ${currentBalance}`);
 
     // Convert USD amount to proper decimals (USDC uses 6 decimals)
     const requiredAmount = BigInt(amountInUSD * 1_000_000);
@@ -348,10 +348,10 @@ export async function mintUSDCTokens(account, amountInUSD = 100) {
       const newBalance = await callViewMethod(usdcContractId, 'ft_balance_of', {
         account_id: account.accountId,
       });
-      console.log(`USDC balance after minting: ${newBalance}`);
+      console.info(`USDC balance after minting: ${newBalance}`);
       return newBalance;
     } else {
-      console.log(
+      console.info(
         `Account already has sufficient USDC balance (${currentBalance}), skipping mint`
       );
       return currentBalance;

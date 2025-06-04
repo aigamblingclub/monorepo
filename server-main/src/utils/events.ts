@@ -33,6 +33,7 @@ import { AGC_CONTRACT_ID, NEAR_NODE_URL } from './env';
 export interface LockEvent {
   account_id: string;
   timestamp: string;
+  transaction_hash: string;
 }
 
 /**
@@ -121,7 +122,7 @@ interface NearBlocksResponse {
  * ```typescript
  * const receipt = await queryLastMethodCall('contract.near', 'user.near', 'lockUsdcBalance');
  * if (receipt && receipt.outcome.status) {
- *   console.log('Found successful lock transaction');
+ *   console.info('Found successful lock transaction');
  * }
  * ```
  */
@@ -180,9 +181,9 @@ async function queryLastMethodCall(
  * ```typescript
  * const lockEvent = await getLastLockEvent('alice.near');
  * if (lockEvent) {
- *   console.log('Last lock at:', lockEvent.timestamp);
+ *   console.info('Last lock at:', lockEvent.timestamp);
  * } else {
- *   console.log('No lock events found');
+ *   console.info('No lock events found');
  * }
  * ```
  */
@@ -200,6 +201,7 @@ export async function getLastLockEvent(accountId: string): Promise<LockEvent | n
     const lockEvent: LockEvent = {
       account_id: accountId,
       timestamp: receipt.block.block_timestamp,
+      transaction_hash: receipt.transaction_hash,
     };
 
     return lockEvent;
@@ -226,9 +228,9 @@ export async function getLastLockEvent(accountId: string): Promise<LockEvent | n
  * ```typescript
  * const unlockEvent = await getLastUnlockEvent('alice.near');
  * if (unlockEvent) {
- *   console.log('Last unlock at:', unlockEvent.timestamp);
+ *   console.info('Last unlock at:', unlockEvent.timestamp);
  * } else {
- *   console.log('No unlock events found');
+ *   console.info('No unlock events found');
  * }
  * ```
  */
@@ -273,9 +275,9 @@ export async function getLastUnlockEvent(accountId: string): Promise<UnlockEvent
  * const unlockEvent = await getLastUnlockEvent('user.near');
  *
  * if (isLockMoreRecentThanUnlock(lockEvent, unlockEvent)) {
- *   console.log('User is currently in locked state');
+ *   console.info('User is currently in locked state');
  * } else {
- *   console.log('User is currently in unlocked state');
+ *   console.info('User is currently in unlocked state');
  * }
  * ```
  */

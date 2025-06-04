@@ -5,8 +5,8 @@ import { ethers } from 'ethers';
  */
 function generateEthereumPrivateKey() {
   const randomBytes32 = ethers.hexlify(ethers.randomBytes(32));
-  console.log('Generated Ethereum private key:', randomBytes32); // 0x prefixed hex string
-  console.log(
+  console.info('Generated Ethereum private key:', randomBytes32); // 0x prefixed hex string
+  console.info(
     'Generated Ethereum public key:',
     new ethers.Wallet(randomBytes32).address
   );

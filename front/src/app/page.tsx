@@ -82,9 +82,17 @@ function HomeContent() {
         }
 
         // Only update the state if the data is different
-        if (JSON.stringify(data) !== JSON.stringify(gameState)) {
-          setGameState(data);
-        }
+        setGameState(prevState => {
+          const prevStateStr = JSON.stringify(prevState);
+          const newStateStr = JSON.stringify(data);
+          if (prevStateStr !== newStateStr && !data.error) {
+            if(isDev) {
+              console.info("🔄 Updating game state:", data);
+            }
+            return data;
+          }
+          return prevState;
+        });
 
         setLoading(false);
       } catch (err) {
@@ -98,7 +106,7 @@ function HomeContent() {
 
     const interval = setInterval(getState, 1000);
     return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  // We don't need gameState in dependencies anymore since we use the function form of setState
 
   if (loading) {
     return (
@@ -192,15 +200,11 @@ function HomeContent() {
               playerBets={playerBets}
               onPlaceBet={placeBet}
               tableStatus={gameState?.tableStatus}
+              gameState={gameState}
             />
             {bettingError && (
               <div className='mt-4 p-2 border border-red-500 bg-black'>
                 <p className='text-red-400 font-mono text-sm'>{bettingError}</p>
-              </div>
-            )}
-            {bettingLoading && (
-              <div className='mt-4 text-center'>
-                <p className='text-gray-400 font-mono text-sm'>Loading...</p>
               </div>
             )}
           </div>

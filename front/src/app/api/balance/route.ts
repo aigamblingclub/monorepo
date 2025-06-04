@@ -18,8 +18,9 @@ export async function GET() {
     });
 
     if (!response.ok) {
+      const errorResponse = await response.json();
       return NextResponse.json(
-        { error: 'Failed to fetch balance' },
+        errorResponse,
         { status: 500 }
       );
     }
@@ -27,7 +28,6 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Balance fetch error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch balance' },
       { status: 500 }

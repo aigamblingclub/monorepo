@@ -3,18 +3,19 @@ import { PlayerBet } from '../components/AccountManager';
 import { useNearWallet } from './useNearWallet';
 import { useAuth } from '@/providers/AuthProvider';
 import { isDev } from '@/utils/env';
+import { atomicToDecimal } from '@/utils/currency';
 
 interface BetResponse {
   playerId: string;
-  totalBet: number; // total bet amount of the player in the table
-  totalUserBet: number; // total bet amount of the user in the table in the playerId
+  totalBet: number;      // Total bet amount in atomic units
+  totalUserBet: number;  // User's bet amount in atomic units
 }
 
 interface AllBetsResponse {
   success: boolean;
   playerBets: BetResponse[];
-  totalBetsByPlayer: Record<string, number>; // total bets in the table by playerId
-  totalBets: number; // total bet of the table
+  totalBetsByPlayer: Record<string, number>;  // Amounts in atomic units
+  totalBets: number;  // Total in atomic units
   error?: string;
 }
 
@@ -22,8 +23,8 @@ export const usePlayerBetting = () => {
   const { accountId, getUsdcWalletBalance } = useNearWallet();
   const { user, apiKey } = useAuth();
   const [playerBets, setPlayerBets] = useState<PlayerBet[]>([]);
-  const [userBalance, setUserBalance] = useState<number>(0);
-  const [usdcBalance, setUsdcBalance] = useState<string>('0');
+  const [userBalance, setUserBalance] = useState<number>(0);  // Atomic units
+  const [usdcBalance, setUsdcBalance] = useState<string>('0.00');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
@@ -38,7 +39,7 @@ export const usePlayerBetting = () => {
         },
       });
       const balanceData = await data.json();
-      setUserBalance(balanceData.balance);
+      setUserBalance(balanceData.balance);  // Already in atomic units from backend
     }
   }, [user, apiKey]);
 
@@ -46,30 +47,18 @@ export const usePlayerBetting = () => {
     if (accountId && getUsdcWalletBalance) {
       try {
         const balance = await getUsdcWalletBalance(accountId);
-
-        // USDC typically has 6 decimal places, so we need to format it properly
-        const balanceStr = balance?.toString() || '0';
-        const balanceNum = parseFloat(balanceStr);
-
-        // If balance is a large number, assume it's in smallest units (micro USDC)
-        // and convert to readable USDC (divide by 1,000,000)
-        if (balanceNum > 1000000) {
-          const formattedBalance = (balanceNum / 1000000).toFixed(2);
-          setUsdcBalance(formattedBalance);
-        } else {
-          // If it's already in USDC format, just use it
-          setUsdcBalance(balanceNum.toFixed(2));
-        }
+        const balanceNum = parseInt(balance?.toString() || '0');
+        setUsdcBalance(atomicToDecimal(balanceNum));
       } catch (error) {
         if (isDev) {
-          console.error("getUsdcBalance error:", error);
+          console.error("[getUsdcBalance] Error:", error);
         }
         setUsdcBalance('0.00');
       }
     } else {
       setUsdcBalance('0.00');
     }
-  }, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, getUsdcWalletBalance]);
 
   const fetchData = useCallback(async () => {
     if (!accountId || !apiKey) {
@@ -80,7 +69,6 @@ export const usePlayerBetting = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch all bets data
       const response = await fetch('/api/bet/all', {
         headers: {
           'x-api-key': apiKey,
@@ -96,20 +84,19 @@ export const usePlayerBetting = () => {
         throw new Error(data.error || 'Failed to fetch betting data');
       }
 
-      // Convert BetResponse to PlayerBet format
+      // Convert BetResponse to PlayerBet format (all values already in atomic units)
       const formattedBets: PlayerBet[] = data.playerBets.map(bet => ({
         playerId: bet.playerId,
         totalBet: bet.totalBet,
         betAmount: bet.totalUserBet,
       }));
 
-      // Update state with fetched data
       setPlayerBets(formattedBets);
       getBalance();
       getUsdcBalance();
     } catch (err) {
       if (isDev) {
-        console.error("fetchData error:", err);
+        console.error("[fetchData] Error:", err);
       }
       setError('Failed to load betting data');
       setPlayerBets([]);
@@ -121,7 +108,7 @@ export const usePlayerBetting = () => {
   }, [accountId, apiKey, getBalance, getUsdcBalance]);
 
   const placeBet = useCallback(
-    async (playerId: string, amount: number) => {
+    async (playerId: string, amount: number) => {  // amount should be in atomic units
       if (!accountId || !apiKey) {
         setError('Not connected');
         return false;
@@ -139,7 +126,7 @@ export const usePlayerBetting = () => {
           },
           body: JSON.stringify({
             playerId,
-            amount,
+            amount,  // Send atomic units to backend
           }),
         });
 
@@ -147,13 +134,11 @@ export const usePlayerBetting = () => {
           throw new Error('Failed to place bet');
         }
 
-        // Refresh data after bet is placed
         await fetchData();
-
         return true;
       } catch (err) {
         if (isDev) {
-          console.error("placeBet error:", err);
+          console.error("[placeBet] Error:", err);
         }
         setError('Failed to place bet');
         return false;
@@ -170,16 +155,16 @@ export const usePlayerBetting = () => {
       getUsdcBalance();
       fetchData();
     }
-  }, [accountId, apiKey, loading, initialized]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, apiKey, loading, initialized, getBalance, getUsdcBalance, fetchData]);
 
   return useMemo(
     () => ({
       playerBets,
-      userBalance,
-      usdcBalance,
+      userBalance,    // Atomic units
+      usdcBalance,    // Formatted string with 2 decimals
       loading,
       error,
-      placeBet,
+      placeBet,      // Expects atomic units
       isConnected,
     }),
     [

@@ -196,17 +196,17 @@ async function monitorEvents() {
                             eventsFound++;
 
                             // Format and display the event
-                            console.log('\n' + '='.repeat(80));
-                            console.log(
+                            console.info('\n' + '='.repeat(80));
+                            console.info(
                               `EVENT #${eventsFound} (Block ${blockHeight}, Tx ${tx.hash})`
                             );
-                            console.log(`Type: ${event.event}`);
-                            console.log(
+                            console.info(`Type: ${event.event}`);
+                            console.info(
                               `Timestamp: ${new Date(parseInt(event.data.timestamp) / 1000000).toISOString()}`
                             );
-                            console.log('Data:');
-                            console.log(JSON.stringify(event.data, null, 2));
-                            console.log('='.repeat(80));
+                            console.info('Data:');
+                            console.info(JSON.stringify(event.data, null, 2));
+                            console.info('='.repeat(80));
                           }
                         } catch (error) {
                           // Skip invalid event logs

@@ -81,7 +81,7 @@ async function getViewAccount() {
       return viewAccount;
     } catch (error) {
       if (isDev) {
-        console.error("getViewAccount error:", error);
+        console.error("[getViewAccount] Error:", error);
       }
       nearConnection = null; // Reset connection to try next endpoint
       viewAccount = null;
@@ -107,7 +107,7 @@ export async function callViewMethod(
     return result;
   } catch (error) {
     if (isDev) {
-      console.error("callViewMethod error:", error);
+      console.error("[callViewMethod] Error:", error);
     }
     throw new Error('Failed to get view account');
   }
@@ -148,7 +148,7 @@ export function useNearWallet() {
             projectId: NEXT_PUBLIC_CONTRACT_ID,
             metadata: {
               name: 'AI Gambling Club',
-              description: 'AI Gambling Club - NEAR Protocol Gambling Platform',
+              description: 'AI Gambling Club - NEAR Protocol AI Gambling Platform',
               url: 'https://aigambling.club',
               icons: ['https://aigambling.club/logo.png'],
             },
@@ -200,7 +200,7 @@ export function useNearWallet() {
       modal.show();
     } catch (err) {
       if (isDev) {
-        console.error("signIn error:", err);
+        console.error("[signIn] Error:", err);
       }
       setWalletState(prev => ({ ...prev, isConnecting: false }));
     }
@@ -231,6 +231,7 @@ export function useNearWallet() {
     receiverId?: string;
   }) => {
     const { selector } = walletState;
+
     if (!selector) throw new Error('Wallet not initialized');
     const wallet = await selector.wallet();
 
@@ -281,7 +282,7 @@ export function useNearWallet() {
           return accountState.amount;
         } catch (error) {
           if (isDev) {
-            console.error("getNearBalance error:", error);
+            console.error("[getNearBalance] Error:", error);
           }
           throw new Error('Failed to get NEAR balance');
         }
@@ -319,6 +320,26 @@ export function useNearWallet() {
     });
 
     if (!response.ok) {
+      const errorResponse = await response.json();
+      if (isDev) {
+        console.error("[getVirtualUsdcBalance] Error:", errorResponse);
+      }
+      
+      // Check if this is the unlock deadline error
+      if (errorResponse?.error && typeof errorResponse.error === 'string') {
+        const errorMessage = errorResponse.error;
+        if (errorMessage.includes('Unlock deadline still valid. Please wait')) {
+          // Extract seconds from the message using regex to find content between dashes
+          const match = errorMessage.match(/-(\d+)-/);
+          if (match && match[1]) {
+            const seconds = parseInt(match[1], 10) + 5; // Add 5 seconds
+            const customError = new Error('UNLOCK_DEADLINE_ERROR');
+            (customError as any).unlockSecondsLeft = seconds;
+            throw customError;
+          }
+        }
+      }
+      
       throw new Error('Failed to fetch virtual balance');
     }
 

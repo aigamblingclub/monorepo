@@ -15,10 +15,10 @@ describe('Contract Integration Tests', () => {
         // Test calling a simple view method
         const result = await callViewMethod(testContractId, 'getAdmin', {});
         expect(result).toBeDefined();
-        console.log('Admin account:', result);
+        console.info('Admin account:', result);
       } catch (error) {
         // If contract doesn't exist or method fails, that's expected in test environment
-        console.log('Expected error in test environment:', error);
+        console.info('Expected error in test environment:', error);
         expect(error).toBeDefined();
       }
     }, 10000);
@@ -28,10 +28,10 @@ describe('Contract Integration Tests', () => {
         const nonce = await getOnChainNonce(testAccountId);
         expect(typeof nonce).toBe('number');
         expect(nonce).toBeGreaterThanOrEqual(0);
-        console.log('On-chain nonce:', nonce);
+        console.info('On-chain nonce:', nonce);
       } catch (error) {
         // If contract doesn't exist or account not found, should return 0
-        console.log('Expected error, should return 0:', error);
+        console.info('Expected error, should return 0:', error);
       }
     }, 10000);
 
@@ -40,10 +40,10 @@ describe('Contract Integration Tests', () => {
         const balance = await getOnChainUsdcBalance(testContractId, testAccountId);
         expect(typeof balance).toBe('number');
         expect(balance).toBeGreaterThanOrEqual(0);
-        console.log('On-chain USDC balance:', balance);
+        console.info('On-chain USDC balance:', balance);
       } catch (error) {
         // If contract doesn't exist or account not found, should return 0
-        console.log('Expected error, should return 0:', error);
+        console.info('Expected error, should return 0:', error);
       }
     }, 10000);
   });
@@ -54,8 +54,8 @@ describe('Contract Integration Tests', () => {
       expect(process.env.NEAR_NODE_URL).toBeDefined();
       expect(process.env.AGC_CONTRACT_ID).toBeDefined();
 
-      console.log('NEAR_NODE_URL:', process.env.NEAR_NODE_URL);
-      console.log('AGC_CONTRACT_ID:', process.env.AGC_CONTRACT_ID);
+      console.info('NEAR_NODE_URL:', process.env.NEAR_NODE_URL);
+      console.info('AGC_CONTRACT_ID:', process.env.AGC_CONTRACT_ID);
     });
   });
 });

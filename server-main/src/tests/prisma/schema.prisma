@@ -1,4 +1,4 @@
-// This is your Prisma schema file,
+// This is your Prisma schema file for tests
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -7,8 +7,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./test.sqlite"
 }
 
 /// Authentication
@@ -16,7 +16,7 @@ model User {
   id                  Int       @id @default(autoincrement())
   nearImplicitAddress String    @unique
   nearNamedAddress    String    @unique
-  nonce               String    @default("")
+  nonce               Int       @default(0)
   lastActiveAt        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @default(now())
@@ -60,7 +60,7 @@ model Table {
   tableStatus String   // WAITING, PLAYING, ROUND_OVER, GAME_OVER
   volume      Int // Sum of all rounds volume
   config      Json
-  winners     String[] // Player IDs
+  winners     String // Player IDs
   totalBets   Int // Sum of all bets
 
   createdAt   DateTime @default(now())
@@ -94,7 +94,7 @@ model Round {
   tableId     String
   roundNumber Int
   volume      Int // Sum of all phases volume (pot)
-  winners     String[]
+  winners     String // Player IDs
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

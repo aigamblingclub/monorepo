@@ -31,7 +31,7 @@ function formatNearBalance(yoctoNearBalance: string): string {
     return nearAmount.toFixed(4);
   } catch (error) {
     if (isDev) {
-      console.error("🔍 error:", error);
+      console.error("[formatNearBalance] Error:", error);
     }
     return '0.0000';
   }
@@ -49,9 +49,9 @@ function formatNearBalance(yoctoNearBalance: string): string {
  * @returns {JSX.Element} The wallet menu component
  */
 export function WalletMenu() {
-  const { isAuthenticated, isLoading, error, accountId, login, logout } =
+  const { isAuthenticated, isLoading, error, accountId, apiKey, login, logout } =
     useAuth();
-  const { getNearBalance, getUsdcWalletBalance, getAgcUsdcBalance } =
+  const { getNearBalance, getUsdcWalletBalance, getAgcUsdcBalance, getIsUsdcLocked, getVirtualUsdcBalance } =
     useNearWallet();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -67,7 +67,7 @@ export function WalletMenu() {
    * Gets NEAR balance, wallet USDC balance, and AGC deposited USDC balance
    */
   const fetchBalances = useCallback(async () => {
-    if (!accountId || !isAuthenticated) return;
+    if (!accountId || !isAuthenticated || !apiKey) return;
 
     setIsLoadingBalances(true);
     try {
@@ -79,12 +79,16 @@ export function WalletMenu() {
       const usdcBal = await getUsdcWalletBalance(accountId);
       setWalletUsdcBalance(usdcBal);
 
-      // Fetch AGC deposited USDC balance
-      const agcBal = await getAgcUsdcBalance(accountId);
-      setAgcUsdcBalance(agcBal);
+      let balance;
+      if(await getIsUsdcLocked(accountId)) {
+        balance = await getVirtualUsdcBalance(apiKey);
+      } else {
+       balance = await getAgcUsdcBalance(accountId);
+      }
+      setAgcUsdcBalance(balance);
     } catch (error) {
       if (isDev) {
-        console.error("🔍 error:", error);
+        console.error("[fetchBalances] Error:", error);
       }
       setNearBalance('0');
       setWalletUsdcBalance('0');
@@ -98,10 +102,10 @@ export function WalletMenu() {
    * Effect to fetch balances when menu opens
    */
   useEffect(() => {
-    if (isMenuOpen && isAuthenticated) {
+    if (isMenuOpen && isAuthenticated && apiKey) {
       fetchBalances();
     }
-  }, [isMenuOpen, isAuthenticated, fetchBalances]);
+  }, [isMenuOpen, isAuthenticated, apiKey, fetchBalances]);
 
   /**
    * Effect to handle clicking outside menu to close it
@@ -219,7 +223,7 @@ export function WalletMenu() {
               </label>
               <div className='bg-black border border-white rounded px-3 py-2 font-mono text-sm text-white'>
                 {isLoadingBalances ? (
-                  <span className='animate-pulse'>Loading...</span>
+                  <span className='animate-pulse text-yellow-400'>Loading...</span>
                 ) : (
                   <span className='text-green-400'>{`${formatNearBalance(nearBalance)} NEAR`}</span>
                 )}
@@ -233,7 +237,7 @@ export function WalletMenu() {
               </label>
               <div className='bg-black border border-white rounded px-3 py-2 font-mono text-sm text-white'>
                 {isLoadingBalances ? (
-                  <span className='animate-pulse'>Loading...</span>
+                  <span className='animate-pulse text-yellow-400'>Loading...</span>
                 ) : (
                   <span className='text-green-400'>
                     {formatUsdcDisplay(walletUsdcBalance)}
@@ -249,7 +253,7 @@ export function WalletMenu() {
               </label>
               <div className='bg-black border border-white rounded px-3 py-2 font-mono text-sm text-white'>
                 {isLoadingBalances ? (
-                  <span className='animate-pulse'>Loading...</span>
+                  <span className='animate-pulse text-yellow-400'>Loading...</span>
                 ) : (
                   <span className='text-green-400'>
                     {formatUsdcDisplay(agcUsdcBalance)}

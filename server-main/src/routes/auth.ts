@@ -1,30 +1,31 @@
 import { Router } from 'express';
-import { PrismaClient } from '@/prisma';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
 import { authenticate, AUTH_MESSAGE, generateChallenge } from '../utils/near-auth';
 import { getUserVirtualBalance } from '@/utils/contract';
 import { FRONTEND_URL } from '@/utils/env';
+import { prisma } from '../config/prisma.config';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Store challenges temporarily (in production, use Redis or similar)
 const challenges = new Map<string, { challenge: Buffer; timestamp: number }>();
 
 // Clean up old challenges every 5 minutes
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, value] of challenges.entries()) {
-      if (now - value.timestamp > 5 * 60 * 1000) {
-        // 5 minutes
-        challenges.delete(key);
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(
+    () => {
+      const now = Date.now();
+      for (const [key, value] of challenges.entries()) {
+        if (now - value.timestamp > 5 * 60 * 1000) {
+          // 5 minutes
+          challenges.delete(key);
+        }
       }
-    }
-  },
-  5 * 60 * 1000,
-);
+    },
+    5 * 60 * 1000,
+  );
+}
 
 /**
  * @swagger
@@ -114,60 +115,69 @@ router.post('/near/verify', async (req, res) => {
     // Remove the used challenge
     challenges.delete(accountId);
 
-    const isValid = await authenticate({
+    let isValid = false;
+    try {
+      isValid = await authenticate({
       accountId,
       publicKey,
       signature,
       message: AUTH_MESSAGE,
       recipient: FRONTEND_URL!,
-      nonce: storedChallenge.challenge,
-    });
+        nonce: storedChallenge.challenge,
+      });
+    } catch (error) {
+      throw new Error(`[NEAR][VERIFY][AUTHENTICATE] Failed to authenticate with NEAR: ${error}`)
+    }
 
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid signature' });
     }
-
+    
     // Find or create user
-    const user = await prisma.user.upsert({
-      where: {
-        nearNamedAddress: accountId,
-      },
-      update: {
-        lastActiveAt: new Date(),
-      },
-      create: {
-        nearImplicitAddress: publicKey,
-        nearNamedAddress: accountId, // You might want to handle this differently
-        lastActiveAt: new Date(),
-        nonce: 0,
-      },
-    });
-
-    // Generate a new API key for the user
-    const keyValue = crypto.randomBytes(32).toString('hex');
-    const apiKey = await prisma.apiKey.create({
-      data: {
-        keyValue,
-        userId: user.id,
-        isActive: true,
-      },
-    });
-    let virtualBalance;
+    let user;
     try {
-      virtualBalance = await getUserVirtualBalance(user.id);
+      user = await prisma.user.upsert({
+        where: {
+          nearNamedAddress: accountId,
+        },
+        update: {
+          lastActiveAt: new Date(),
+        },
+        create: {
+          nearImplicitAddress: publicKey,
+          nearNamedAddress: accountId, // You might want to handle this differently
+          lastActiveAt: new Date(),
+          nonce: "",
+        },
+      });
     } catch (error) {
-      virtualBalance = 0;
+      throw new Error(`[NEAR][VERIFY][DATABASE] Failed to upsert user: ${error}`)
+    }
+
+    let apiKey;
+    let keyValue;
+    try {
+      // Generate a new API key for the user
+      keyValue = crypto.randomBytes(32).toString('hex');
+      apiKey = await prisma.apiKey.create({
+        data: {
+          keyValue,
+          userId: user.id,
+          isActive: true,
+        },
+      });
+    } catch (error) {
+      throw new Error(`[NEAR][VERIFY][DATABASE] Failed to create api key: ${error}`)
     }
 
     return res.json({
       success: true,
-      balance: virtualBalance,
       user,
       apiKey: { ...apiKey, keyValue },
       message: 'Authentication successful',
     });
   } catch (error) {
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: `Internal server error: ${error}` });
   }
 });
 

@@ -60,7 +60,7 @@ export function formatUsdcBalance(rawBalance: string | number): string {
     return usdcAmount.toFixed(2);
   } catch (error) {
     if (isDev) {
-      console.error("formatUsdcBalance error:", error);
+      console.error("[formatUsdcBalance] Error:", error);
     }
     return '0.00';
   }
@@ -103,7 +103,7 @@ export function toContractBalance(usdcAmount: string | number): string {
     return contractBalance.toString();
   } catch (error) {
     if (isDev) {
-      console.error("toContractBalance error:", error);
+      console.error("[toContractBalance] Error:", error);
     }
     return '0';
   }
@@ -150,7 +150,7 @@ export function formatUsdcDisplay(
     return showSymbol ? `${formatted} USDC` : formatted;
   } catch (error) {
     if (isDev) {
-      console.error("formatUsdcDisplay error:", error);
+      console.error("[formatUsdcDisplay] Error:", error);
     }
     return showSymbol ? '$0.00 USDC' : '$0.00';
   }
@@ -190,7 +190,7 @@ export function isValidUsdcAmount(amount: string): boolean {
     return true;
   } catch (error) {
     if (isDev) {
-      console.error("isValidUsdcAmount error:", error);
+      console.error("[isValidUsdcAmount] Error:", error);
     }
     return false;
   }
@@ -217,7 +217,7 @@ export function getRawBalanceAsNumber(rawBalance: string | number): number {
     return isNaN(balance) || balance < 0 ? 0 : balance;
   } catch (error) {
     if (isDev) {
-      console.error("getRawBalanceAsNumber error:", error);
+      console.error("[getRawBalanceAsNumber] Error:", error);
     }
     return 0;
   }

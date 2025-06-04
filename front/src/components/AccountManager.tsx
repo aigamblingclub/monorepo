@@ -19,7 +19,7 @@ import { formatUsdcDisplay } from '@/utils/usdcBalance';
 import { Transactions } from './Transactions';
 import { LockOperations } from './LockOperations';
 import { PlayerBetting } from './PlayerBetting';
-import { PlayerState } from '../types/poker';
+import { PlayerState, PokerState } from '../types/poker';
 import { isDev } from '@/utils/env';
 
 export interface PlayerBet {
@@ -33,6 +33,7 @@ interface AccountManagerProps {
   playerBets?: PlayerBet[];
   onPlaceBet?: (playerId: string, amount: number) => void;
   tableStatus?: string;
+  gameState: PokerState;
 }
 
 export function AccountManager({
@@ -40,15 +41,19 @@ export function AccountManager({
   playerBets = [],
   onPlaceBet = () => {},
   tableStatus = 'WAITING',
+  gameState,
 }: AccountManagerProps) {
   const { accountId, apiKey } = useAuth();
-  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance } =
+  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance, getAgcUsdcBalance } =
     useNearWallet();
-  const [userBalanceOnChain, setUserBalanceOnChain] = useState(0);
-  const [depositedUsdcBalance, setDepositedUsdcBalance] = useState(0);
+  const [walletUsdcBalance, setWalletUsdcBalance] = useState(0);
+  const [virtualUsdcBalance, setVirtualUsdcBalance] = useState(0);
+  const [agcUsdcBalance, setAgcUsdcBalance] = useState(0);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [isTransactionPending, setIsTransactionPending] = useState(false);
+  const [unlockCountdown, setUnlockCountdown] = useState<number | null>(null);
+  const [initialCountdownSeconds, setInitialCountdownSeconds] = useState<number | null>(null);
 
   // Force login to true if we have a balance - handles edge cases
   const actuallyLoggedIn = !!accountId;
@@ -74,20 +79,44 @@ export function AccountManager({
     try {
       const [walletBalance, agcBalance] = await Promise.all([
         getUsdcWalletBalance(accountId),
-        getVirtualUsdcBalance(apiKey),
+        getAgcUsdcBalance(accountId),
       ]);
-      setUserBalanceOnChain(walletBalance);
-      setDepositedUsdcBalance(agcBalance);
+      if(isAccountLocked) {
+        try {
+          const virtualBalance = await getVirtualUsdcBalance(apiKey);
+          setVirtualUsdcBalance(virtualBalance);
+          // Clear countdown if balance fetch succeeds
+          setUnlockCountdown(null);
+          setInitialCountdownSeconds(null);
+        } catch (error: any) {
+          if (error.message === 'UNLOCK_DEADLINE_ERROR' && error.unlockSecondsLeft) {
+            // Start countdown timer
+            const seconds = error.unlockSecondsLeft;
+            setUnlockCountdown(seconds);
+            setInitialCountdownSeconds(seconds);
+            setVirtualUsdcBalance(0); // Set to 0 during countdown
+          } else {
+            // Other errors
+            if (isDev) {
+              console.error("Virtual balance fetch error:", error);
+            }
+            setVirtualUsdcBalance(0);
+          }
+        }
+      }
+      setWalletUsdcBalance(walletBalance);
+      setAgcUsdcBalance(agcBalance);
     } catch (error) {
       if (isDev) {
         console.error("Fetch balances error:", error);
       }
-      setUserBalanceOnChain(0);
-      setDepositedUsdcBalance(0);
+      setWalletUsdcBalance(0);
+      setVirtualUsdcBalance(0);
+      setAgcUsdcBalance(0);
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [accountId, apiKey, getUsdcWalletBalance, getVirtualUsdcBalance]);
+  }, [accountId, apiKey, getAgcUsdcBalance, getUsdcWalletBalance, getVirtualUsdcBalance, isAccountLocked]);
 
   /**
    * Memoized function to fetch lock status - prevents infinite re-renders
@@ -107,15 +136,34 @@ export function AccountManager({
   }, [accountId, getIsUsdcLocked]);
 
   /**
-   * Fetch balances only when accountId changes
+   * Fetch balances when accountId changes or gameState updates
    */
   useEffect(() => {
     if (accountId) {
       fetchBalances();
       fetchIsUsdcLocked();
     }
-  }, [accountId]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, apiKey, gameState, isAccountLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Countdown timer effect
+   */
+  useEffect(() => {
+    if (unlockCountdown === null || unlockCountdown <= 0) return;
+
+    const interval = setInterval(() => {
+      setUnlockCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          // Countdown finished, retry fetching balance
+          fetchBalances();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [unlockCountdown, fetchBalances]);
 
   /**
    * Start spinner only (visual feedback)
@@ -201,6 +249,31 @@ export function AccountManager({
     );
   };
 
+  /**
+   * Unlock Countdown Component with progress bar
+   */
+  const UnlockCountdown = () => {
+    if (unlockCountdown === null || initialCountdownSeconds === null) return null;
+
+    // Calculate progress (0 to 1)
+    const progress = 1 - (unlockCountdown / initialCountdownSeconds);
+    
+    // Calculate filled squares (max 8 squares)
+    const maxSquares = 32;
+    const filledSquares = Math.floor(progress * maxSquares);
+    
+    // Create progress bar
+    const progressBar = Array.from({ length: maxSquares }, (_, i) => 
+      i < filledSquares ? '█' : '░'
+    ).join('');
+
+    return (
+      <span className='text-yellow-400'>
+        {unlockCountdown}s to unlock... {progressBar}
+      </span>
+    );
+  };
+
   // Connection warning for unauthenticated users
   if (!actuallyLoggedIn) {
     return (
@@ -234,20 +307,20 @@ export function AccountManager({
             <div className='text-white font-mono text-sm'>
               Wallet Balance:{' '}
               {isLoadingBalances ? (
-                <span className='animate-pulse'>Loading...</span>
+                <span className='animate-pulse text-yellow-400'>Loading...</span>
               ) : (
                 <span className='text-green-400'>
-                  {formatUsdcDisplay(userBalanceOnChain)}
+                  {formatUsdcDisplay(walletUsdcBalance)}
                 </span>
               )}
             </div>
             <div className='text-white font-mono text-sm'>
               Deposited USDC:{' '}
-              {isLoadingBalances ? (
-                <span className='animate-pulse'>Loading...</span>
+              {isLoadingBalances || agcUsdcBalance === 0 ? (
+                <span className='animate-pulse text-yellow-400'>Loading...</span>
               ) : (
                 <span className='text-green-400'>
-                  {formatUsdcDisplay(depositedUsdcBalance)}
+                  {formatUsdcDisplay(agcUsdcBalance)}
                 </span>
               )}
             </div>
@@ -299,10 +372,16 @@ export function AccountManager({
         </h3>
         <div className='text-white font-mono text-sm mt-2'>
           Deposited USDC:{' '}
-          <span className='text-green-400'>
-            {formatUsdcDisplay(depositedUsdcBalance)}
-          </span>
-        </div>
+          {unlockCountdown !== null ? (
+            <UnlockCountdown />
+          ) : isLoadingBalances || virtualUsdcBalance === 0 ? (
+            <span className='animate-pulse text-yellow-400'>Loading...</span>
+          ) : (
+            <span className='text-green-400'>
+              {formatUsdcDisplay(virtualUsdcBalance)}
+            </span>
+          )}
+        </div>        
       </div>
 
       {/* Game Status Warning */}

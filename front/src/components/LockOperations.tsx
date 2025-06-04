@@ -122,9 +122,9 @@ export function LockOperations({
 
       // Only start lock status refresh after successful operation
       refreshInterval = startLockRefresh();
-    } catch (err) {
+    } catch (error) {
       setErrorUnlock(
-        err instanceof Error ? err.message : 'Failed to unlock account'
+        error instanceof Error ? error.message : 'Failed to unlock account'
       );
     } finally {
       setIsLoadingUnlock(false);
