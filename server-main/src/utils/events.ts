@@ -33,6 +33,7 @@ import { AGC_CONTRACT_ID, NEAR_NODE_URL } from './env';
 export interface LockEvent {
   account_id: string;
   timestamp: string;
+  transaction_hash: string;
 }
 
 /**
@@ -200,6 +201,7 @@ export async function getLastLockEvent(accountId: string): Promise<LockEvent | n
     const lockEvent: LockEvent = {
       account_id: accountId,
       timestamp: receipt.block.block_timestamp,
+      transaction_hash: receipt.transaction_hash,
     };
 
     return lockEvent;

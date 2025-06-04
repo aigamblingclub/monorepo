@@ -189,6 +189,11 @@ export async function validateUserCanBet(
 
     // Step 7: Main validation logic
     if (verbose) console.log(`[Security] Step 7: Main validation logic - userCanBet: ${userCanBet}`);
+    
+    // const nonce = await getNonce(user.id);
+    // if (verbose) console.log(`[Security] Step 7.5: Nonce: ${nonce}`);
+    
+  
     // Validation: User has betting permission enabled
     if (userCanBet === true) {
       // Validation: Lock transaction is more recent than unlock
@@ -198,8 +203,12 @@ export async function validateUserCanBet(
         canBet = true;
       } else {
         // User can bet but unlock is more recent - this shouldn't happen in normal flow
-        if (verbose) console.log(`[Security] User can bet but unlock is more recent - disabling betting`);
+        if (verbose)
+          console.log(`[Security] User can bet but unlock is more recent - disabling betting`);
         canBet = false;
+        await setUserCanBet(user.id, false);
+        // Update both balances to match contract within transaction
+        await updateBalanceOnDB(user.id, user.nearNamedAddress);
       }
     } else {
       // userCanBet === false
@@ -638,4 +647,19 @@ async function checkBalancesAreSynced(
   } catch (error) {
     throw new Error(`Failed to check balance synchronization: ${(error as Error).message}`);
   }
+}
+
+async function getNonce(userId: number): Promise<number> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { nonce: true },
+  });
+  return user?.nonce ?? 0;
+}
+
+async function setNonce(userId: number, nonce: number): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { nonce: nonce },
+  });
 }

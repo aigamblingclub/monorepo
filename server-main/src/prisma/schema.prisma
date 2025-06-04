@@ -16,7 +16,7 @@ model User {
   id                  Int       @id @default(autoincrement())
   nearImplicitAddress String    @unique
   nearNamedAddress    String    @unique
-  nonce               Int       @default(0)
+  nonce               String    @default("")
   lastActiveAt        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @default(now())
