@@ -124,10 +124,10 @@ function computeNextState(
       );
     }
     case "auto_restart": {
-      // Reset the game state to initial values, but with the same players and tableId
+      // Reset the game state to initial values, but with new tableId and same players
       return Effect.succeed<PokerState>({
         ...POKER_ROOM_DEFAULT_STATE,
-        tableId: state.tableId, // TODO: get a new tableId from the adapter
+        tableId: createTableId(), // Generate new tableId for the new game
         tableStatus: "WAITING",
         players: state.players.map((p) => ({
           ...p,

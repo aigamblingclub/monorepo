@@ -24,15 +24,18 @@
  */
 
 import { ethers } from 'ethers';
-import { PrismaClient } from '@/prisma';
+import { UserBet } from '@/prisma';
 import { getOnChainNonce } from '@/utils/near';
+import { updateUserBetStatus } from './bet';
+import { prisma } from '@/config/prisma.config';
+import { getUserVirtualBalanceAndSync } from './rewards';
 
 /**
  * @type {PrismaClient}
  * Database client instance for all contract-related database operations.
  * Used for user management, balance tracking, and validation operations.
+ * Uses centralized prisma config that automatically selects test/prod client.
  */
-const prisma = new PrismaClient();
 
 /**
  * @typedef {Object} GameResult
@@ -63,6 +66,14 @@ export interface ContractValidationResult {
   currentNonce?: number;
   virtualBalanceChange?: number;
 }
+
+// Type definitions for better TypeScript support
+type BetData = {
+  id: number;
+  amount: number;
+  playerId: string;
+  userId: number;
+};
 
 /**
  * Backend Wallet Initialization
@@ -189,6 +200,7 @@ export async function getUserByNearAddress(nearNamedAddress: string) {
  */
 export async function checkPendingUnlock(
   userId: number,
+  verbose: boolean = false,
 ): Promise<{ hasPendingUnlock: boolean; error?: string }> {
   try {
     const userBalance = await prisma.userBalance.findFirst({
@@ -203,12 +215,18 @@ export async function checkPendingUnlock(
 
     // Validation: Check if user has active pending unlock operation
     if (userBalance) {
+      if (verbose) {
+        console.log('🔍 User has a pending unlock that has not expired yet');
+      }
       return {
         hasPendingUnlock: true,
         error: 'User has a pending unlock that has not expired yet',
       };
     }
 
+    if (verbose) {
+      console.log('🔍 User has no pending unlock');
+    }
     return { hasPendingUnlock: false };
   } catch (error) {
     throw new Error('Error checking pending unlock');
@@ -230,14 +248,15 @@ export async function checkPendingUnlock(
  *
  * @example
  * ```typescript
- * const status = await checkUserGameStatus(123);
+ * const status = await checkUserCanWithdraw(123);
  * if (!status.canWithdraw) {
  *   console.error('Cannot withdraw:', status.error);
  * }
  * ```
  */
-export async function checkUserGameStatus(
+export async function checkUserCanWithdraw(
   userId: number,
+  verbose: boolean = false,
 ): Promise<{ canWithdraw: boolean; error?: string }> {
   try {
     const lastBet = await prisma.userBet.findFirst({
@@ -253,11 +272,17 @@ export async function checkUserGameStatus(
     // Validation: Check if user has never placed a bet
     if (!lastBet) {
       // User has never placed a bet, can withdraw
+      if (verbose) {
+        console.log('[Contract] [checkUserCanWithdraw] User has never placed a bet');
+      }
       return { canWithdraw: true };
     }
 
     // Validation: Check if user's last game is still active
     if (lastBet.table.tableStatus !== 'GAME_OVER') {
+      if (verbose) {
+        console.log('[Contract] [checkUserCanWithdraw] User is currently in an active game');
+      }
       return {
         canWithdraw: false,
         error: `User is currently in an active game (Table: ${lastBet.table.tableId}, Status: ${lastBet.table.tableStatus})`,
@@ -265,7 +290,9 @@ export async function checkUserGameStatus(
     }
 
     // TODO: Force a reward distribution update for the user before allowing withdrawal
-
+    if (verbose) {
+      console.log('[Contract] [checkUserCanWithdraw] User can withdraw');
+    }
     return { canWithdraw: true };
   } catch (error) {
     throw new Error('Error checking user game status');
@@ -306,7 +333,7 @@ export async function updateUserNonce(userId: number, newNonce: number): Promise
 }
 
 /**
- * Virtual Balance Retrieval
+ * User Virtual Balance Retrieval
  *
  * Retrieves the user's current virtual balance from the database. Virtual balance
  * represents the user's balance after accounting for game winnings and losses
@@ -335,6 +362,222 @@ export async function getUserVirtualBalance(userId: number): Promise<number> {
   } catch (error) {
     throw new Error('Error getting user virtual balance');
   }
+}
+
+/**
+ * Winners Field Normalization
+ *
+ * Normalizes the winners field to handle both schema formats:
+ * - Production/Dev: String[] (array)
+ * - Tests: String (JSON string)
+ *
+ * @param {string | string[]} winners - Winners field from table
+ * @returns {string[]} Normalized array of winner player IDs
+ */
+function normalizeWinners(winners: string | string[]): string[] {
+  if (Array.isArray(winners)) {
+    return winners; // Production/Dev format
+  }
+  
+  if (typeof winners === 'string') {
+    try {
+      return JSON.parse(winners); // Test format
+    } catch {
+      return []; // Fallback for invalid JSON
+    }
+  }
+  
+  return []; // Fallback for unexpected types
+}
+
+/**
+ * Reward Distribution Calculation
+ *
+ * Implements a proportional reward distribution system that calculates how much
+ * a user should receive based on their winning bets. The formula distributes 
+ * the total pot among winners proportionally based on their individual bet amounts.
+ *
+ * @param {string} tableId - Unique identifier of the table
+ * @param {number} userId - Unique identifier of the user
+ * @param {string[]} winners - Array of winning player IDs
+ * @param {boolean} verbose - Whether to log detailed calculation steps
+ * @returns {Promise<number>} Calculated reward amount for the user
+ *
+ * @formula RewardDistribution = (UserBetAmount / TotalWinningBetsAmount) * TotalPot
+ *
+ * @example
+ * ```typescript
+ * const reward = await calculateRewardDistribution('table-1', 123, ['player1', 'player2'], true);
+ * console.log('User reward amount:', reward);
+ * ```
+ */
+export async function calculateRewardDistribution(
+  tableId: string, 
+  userId: number, 
+  winners: string[], 
+  verbose: boolean = false
+): Promise<number> {
+  // Get all bets for this table to calculate reward distribution
+  const allTableBets = await prisma.userBet.findMany({
+    where: { tableId },
+    select: { 
+      id: true, 
+      amount: true,
+      playerId: true,
+      userId: true
+    },
+  });
+  
+  if (verbose) {
+    console.log('🔍 [calculateRewardDistribution] allTableBets', allTableBets);
+  }
+
+  // **REWARD DISTRIBUTION FORMULA IMPLEMENTATION**
+  
+  // 1. Calculate total pot (sum of all bets on the table)
+  const totalPot = allTableBets.reduce((sum: number, bet: BetData) => sum + bet.amount, 0);
+  
+  // 2. Get all bets from winning players
+  const winningBets = allTableBets.filter((bet: BetData) => winners.includes(bet.playerId));
+  
+  // 3. Calculate total amount bet by winners
+  const totalWinningBetsAmount = winningBets.reduce((sum: number, bet: BetData) => sum + bet.amount, 0);
+  
+  // 4. Get user's total bet amount on winning players
+  const userWinningBets = winningBets.filter((bet: BetData) => bet.userId === userId);
+  const userTotalBetOnWinners = userWinningBets.reduce((sum: number, bet: BetData) => sum + bet.amount, 0);
+  
+  // 5. Calculate proportional reward using the distribution formula
+  // Formula: (UserBetAmount / TotalWinningBetsAmount) * TotalPot
+  let rewardAmount = 0;
+  if (totalWinningBetsAmount > 0) {
+    rewardAmount = Math.floor((userTotalBetOnWinners / totalWinningBetsAmount) * totalPot);
+  }
+
+  if (verbose) {
+    console.log('🔍 === REWARD DISTRIBUTION CALCULATION ===');
+    console.log('🔍 tableId:', tableId);
+    console.log('🔍 userId:', userId);
+    console.log('🔍 winners:', winners);
+    console.log('🔍 totalPot:', totalPot);
+    console.log('🔍 totalWinningBetsAmount:', totalWinningBetsAmount);
+    console.log('🔍 userTotalBetOnWinners:', userTotalBetOnWinners);
+    console.log('🔍 rewardAmount:', rewardAmount);
+    console.log('🔍 ==========================================');
+  }
+
+  return rewardAmount;
+}
+
+/**
+ * Pending Rewards Calculation with Distribution Formula
+ *
+ * Calculates pending rewards for a user based on their winning bets and implements
+ * a proportional reward distribution system. The formula distributes the total pot
+ * among winners proportionally based on their individual bet amounts.
+ * Also updates bet status to WON or LOST based on game results.
+ *
+ * @param {number} userId - Unique identifier of the user in the database
+ * @param {boolean} verbose - Whether to log detailed information
+ * @returns {Promise<Object>} Object with pending rewards status, bet info, and calculated reward amount
+ *
+ * @example
+ * ```typescript
+ * const rewards = await getPendingRewards(123, true);
+ * if (rewards.hasPendingRewards) {
+ *   console.log('User reward:', rewards.rewardAmount);
+ * }
+ * ```
+ */
+export async function getPendingRewards(userId: number, verbose: boolean = false): Promise<{ 
+  hasPendingRewards: boolean; 
+  bet: UserBet | null; 
+  rewardAmount: number 
+}> {
+  // Check if user has pending bets
+  const userBet = await prisma.userBet.findFirst({
+    where: { userId, status: 'PENDING' },
+  });
+  
+  if (verbose) {
+    console.log('🔍 [getPendingRewards] userBet', userBet);
+  }
+  
+  if (!userBet) {
+    if (verbose) {
+      console.log('🔍 [getPendingRewards] No pending bets found');
+    }
+    return { hasPendingRewards: false, bet: null, rewardAmount: 0 };
+  }
+
+  // Get table information
+  const table = await prisma.table.findFirst({
+    where: { tableId: userBet.tableId },
+  });
+  
+  if (verbose) {
+    console.log('🔍 [getPendingRewards] table', table);
+  }
+  
+  if (!table) {
+    if (verbose) {
+      console.log('🔍 [getPendingRewards] Table not found');
+    }
+    return { hasPendingRewards: false, bet: null, rewardAmount: 0 };
+  }
+
+  // Check if game is over and user is a winner
+  const isGameOver = table.tableStatus === 'GAME_OVER';
+  const normalizedWinners = normalizeWinners(table.winners);
+  const isWinner = isGameOver && normalizedWinners.includes(userBet.playerId);
+
+  if (verbose) {
+    console.log('🔍 [getPendingRewards] tableStatus', table.tableStatus);
+    console.log('🔍 [getPendingRewards] table.winners (raw)', table.winners);
+    console.log('🔍 [getPendingRewards] normalizedWinners', normalizedWinners);
+    console.log('🔍 [getPendingRewards] isGameOver', isGameOver);
+    console.log('🔍 [getPendingRewards] isWinner', isWinner);
+  }
+
+  // If game is over but user didn't win, update bet status to LOST
+  if (isGameOver && !isWinner) {
+    if (verbose) {
+      console.log('🔍 [getPendingRewards] Updating bet status to LOST');
+    }
+    
+    await prisma.userBet.update({
+      where: { id: userBet.id },
+      data: { status: 'LOST' },
+    });
+
+    // Return updated bet object
+    const updatedBet = { ...userBet, status: 'LOST' as const };
+    return { hasPendingRewards: false, bet: updatedBet, rewardAmount: 0 };
+  }
+
+  // If game is not over, return early (no rewards yet)
+  if (!isGameOver) {
+    return { hasPendingRewards: false, bet: userBet, rewardAmount: 0 };
+  }
+
+  // At this point: isGameOver && isWinner
+  // Calculate reward distribution 
+  const rewardAmount = await calculateRewardDistribution(
+    table.tableId, 
+    userId, 
+    normalizedWinners, 
+    verbose
+  );
+
+  if (verbose) {
+    console.log('🔍 [getPendingRewards] User is a winner, will update bet status to WON in getUserVirtualBalanceAndSync');
+  }
+
+  return { 
+    hasPendingRewards: true, 
+    bet: userBet, 
+    rewardAmount 
+  };
 }
 
 /**
@@ -390,11 +633,16 @@ export async function getUserOnChainBalance(userId: number): Promise<number> {
  * }
  * ```
  */
-export async function calculateUnlockAmountChange(userId: number): Promise<number> {
+export async function calculateUnlockAmountChange(userId: number, verbose: boolean = false): Promise<number> {
   try {
     const virtualBalance = await getUserVirtualBalance(userId);
+    if (verbose) {
+      console.log('[Contract] [calculateUnlockAmountChange] Virtual balance:', virtualBalance);
+    }
     const onChainBalance = await getUserOnChainBalance(userId);
-
+    if (verbose) {
+      console.log('[Contract] [calculateUnlockAmountChange] On-chain balance:', onChainBalance);
+    }
     // Return the difference (positive for wins, negative for losses)
     return virtualBalance - onChainBalance;
   } catch (error) {
@@ -432,23 +680,30 @@ export async function calculateUnlockAmountChange(userId: number): Promise<numbe
  */
 export async function validateUnlockRequest(
   nearNamedAddress: string,
+  verbose: boolean = false,
 ): Promise<ContractValidationResult> {
   try {
     // 1. Query User table
     // Validation: Verify user exists in database
     const user = await getUserByNearAddress(nearNamedAddress);
     if (!user) {
+      if (verbose) {
+        console.log('🔍 User not found');
+      }
       return { isValid: false, error: 'User not found' };
     }
 
     // 2. Check if user has a pending unlock and if user is in an active game in parallel
     const [pendingUnlockCheck, gameStatus] = await Promise.all([
-      checkPendingUnlock(user.id),
-      checkUserGameStatus(user.id),
+      checkPendingUnlock(user.id, verbose),
+      checkUserCanWithdraw(user.id, verbose),
     ]);
 
     // Validation: Check if user has active pending unlock operation
     if (pendingUnlockCheck.hasPendingUnlock) {
+      if (verbose) {
+        console.log('[Contract] [validateUnlockRequest] User has active pending unlock operation');
+      }
       return {
         isValid: false,
         error: pendingUnlockCheck.error,
@@ -457,14 +712,22 @@ export async function validateUnlockRequest(
 
     // Validation: Check if user can withdraw based on game status
     if (!gameStatus.canWithdraw) {
+      if (verbose) {
+        console.log('[Contract] [validateUnlockRequest] User cannot withdraw');
+      }
       return { isValid: false, error: gameStatus.error };
     }
 
     // 4. Check nonce synchronization and get virtual balance in parallel
     const [onChainNonce, virtualBalanceChange] = await Promise.all([
-      getOnChainNonce(user.nearNamedAddress),
-      calculateUnlockAmountChange(user.id),
+      getOnChainNonce(user.nearNamedAddress, verbose),
+      calculateUnlockAmountChange(user.id, verbose),
     ]);
+
+    if (verbose) {
+      console.log('[Contract] [validateUnlockRequest] On-chain nonce:', onChainNonce);
+      console.log('[Contract] [validateUnlockRequest] Virtual balance change:', virtualBalanceChange);
+    }
 
     return {
       isValid: true,
