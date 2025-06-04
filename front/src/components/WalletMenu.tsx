@@ -51,7 +51,7 @@ function formatNearBalance(yoctoNearBalance: string): string {
 export function WalletMenu() {
   const { isAuthenticated, isLoading, error, accountId, login, logout } =
     useAuth();
-  const { getNearBalance, getUsdcWalletBalance, getAgcUsdcBalance } =
+  const { getNearBalance, getUsdcWalletBalance, getAgcUsdcBalance, getIsUsdcLocked, getVirtualUsdcBalance } =
     useNearWallet();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -79,9 +79,13 @@ export function WalletMenu() {
       const usdcBal = await getUsdcWalletBalance(accountId);
       setWalletUsdcBalance(usdcBal);
 
-      // Fetch AGC deposited USDC balance
-      const agcBal = await getAgcUsdcBalance(accountId);
-      setAgcUsdcBalance(agcBal);
+      let balance;
+      if(await getIsUsdcLocked(accountId)) {
+        balance = await getVirtualUsdcBalance(accountId);
+      } else {
+       balance = await getAgcUsdcBalance(accountId);
+      }
+      setAgcUsdcBalance(balance);
     } catch (error) {
       if (isDev) {
         console.error("🔍 error:", error);

@@ -86,7 +86,9 @@ function HomeContent() {
           const prevStateStr = JSON.stringify(prevState);
           const newStateStr = JSON.stringify(data);
           if (prevStateStr !== newStateStr && !data.error) {
-            console.log("🔄 Updating game state:", data);
+            if(isDev) {
+              console.log("🔄 Updating game state:", data);
+            }
             return data;
           }
           return prevState;
@@ -203,11 +205,6 @@ function HomeContent() {
             {bettingError && (
               <div className='mt-4 p-2 border border-red-500 bg-black'>
                 <p className='text-red-400 font-mono text-sm'>{bettingError}</p>
-              </div>
-            )}
-            {bettingLoading && (
-              <div className='mt-4 text-center'>
-                <p className='text-gray-400 font-mono text-sm'>Loading...</p>
               </div>
             )}
           </div>

@@ -44,10 +44,11 @@ export function AccountManager({
   gameState,
 }: AccountManagerProps) {
   const { accountId, apiKey } = useAuth();
-  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance } =
+  const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance, getAgcUsdcBalance } =
     useNearWallet();
-  const [userBalanceOnChain, setUserBalanceOnChain] = useState(0);
-  const [depositedUsdcBalance, setDepositedUsdcBalance] = useState(0);
+  const [walletUsdcBalance, setWalletUsdcBalance] = useState(0);
+  const [virtualUsdcBalance, setVirtualUsdcBalance] = useState(0);
+  const [agcUsdcBalance, setAgcUsdcBalance] = useState(0);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [isTransactionPending, setIsTransactionPending] = useState(false);
@@ -74,22 +75,24 @@ export function AccountManager({
 
     setIsLoadingBalances(true);
     try {
-      const [walletBalance, agcBalance] = await Promise.all([
+      const [walletBalance, virtualBalance, agcBalance] = await Promise.all([
         getUsdcWalletBalance(accountId),
         getVirtualUsdcBalance(apiKey),
+        getAgcUsdcBalance(accountId),
       ]);
-      setUserBalanceOnChain(walletBalance);
-      setDepositedUsdcBalance(agcBalance);
+      setWalletUsdcBalance(walletBalance);
+      setVirtualUsdcBalance(virtualBalance);
+      setAgcUsdcBalance(agcBalance);
     } catch (error) {
       if (isDev) {
         console.error("Fetch balances error:", error);
       }
-      setUserBalanceOnChain(0);
-      setDepositedUsdcBalance(0);
+      setWalletUsdcBalance(0);
+      setVirtualUsdcBalance(0);
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [accountId, apiKey, getUsdcWalletBalance, getVirtualUsdcBalance]);
+  }, [accountId, apiKey, getAgcUsdcBalance, getUsdcWalletBalance, getVirtualUsdcBalance]);
 
   /**
    * Memoized function to fetch lock status - prevents infinite re-renders
@@ -116,7 +119,7 @@ export function AccountManager({
       fetchBalances();
       fetchIsUsdcLocked();
     }
-  }, [accountId, gameState]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, apiKey, gameState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Start spinner only (visual feedback)
@@ -238,7 +241,7 @@ export function AccountManager({
                 <span className='animate-pulse'>Loading...</span>
               ) : (
                 <span className='text-green-400'>
-                  {formatUsdcDisplay(userBalanceOnChain)}
+                  {formatUsdcDisplay(walletUsdcBalance)}
                 </span>
               )}
             </div>
@@ -248,7 +251,7 @@ export function AccountManager({
                 <span className='animate-pulse'>Loading...</span>
               ) : (
                 <span className='text-green-400'>
-                  {formatUsdcDisplay(depositedUsdcBalance)}
+                  {formatUsdcDisplay(agcUsdcBalance)}
                 </span>
               )}
             </div>
@@ -301,7 +304,7 @@ export function AccountManager({
         <div className='text-white font-mono text-sm mt-2'>
           Deposited USDC:{' '}
           <span className='text-green-400'>
-            {formatUsdcDisplay(depositedUsdcBalance)}
+            {formatUsdcDisplay(virtualUsdcBalance)}
           </span>
         </div>
       </div>

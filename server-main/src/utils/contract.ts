@@ -29,6 +29,7 @@ import { getOnChainNonce } from '@/utils/near';
 import { updateUserBetStatus } from './bet';
 import { prisma } from '@/config/prisma.config';
 import { getUserVirtualBalanceAndSync } from './rewards';
+import { getPendingUnlockDeadline, isPendingUnlockValid } from './security';
 
 /**
  * @type {PrismaClient}
@@ -248,19 +249,19 @@ export async function checkPendingUnlock(
  *
  * @example
  * ```typescript
- * const status = await checkUserCanWithdraw(123);
- * if (!status.canWithdraw) {
+ * const status = await checkUserCanUnlock(123);
+ * if (!status.canUnlock) {
  *   console.error('Cannot withdraw:', status.error);
  * }
  * ```
  */
-export async function checkUserCanWithdraw(
+export async function checkUserCanUnlock(
   userId: number,
   verbose: boolean = false,
-): Promise<{ canWithdraw: boolean; error?: string }> {
+): Promise<{ canUnlock: boolean; error?: string }> {
   try {
     const lastBet = await prisma.userBet.findFirst({
-      where: { userId },
+      where: { userId }, // TODO: use userBet.status isntead
       orderBy: { createdAt: 'desc' },
       include: {
         table: {
@@ -273,27 +274,26 @@ export async function checkUserCanWithdraw(
     if (!lastBet) {
       // User has never placed a bet, can withdraw
       if (verbose) {
-        console.log('[Contract] [checkUserCanWithdraw] User has never placed a bet');
+        console.log('[Contract] [checkUserCanUnlock] User has never placed a bet');
       }
-      return { canWithdraw: true };
+      return { canUnlock: true };
     }
 
     // Validation: Check if user's last game is still active
     if (lastBet.table.tableStatus !== 'GAME_OVER') {
       if (verbose) {
-        console.log('[Contract] [checkUserCanWithdraw] User is currently in an active game');
+        console.log('[Contract] [checkUserCanUnlock] User is currently in an active game');
       }
       return {
-        canWithdraw: false,
+        canUnlock: false,
         error: `User is currently in an active game (Table: ${lastBet.table.tableId}, Status: ${lastBet.table.tableStatus})`,
       };
     }
 
-    // TODO: Force a reward distribution update for the user before allowing withdrawal
     if (verbose) {
-      console.log('[Contract] [checkUserCanWithdraw] User can withdraw');
+      console.log('[Contract] [checkUserCanUnlock] User can withdraw');
     }
-    return { canWithdraw: true };
+    return { canUnlock: true };
   } catch (error) {
     throw new Error('Error checking user game status');
   }
@@ -635,7 +635,7 @@ export async function getUserOnChainBalance(userId: number): Promise<number> {
  */
 export async function calculateUnlockAmountChange(userId: number, verbose: boolean = false): Promise<number> {
   try {
-    const virtualBalance = await getUserVirtualBalance(userId);
+    const virtualBalance = await getUserVirtualBalanceAndSync(userId, true);
     if (verbose) {
       console.log('[Contract] [calculateUnlockAmountChange] Virtual balance:', virtualBalance);
     }
@@ -690,19 +690,20 @@ export async function validateUnlockRequest(
       if (verbose) {
         console.log('🔍 User not found');
       }
-      return { isValid: false, error: 'User not found' };
-    }
+      return { isValid: false, error: '[Contract][validateUnlockRequest] User not found' };
+    }  
 
     // 2. Check if user has a pending unlock and if user is in an active game in parallel
-    const [pendingUnlockCheck, gameStatus] = await Promise.all([
-      checkPendingUnlock(user.id, verbose),
-      checkUserCanWithdraw(user.id, verbose),
+    const [pendingUnlockCheck, tableStatus, pendingUnlockDeadline] = await Promise.all([
+      checkPendingUnlock(user.id, verbose), // TODO: use getPendingUnlockDeadline instead
+      checkUserCanUnlock(user.id, verbose),
+      getPendingUnlockDeadline(user.id),
     ]);
 
     // Validation: Check if user has active pending unlock operation
     if (pendingUnlockCheck.hasPendingUnlock) {
       if (verbose) {
-        console.log('[Contract] [validateUnlockRequest] User has active pending unlock operation');
+        console.log('[Contract][validateUnlockRequest] User has active pending unlock operation');
       }
       return {
         isValid: false,
@@ -711,11 +712,18 @@ export async function validateUnlockRequest(
     }
 
     // Validation: Check if user can withdraw based on game status
-    if (!gameStatus.canWithdraw) {
+    if (!tableStatus.canUnlock) {
       if (verbose) {
-        console.log('[Contract] [validateUnlockRequest] User cannot withdraw');
+        console.log('[Contract][validateUnlockRequest] User cannot withdraw');
       }
-      return { isValid: false, error: gameStatus.error };
+      return { isValid: false, error: tableStatus.error };
+    }
+
+    // Security middleware for validating pending unlocks
+    const currentTimestamp = BigInt(Date.now() * 1_000_000);
+    // Validation: Check if user has betting permissions (security-critical)
+    if (pendingUnlockDeadline && isPendingUnlockValid(BigInt(pendingUnlockDeadline), currentTimestamp)) {
+      return { isValid: false, error: '[Contract][validateUnlockRequest] Unlock deadline still valid' };
     }
 
     // 4. Check nonce synchronization and get virtual balance in parallel
@@ -725,8 +733,8 @@ export async function validateUnlockRequest(
     ]);
 
     if (verbose) {
-      console.log('[Contract] [validateUnlockRequest] On-chain nonce:', onChainNonce);
-      console.log('[Contract] [validateUnlockRequest] Virtual balance change:', virtualBalanceChange);
+      console.log('[Contract][validateUnlockRequest] On-chain nonce:', onChainNonce);
+      console.log('[Contract][validateUnlockRequest] Virtual balance change:', virtualBalanceChange);
     }
 
     return {

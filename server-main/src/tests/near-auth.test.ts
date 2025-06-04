@@ -6,7 +6,7 @@ process.env.NODE_ENV = 'test';
 process.env.FRONTEND_URL_LOCAL = 'http://localhost:3000';
 
 // Constants for authentication
-const AUTH_MESSAGE = 'log me in';
+const AUTH_MESSAGE = 'The first Prompt to Earn (P2E) game ever created!';
 const AUTH_CHALLENGE = Buffer.from(Array.from(Array(32).keys()));
 
 // Ensure FRONTEND_URL is defined for tests

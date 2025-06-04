@@ -4,7 +4,7 @@ import js_sha256 from 'js-sha256';
 import { randomBytes } from 'crypto';
 
 // Constants for authentication
-export const AUTH_MESSAGE = 'log me in';
+export const AUTH_MESSAGE = 'The first Prompt to Earn (P2E) game ever created!';
 
 // Generate a new challenge for each authentication attempt
 export function generateChallenge(): Buffer {

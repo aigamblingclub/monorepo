@@ -148,7 +148,7 @@ export function useNearWallet() {
             projectId: NEXT_PUBLIC_CONTRACT_ID,
             metadata: {
               name: 'AI Gambling Club',
-              description: 'AI Gambling Club - NEAR Protocol Gambling Platform',
+              description: 'AI Gambling Club - NEAR Protocol AI Gambling Platform',
               url: 'https://aigambling.club',
               icons: ['https://aigambling.club/logo.png'],
             },
@@ -231,6 +231,7 @@ export function useNearWallet() {
     receiverId?: string;
   }) => {
     const { selector } = walletState;
+
     if (!selector) throw new Error('Wallet not initialized');
     const wallet = await selector.wallet();
 

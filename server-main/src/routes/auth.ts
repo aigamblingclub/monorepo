@@ -115,60 +115,69 @@ router.post('/near/verify', async (req, res) => {
     // Remove the used challenge
     challenges.delete(accountId);
 
-    const isValid = await authenticate({
+    let isValid = false;
+    try {
+      isValid = await authenticate({
       accountId,
       publicKey,
       signature,
       message: AUTH_MESSAGE,
       recipient: FRONTEND_URL!,
-      nonce: storedChallenge.challenge,
-    });
+        nonce: storedChallenge.challenge,
+      });
+    } catch (error) {
+      throw new Error(`[NEAR][VERIFY][AUTHENTICATE] Failed to authenticate with NEAR: ${error}`)
+    }
 
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid signature' });
     }
-
+    
     // Find or create user
-    const user = await prisma.user.upsert({
-      where: {
-        nearNamedAddress: accountId,
-      },
-      update: {
-        lastActiveAt: new Date(),
-      },
-      create: {
-        nearImplicitAddress: publicKey,
-        nearNamedAddress: accountId, // You might want to handle this differently
-        lastActiveAt: new Date(),
-        nonce: 0,
-      },
-    });
-
-    // Generate a new API key for the user
-    const keyValue = crypto.randomBytes(32).toString('hex');
-    const apiKey = await prisma.apiKey.create({
-      data: {
-        keyValue,
-        userId: user.id,
-        isActive: true,
-      },
-    });
-    let virtualBalance;
+    let user;
     try {
-      virtualBalance = await getUserVirtualBalance(user.id);
+      user = await prisma.user.upsert({
+        where: {
+          nearNamedAddress: accountId,
+        },
+        update: {
+          lastActiveAt: new Date(),
+        },
+        create: {
+          nearImplicitAddress: publicKey,
+          nearNamedAddress: accountId, // You might want to handle this differently
+          lastActiveAt: new Date(),
+          nonce: "",
+        },
+      });
     } catch (error) {
-      virtualBalance = 0;
+      throw new Error(`[NEAR][VERIFY][DATABASE] Failed to upsert user: ${error}`)
+    }
+
+    let apiKey;
+    let keyValue;
+    try {
+      // Generate a new API key for the user
+      keyValue = crypto.randomBytes(32).toString('hex');
+      apiKey = await prisma.apiKey.create({
+        data: {
+          keyValue,
+          userId: user.id,
+          isActive: true,
+        },
+      });
+    } catch (error) {
+      throw new Error(`[NEAR][VERIFY][DATABASE] Failed to create api key: ${error}`)
     }
 
     return res.json({
       success: true,
-      balance: virtualBalance,
       user,
       apiKey: { ...apiKey, keyValue },
       message: 'Authentication successful',
     });
   } catch (error) {
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: `Internal server error: ${error}` });
   }
 });
 

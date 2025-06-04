@@ -23,7 +23,7 @@
 import { Router } from 'express';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import { validateUnlockRequest, signGameResult, GameResult } from '@/utils/contract';
-import { setPendingUnlockDeadline, validateUserCanBet } from '@/utils/security';
+import { getPendingUnlockDeadline, setPendingUnlockDeadline, validateUserCanBet } from '@/utils/security';
 
 /**
  * @type {Router}
@@ -108,17 +108,6 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
       return res.status(400).json({
         success: false,
         error: 'Missing required fields: nearNamedAddress',
-      });
-    }
-
-    // Security middleware for betting
-    const criticalValidation = await validateUserCanBet(nearNamedAddress);
-
-    // Validation: Check if user has betting permissions (security-critical)
-    if (!criticalValidation.canBet) {
-      return res.status(403).json({
-        success: false,
-        error: criticalValidation.errors[0],
       });
     }
 

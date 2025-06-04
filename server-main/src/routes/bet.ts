@@ -4,6 +4,7 @@ import { Prisma } from '@/prisma/generated';
 import { getPendingUnlockDeadline, validateUserCanBet } from '../utils/security';
 import { prisma } from '../config/prisma.config';
 import { checkUserCanBet } from '@/utils/bet';
+import { getUserVirtualBalanceAndSync } from '@/utils/rewards';
 
 const router = Router();
 
@@ -166,11 +167,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
       
       const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {        
         // Get user's virtual balance and check if they have enough (within transaction)
-        const userBalance = await tx.userBalance.findUnique({
-          where: { userId },
-          select: { virtualBalance: true },
-        });
-        const virtualBalance = userBalance?.virtualBalance || 0;
+        const virtualBalance = await getUserVirtualBalanceAndSync(userId, true);
 
         if (amount > virtualBalance) {
           throw new Error('Insufficient virtual balance');

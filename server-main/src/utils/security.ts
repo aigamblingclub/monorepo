@@ -135,8 +135,8 @@ export async function validateUserCanBet(
     if (pendingUnlockDeadline) {
       if (verbose) console.log(`[Security] Step 3: Checking pending unlock deadline expiry`);
       const deadlineTimestamp = BigInt(pendingUnlockDeadline);
-      if (currentTimestamp < deadlineTimestamp) {
-        if (verbose) console.log(`[Security] Unlock deadline still valid, disabling betting, currentTimestamp: ${currentTimestamp.toString()}, deadlineTimestamp: ${deadlineTimestamp.toString()}`);
+      if (isPendingUnlockValid(deadlineTimestamp, currentTimestamp)) {
+        if (verbose) console.log(`[Security] Unlock deadline still valid, cant bet, currentTimestamp: ${currentTimestamp.toString()}, deadlineTimestamp: ${deadlineTimestamp.toString()}`);
         errors.push(`Unlock deadline still valid`);
         return { success: false, canBet: false, errors };
       } else {
@@ -185,124 +185,143 @@ export async function validateUserCanBet(
 
     // Step 6: Determine which event is more recent
     const lockIsMoreRecent = isLockMoreRecentThanUnlock(lastLockEvent, lastUnlockEvent);
+    const unlockIsMoreRecent = !lockIsMoreRecent;
     if (verbose) console.log(`[Security] Step 6: Lock is more recent than unlock: ${lockIsMoreRecent}`);
 
     // Step 7: Main validation logic
     if (verbose) console.log(`[Security] Step 7: Main validation logic - userCanBet: ${userCanBet}`);
     
-    // const nonce = await getNonce(user.id);
-    // if (verbose) console.log(`[Security] Step 7.5: Nonce: ${nonce}`);
-    
-  
-    // Validation: User has betting permission enabled
-    if (userCanBet === true) {
-      // Validation: Lock transaction is more recent than unlock
-      if (lockIsMoreRecent) {
-        // User can bet and lock is more recent - do nothing, allow betting
-        if (verbose) console.log(`[Security] User can bet and lock is recent - allowing betting`);
-        canBet = true;
-      } else {
-        // User can bet but unlock is more recent - this shouldn't happen in normal flow
-        if (verbose)
-          console.log(`[Security] User can bet but unlock is more recent - disabling betting`);
-        canBet = false;
-        await setUserCanBet(user.id, false);
-        // Update both balances to match contract within transaction
-        await updateBalanceOnDB(user.id, user.nearNamedAddress);
-      }
-    } else {
-      // userCanBet === false
-      // Validation: Lock transaction is more recent than unlock (balance sync needed)
-      if (lockIsMoreRecent) {
-        if (verbose) console.log(`[Security] User cannot bet but lock is recent - starting balance sync`);
-        // User cannot bet but lock is more recent - need to sync balances and cleanup
-
-        try {
-          // Enter balance synchronization loop with atomic transactions
-          let balanceSyncAttempts = 0;
-          const maxSyncAttempts = 5;
-          let syncSuccessful = false;
-
-          // Validation: Balance synchronization retry loop with maximum attempts
-          while (!syncSuccessful && balanceSyncAttempts < maxSyncAttempts) {
-            balanceSyncAttempts++;
-            if (verbose) console.log(`[Security] Balance sync attempt ${balanceSyncAttempts}/${maxSyncAttempts}`);
-
-            try {
-              // Use Prisma transaction for atomic balance updates
-              await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-                // Update both balances to match contract within transaction
-                await updateBalanceOnDB(user.id, user.nearNamedAddress, tx);
-
-                // Check if balances are synced and if account is still locked (in parallel)
-                const [balancesAreSynced, accountIsStillLocked] = await Promise.all([
-                  checkBalancesAreSynced(user.id, user.nearNamedAddress, tx),
-                  isAccountLocked(user.nearNamedAddress),
-                ]);
-
-                // Validation: Database balances match contract balances
-                if (!balancesAreSynced) {
-                  throw new Error(
-                    `Balances are not synchronized after update attempt ${balanceSyncAttempts}`,
-                  );
-                }
-
-                // Validation: Contract account is no longer locked
-                if (!accountIsStillLocked) {
-                  throw new Error(
-                    `Account is still locked on contract after sync attempt ${balanceSyncAttempts}`,
-                  );
-                }
-
-                // If we reach here, both conditions are met - transaction will commit
-              });
-
-              // If transaction completed successfully, we're done
-              syncSuccessful = true;
-              if (verbose) console.log(`[Security] Balance sync successful on attempt ${balanceSyncAttempts}`);
-              break;
-            } catch (syncError) {
-              if (verbose) console.log(`[Security] Balance sync attempt ${balanceSyncAttempts} failed: ${(syncError as Error).message}`);
-              // Validation: Maximum synchronization attempts reached
-              if (balanceSyncAttempts >= maxSyncAttempts) {
-                errors.push(
-                  `Balance synchronization failed after ${maxSyncAttempts} attempts with automatic rollbacks: ${(syncError as Error).message}`,
-                );
-                return { success: false, canBet: false, errors };
-              }
-
-              // Wait before next attempt
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-
-          // Validation: Balance synchronization completed successfully
-          if (syncSuccessful) {
-            // Successful synchronization - cleanup and allow betting (in parallel)
-            if (verbose) console.log(`[Security] Balance sync completed, cleaning up and enabling betting`);
-
-            await  setUserCanBet(user.id, true);
-            canBet = true;
-          } else {
-            // This shouldn't happen due to the loop logic, but safety check
-            errors.push(
-              `Balance synchronization failed to complete after ${maxSyncAttempts} attempts`,
-            );
-            await setUserCanBet(user.id, false);
-            return { success: false, canBet: false, errors };
-          }
-        } catch (error) {
-          errors.push(`Balance synchronization process failed: ${(error as Error).message}`);
-          if (verbose) console.log(`[Security] Balance sync process failed: ${(error as Error).message}`);
-          return { success: false, canBet: false, errors };
-        }
-      } else {
-        // User cannot bet and unlock is more recent - keep userCanBet as false
-        if (verbose) console.log(`[Security] User cannot bet and unlock is more recent - keeping betting disabled`);
-        canBet = false;
-        await setUserCanBet(user.id, false);
-      }
+    const nonce = await getNonce(user.id);
+    if (verbose) console.log(`[Security] Step 7.1: Nonce: ${nonce}`);
+    // Basically this is the first time after an LOCK event and we haven't synced the user balances yet 
+    // ## The first 'if' is saying that if it's the last event was a LOCK and the nonce is the same, it
+    // means we already synced previously and we are allowed to bet.
+    // ## The second 'if' is saying that if it's the last event was a LOCK and the nonce is not the same
+    // we should get the user balances on the blockchain and set as the virtual balance on the database.
+    if(lockIsMoreRecent && lastLockEvent && lastLockEvent?.transaction_hash === nonce) {
+      if (verbose) console.log(`[Security] Step 7.2: Lock is more recent than unlock and nonce is the same`);
+      canBet = true;
+      // await setUserCanBet(user.id, true);
+    } else if(lockIsMoreRecent && lastLockEvent && lastLockEvent?.transaction_hash !== nonce) {
+      if (verbose) console.log(`[Security] Step 7.3: Lock is more recent than unlock and nonce is not the same`);
+      canBet = true;
+      // await setUserCanBet(user.id, false);
+      await setNonce(user.id, lastLockEvent?.transaction_hash);
+      await updateBalanceOnDB(user.id, user.nearNamedAddress);
+    } else if (unlockIsMoreRecent) {
+      if (verbose) console.log(`[Security] Step 7.4: Unlock is more recent than lock`);
+      canBet = false;
     }
+    
+    // // Validation: User has betting permission enabled
+    // if (userCanBet === true) {
+    //   // Validation: Lock transaction is more recent than unlock
+    //   if (lockIsMoreRecent) {
+    //     // User can bet and lock is more recent - do nothing, allow betting
+    //     if (verbose) console.log(`[Security] User can bet and lock is recent - allowing betting`);
+    //     canBet = true;
+    //   } else {
+    //     // User can bet but unlock is more recent - this shouldn't happen in normal flow
+    //     if (verbose)
+    //       console.log(`[Security] User can bet but unlock is more recent - disabling betting`);
+    //     canBet = false;
+    //     await setUserCanBet(user.id, false);
+    //     // Update both balances to match contract within transaction
+    //     await updateBalanceOnDB(user.id, user.nearNamedAddress);
+    //   }
+    // } else {
+    //   // userCanBet === false
+    //   // Validation: Lock transaction is more recent than unlock (balance sync needed)
+    //   if (lockIsMoreRecent) {
+    //     if (verbose) console.log(`[Security] User cannot bet but lock is recent - starting balance sync`);
+    //     // User cannot bet but lock is more recent - need to sync balances and cleanup
+
+    //     try {
+    //       // Enter balance synchronization loop with atomic transactions
+    //       let balanceSyncAttempts = 0;
+    //       const maxSyncAttempts = 5;
+    //       let syncSuccessful = false;
+
+    //       // Validation: Balance synchronization retry loop with maximum attempts
+    //       while (!syncSuccessful && balanceSyncAttempts < maxSyncAttempts) {
+    //         balanceSyncAttempts++;
+    //         if (verbose) console.log(`[Security] Balance sync attempt ${balanceSyncAttempts}/${maxSyncAttempts}`);
+
+    //         try {
+    //           // Use Prisma transaction for atomic balance updates
+    //           await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    //             // Update both balances to match contract within transaction
+    //             await updateBalanceOnDB(user.id, user.nearNamedAddress, tx);
+
+    //             // Check if balances are synced and if account is still locked (in parallel)
+    //             const [balancesAreSynced, accountIsStillLocked] = await Promise.all([
+    //               checkBalancesAreSynced(user.id, user.nearNamedAddress, tx),
+    //               isAccountLocked(user.nearNamedAddress),
+    //             ]);
+
+    //             // Validation: Database balances match contract balances
+    //             if (!balancesAreSynced) {
+    //               throw new Error(
+    //                 `Balances are not synchronized after update attempt ${balanceSyncAttempts}`,
+    //               );
+    //             }
+
+    //             // Validation: Contract account is no longer locked
+    //             if (!accountIsStillLocked) {
+    //               throw new Error(
+    //                 `Account is still locked on contract after sync attempt ${balanceSyncAttempts}`,
+    //               );
+    //             }
+
+    //             // If we reach here, both conditions are met - transaction will commit
+    //           });
+
+    //           // If transaction completed successfully, we're done
+    //           syncSuccessful = true;
+    //           if (verbose) console.log(`[Security] Balance sync successful on attempt ${balanceSyncAttempts}`);
+    //           break;
+    //         } catch (syncError) {
+    //           if (verbose) console.log(`[Security] Balance sync attempt ${balanceSyncAttempts} failed: ${(syncError as Error).message}`);
+    //           // Validation: Maximum synchronization attempts reached
+    //           if (balanceSyncAttempts >= maxSyncAttempts) {
+    //             errors.push(
+    //               `Balance synchronization failed after ${maxSyncAttempts} attempts with automatic rollbacks: ${(syncError as Error).message}`,
+    //             );
+    //             return { success: false, canBet: false, errors };
+    //           }
+
+    //           // Wait before next attempt
+    //           await new Promise(resolve => setTimeout(resolve, 1000));
+    //         }
+    //       }
+
+    //       // Validation: Balance synchronization completed successfully
+    //       if (syncSuccessful) {
+    //         // Successful synchronization - cleanup and allow betting (in parallel)
+    //         if (verbose) console.log(`[Security] Balance sync completed, cleaning up and enabling betting`);
+
+    //         await  setUserCanBet(user.id, true);
+    //         canBet = true;
+    //       } else {
+    //         // This shouldn't happen due to the loop logic, but safety check
+    //         errors.push(
+    //           `Balance synchronization failed to complete after ${maxSyncAttempts} attempts`,
+    //         );
+    //         await setUserCanBet(user.id, false);
+    //         return { success: false, canBet: false, errors };
+    //       }
+    //     } catch (error) {
+    //       errors.push(`Balance synchronization process failed: ${(error as Error).message}`);
+    //       if (verbose) console.log(`[Security] Balance sync process failed: ${(error as Error).message}`);
+    //       return { success: false, canBet: false, errors };
+    //     }
+    //   } else {
+    //     // User cannot bet and unlock is more recent - keep userCanBet as false
+    //     if (verbose) console.log(`[Security] User cannot bet and unlock is more recent - keeping betting disabled`);
+    //     canBet = false;
+    //     await setUserCanBet(user.id, false);
+    //   }
+    // }
 
     if (verbose) console.log(`[Security] Validation completed - Final result: canBet=${canBet}`);
 
@@ -614,7 +633,7 @@ async function updateBalanceOnDB(
  * }
  * ```
  */
-async function checkBalancesAreSynced(
+export async function checkBalancesAreSynced(
   userId: number,
   nearNamedAddress: string,
   tx?: Prisma.TransactionClient,
@@ -649,17 +668,24 @@ async function checkBalancesAreSynced(
   }
 }
 
-async function getNonce(userId: number): Promise<number> {
+export async function getNonce(userId: number): Promise<string> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { nonce: true },
   });
-  return user?.nonce ?? 0;
+  return user?.nonce ?? "";
 }
 
-async function setNonce(userId: number, nonce: number): Promise<void> {
+export async function setNonce(userId: number, nonce: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
     data: { nonce: nonce },
   });
+}
+
+export function isPendingUnlockValid(pendingUnlockDeadline: bigint, currentTimestamp: bigint): boolean {
+  if (pendingUnlockDeadline > currentTimestamp) {
+    return true;
+  }
+  return false;
 }

@@ -46,7 +46,6 @@ interface GetBalanceResponse {
  */
 router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) => {
   try {
-    console.log('🔍 api/balance/');
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({
