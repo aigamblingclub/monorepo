@@ -33,11 +33,19 @@ coverage
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
 
 # Prisma
 src/prisma/generated/
+src/tests/prisma/generated/
 
 # Database
 src/prisma/database.sqlite
-src/prisma/database.sqlite-journal 
+src/prisma/database.sqlite-journal
+
+# Test database
+src/tests/prisma/*.sqlite
+src/tests/prisma/*.sqlite3
+src/tests/prisma/test.db
+src/tests/prisma/test.sqlite
+src/tests/prisma/test.sqlite3 
