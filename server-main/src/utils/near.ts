@@ -44,7 +44,7 @@ export async function getOnChainNonce(accountId: string, verbose: boolean = fals
   try {
     const nonce = await callViewMethod(AGC_CONTRACT_ID, 'getNonce', { account_id: accountId });
     if (verbose) {
-      console.log('[Near] [getOnChainNonce] On-chain nonce:', nonce, 'for account:', accountId);
+      console.info('[Near] [getOnChainNonce] On-chain nonce:', nonce, 'for account:', accountId);
     }
     return nonce;
   } catch (error) {

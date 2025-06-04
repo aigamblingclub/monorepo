@@ -61,8 +61,8 @@ app.get('/', (req, res) => {
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`Server is running on PORT ${PORT}`);
-    console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
+    console.info(`Server is running on PORT ${PORT}`);
+    console.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
   });
 }
 

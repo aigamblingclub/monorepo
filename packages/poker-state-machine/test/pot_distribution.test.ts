@@ -88,7 +88,7 @@ describe('Pot Distribution', () => {
       
       // Check that the winner is player3
       expect(result.winner).toBe('player3');
-      console.log('result', result);
+      console.info('result', result);
       // Check that player3 receives the pot
       const winningPlayer = result.players.find(p => p.id === 'player3');
       expect(winningPlayer?.chips).toBe(140); // 80 + pot of 60
@@ -100,7 +100,7 @@ describe('Pot Distribution', () => {
       expect(player2After?.chips).toBe(80);
     } catch (error) {
       // If there's an error in the showdown function, the test will fail
-      // console.log('Error in showdown function:', error);
+      // console.info('Error in showdown function:', error);
       throw error;
     }
   });
@@ -144,7 +144,7 @@ describe('Pot Distribution', () => {
       }
     } catch (error) {
       // This test might fail without proper mocking of hand comparison
-      // console.log('Error in showdown function (expected for this test):', error);
+      // console.info('Error in showdown function (expected for this test):', error);
     }
   });
 
@@ -174,7 +174,7 @@ describe('Pot Distribution', () => {
         expect(player.bet.volume).toBe(0);
       }
     } catch (error) {
-      // console.log('Error in showdown function (expected for complex pot distribution):', error);
+      // console.info('Error in showdown function (expected for complex pot distribution):', error);
     }
   });
 });

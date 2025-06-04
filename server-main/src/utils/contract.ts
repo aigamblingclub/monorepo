@@ -163,7 +163,7 @@ export async function signGameResult(gameResult: GameResult): Promise<string> {
  * ```typescript
  * const user = await getUserByNearAddress('alice.near');
  * if (user) {
- *   console.log('User found:', user.id);
+ *   console.info('User found:', user.id);
  * }
  * ```
  */
@@ -217,7 +217,7 @@ export async function checkPendingUnlock(
     // Validation: Check if user has active pending unlock operation
     if (userBalance) {
       if (verbose) {
-        console.log('🔍 User has a pending unlock that has not expired yet');
+        console.info('🔍 User has a pending unlock that has not expired yet');
       }
       return {
         hasPendingUnlock: true,
@@ -226,7 +226,7 @@ export async function checkPendingUnlock(
     }
 
     if (verbose) {
-      console.log('🔍 User has no pending unlock');
+      console.info('🔍 User has no pending unlock');
     }
     return { hasPendingUnlock: false };
   } catch (error) {
@@ -274,7 +274,7 @@ export async function checkUserCanUnlock(
     if (!lastBet) {
       // User has never placed a bet, can withdraw
       if (verbose) {
-        console.log('[Contract] [checkUserCanUnlock] User has never placed a bet');
+        console.info('[Contract] [checkUserCanUnlock] User has never placed a bet');
       }
       return { canUnlock: true };
     }
@@ -282,7 +282,7 @@ export async function checkUserCanUnlock(
     // Validation: Check if user's last game is still active
     if (lastBet.table.tableStatus !== 'GAME_OVER') {
       if (verbose) {
-        console.log('[Contract] [checkUserCanUnlock] User is currently in an active game');
+        console.info('[Contract] [checkUserCanUnlock] User is currently in an active game');
       }
       return {
         canUnlock: false,
@@ -291,7 +291,7 @@ export async function checkUserCanUnlock(
     }
 
     if (verbose) {
-      console.log('[Contract] [checkUserCanUnlock] User can withdraw');
+      console.info('[Contract] [checkUserCanUnlock] User can withdraw');
     }
     return { canUnlock: true };
   } catch (error) {
@@ -318,7 +318,7 @@ export async function checkUserCanUnlock(
  * @example
  * ```typescript
  * await updateUserNonce(123, 5);
- * console.log('User nonce updated successfully');
+ * console.info('User nonce updated successfully');
  * ```
  */
 export async function updateUserNonce(userId: number, newNonce: number): Promise<void> {
@@ -348,7 +348,7 @@ export async function updateUserNonce(userId: number, newNonce: number): Promise
  * @example
  * ```typescript
  * const virtualBalance = await getUserVirtualBalance(123);
- * console.log('Virtual balance:', virtualBalance);
+ * console.info('Virtual balance:', virtualBalance);
  * ```
  */
 export async function getUserVirtualBalance(userId: number): Promise<number> {
@@ -408,7 +408,7 @@ function normalizeWinners(winners: string | string[]): string[] {
  * @example
  * ```typescript
  * const reward = await calculateRewardDistribution('table-1', 123, ['player1', 'player2'], true);
- * console.log('User reward amount:', reward);
+ * console.info('User reward amount:', reward);
  * ```
  */
 export async function calculateRewardDistribution(
@@ -429,7 +429,7 @@ export async function calculateRewardDistribution(
   });
   
   if (verbose) {
-    console.log('🔍 [calculateRewardDistribution] allTableBets', allTableBets);
+    console.info('🔍 [calculateRewardDistribution] allTableBets', allTableBets);
   }
 
   // **REWARD DISTRIBUTION FORMULA IMPLEMENTATION**
@@ -455,15 +455,15 @@ export async function calculateRewardDistribution(
   }
 
   if (verbose) {
-    console.log('🔍 === REWARD DISTRIBUTION CALCULATION ===');
-    console.log('🔍 tableId:', tableId);
-    console.log('🔍 userId:', userId);
-    console.log('🔍 winners:', winners);
-    console.log('🔍 totalPot:', totalPot);
-    console.log('🔍 totalWinningBetsAmount:', totalWinningBetsAmount);
-    console.log('🔍 userTotalBetOnWinners:', userTotalBetOnWinners);
-    console.log('🔍 rewardAmount:', rewardAmount);
-    console.log('🔍 ==========================================');
+    console.info('🔍 === REWARD DISTRIBUTION CALCULATION ===');
+    console.info('🔍 tableId:', tableId);
+    console.info('🔍 userId:', userId);
+    console.info('🔍 winners:', winners);
+    console.info('🔍 totalPot:', totalPot);
+    console.info('🔍 totalWinningBetsAmount:', totalWinningBetsAmount);
+    console.info('🔍 userTotalBetOnWinners:', userTotalBetOnWinners);
+    console.info('🔍 rewardAmount:', rewardAmount);
+    console.info('🔍 ==========================================');
   }
 
   return rewardAmount;
@@ -485,7 +485,7 @@ export async function calculateRewardDistribution(
  * ```typescript
  * const rewards = await getPendingRewards(123, true);
  * if (rewards.hasPendingRewards) {
- *   console.log('User reward:', rewards.rewardAmount);
+ *   console.info('User reward:', rewards.rewardAmount);
  * }
  * ```
  */
@@ -500,12 +500,12 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   });
   
   if (verbose) {
-    console.log('🔍 [getPendingRewards] userBet', userBet);
+    console.info('🔍 [getPendingRewards] userBet', userBet);
   }
   
   if (!userBet) {
     if (verbose) {
-      console.log('🔍 [getPendingRewards] No pending bets found');
+      console.info('🔍 [getPendingRewards] No pending bets found');
     }
     return { hasPendingRewards: false, bet: null, rewardAmount: 0 };
   }
@@ -516,12 +516,12 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   });
   
   if (verbose) {
-    console.log('🔍 [getPendingRewards] table', table);
+    console.info('🔍 [getPendingRewards] table', table);
   }
   
   if (!table) {
     if (verbose) {
-      console.log('🔍 [getPendingRewards] Table not found');
+      console.info('🔍 [getPendingRewards] Table not found');
     }
     return { hasPendingRewards: false, bet: null, rewardAmount: 0 };
   }
@@ -532,17 +532,17 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   const isWinner = isGameOver && normalizedWinners.includes(userBet.playerId);
 
   if (verbose) {
-    console.log('🔍 [getPendingRewards] tableStatus', table.tableStatus);
-    console.log('🔍 [getPendingRewards] table.winners (raw)', table.winners);
-    console.log('🔍 [getPendingRewards] normalizedWinners', normalizedWinners);
-    console.log('🔍 [getPendingRewards] isGameOver', isGameOver);
-    console.log('🔍 [getPendingRewards] isWinner', isWinner);
+    console.info('🔍 [getPendingRewards] tableStatus', table.tableStatus);
+    console.info('🔍 [getPendingRewards] table.winners (raw)', table.winners);
+    console.info('🔍 [getPendingRewards] normalizedWinners', normalizedWinners);
+    console.info('🔍 [getPendingRewards] isGameOver', isGameOver);
+    console.info('🔍 [getPendingRewards] isWinner', isWinner);
   }
 
   // If game is over but user didn't win, update bet status to LOST
   if (isGameOver && !isWinner) {
     if (verbose) {
-      console.log('🔍 [getPendingRewards] Updating bet status to LOST');
+      console.info('🔍 [getPendingRewards] Updating bet status to LOST');
     }
     
     await prisma.userBet.update({
@@ -570,7 +570,7 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   );
 
   if (verbose) {
-    console.log('🔍 [getPendingRewards] User is a winner, will update bet status to WON in getUserVirtualBalanceAndSync');
+    console.info('🔍 [getPendingRewards] User is a winner, will update bet status to WON in getUserVirtualBalanceAndSync');
   }
 
   return { 
@@ -596,7 +596,7 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
  * @example
  * ```typescript
  * const onChainBalance = await getUserOnChainBalance(123);
- * console.log('On-chain balance:', onChainBalance);
+ * console.info('On-chain balance:', onChainBalance);
  * ```
  */
 export async function getUserOnChainBalance(userId: number): Promise<number> {
@@ -629,7 +629,7 @@ export async function getUserOnChainBalance(userId: number): Promise<number> {
  * ```typescript
  * const amountChange = await calculateUnlockAmountChange(123);
  * if (amountChange > 0) {
- *   console.log('User has winnings to unlock:', amountChange);
+ *   console.info('User has winnings to unlock:', amountChange);
  * }
  * ```
  */
@@ -637,11 +637,11 @@ export async function calculateUnlockAmountChange(userId: number, verbose: boole
   try {
     const virtualBalance = await getUserVirtualBalanceAndSync(userId, true);
     if (verbose) {
-      console.log('[Contract] [calculateUnlockAmountChange] Virtual balance:', virtualBalance);
+      console.info('[Contract] [calculateUnlockAmountChange] Virtual balance:', virtualBalance);
     }
     const onChainBalance = await getUserOnChainBalance(userId);
     if (verbose) {
-      console.log('[Contract] [calculateUnlockAmountChange] On-chain balance:', onChainBalance);
+      console.info('[Contract] [calculateUnlockAmountChange] On-chain balance:', onChainBalance);
     }
     // Return the difference (positive for wins, negative for losses)
     return virtualBalance - onChainBalance;
@@ -672,7 +672,7 @@ export async function calculateUnlockAmountChange(userId: number, verbose: boole
  * ```typescript
  * const result = await validateUnlockRequest('alice.near');
  * if (result.isValid) {
- *   console.log('Unlock authorized for amount:', result.virtualBalanceChange);
+ *   console.info('Unlock authorized for amount:', result.virtualBalanceChange);
  * } else {
  *   console.error('Unlock denied:', result.error);
  * }
@@ -688,7 +688,7 @@ export async function validateUnlockRequest(
     const user = await getUserByNearAddress(nearNamedAddress);
     if (!user) {
       if (verbose) {
-        console.log('🔍 User not found');
+        console.info('🔍 User not found');
       }
       return { isValid: false, error: '[Contract][validateUnlockRequest] User not found' };
     }  
@@ -703,7 +703,7 @@ export async function validateUnlockRequest(
     // Validation: Check if user has active pending unlock operation
     if (pendingUnlockCheck.hasPendingUnlock) {
       if (verbose) {
-        console.log('[Contract][validateUnlockRequest] User has active pending unlock operation');
+        console.info('[Contract][validateUnlockRequest] User has active pending unlock operation');
       }
       return {
         isValid: false,
@@ -714,7 +714,7 @@ export async function validateUnlockRequest(
     // Validation: Check if user can withdraw based on game status
     if (!tableStatus.canUnlock) {
       if (verbose) {
-        console.log('[Contract][validateUnlockRequest] User cannot withdraw');
+        console.info('[Contract][validateUnlockRequest] User cannot withdraw');
       }
       return { isValid: false, error: tableStatus.error };
     }
@@ -733,8 +733,8 @@ export async function validateUnlockRequest(
     ]);
 
     if (verbose) {
-      console.log('[Contract][validateUnlockRequest] On-chain nonce:', onChainNonce);
-      console.log('[Contract][validateUnlockRequest] Virtual balance change:', virtualBalanceChange);
+      console.info('[Contract][validateUnlockRequest] On-chain nonce:', onChainNonce);
+      console.info('[Contract][validateUnlockRequest] Virtual balance change:', virtualBalanceChange);
     }
 
     return {

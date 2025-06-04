@@ -50,45 +50,45 @@ async function main() {
   // Set default admin account if not provided
   const finalAdminAccount = adminAccount || accountId;
 
-  console.log(`Deploying AI Gambling Club contract to testnet...`);
-  console.log(`Account ID: ${accountId}`);
-  console.log(`Admin Account: ${finalAdminAccount}`);
-  console.log(`USDC Token Contract: ${usdcTokenContract}`);
-  console.log(`Backend Public Key: ${backendPublicKey}`);
+  console.info(`Deploying AI Gambling Club contract to testnet...`);
+  console.info(`Account ID: ${accountId}`);
+  console.info(`Admin Account: ${finalAdminAccount}`);
+  console.info(`USDC Token Contract: ${usdcTokenContract}`);
+  console.info(`Backend Public Key: ${backendPublicKey}`);
 
   try {
     // Login to NEAR account
-    console.log(`\nPlease login to your NEAR account (${accountId})...`);
+    console.info(`\nPlease login to your NEAR account (${accountId})...`);
     execSync(`near login`, { stdio: 'inherit' });
 
     // Deploy the contract
-    console.log(`\nDeploying contract...`);
+    console.info(`\nDeploying contract...`);
     execSync(`near deploy ${accountId} ${contractFile} --networkId testnet`, {
       stdio: 'inherit',
     });
 
     // Check if the contract is already initialized
-    console.log(`\nChecking if contract is already initialized...`);
+    console.info(`\nChecking if contract is already initialized...`);
     const { isInitialized, adminAccount } =
       await isContractInitialized(accountId);
 
     if (isInitialized) {
-      console.log(`Contract is already initialized, skipping initialization.`);
+      console.info(`Contract is already initialized, skipping initialization.`);
     } else {
       // Initialize the contract
-      console.log(`\nInitializing contract...`);
+      console.info(`\nInitializing contract...`);
       execSync(
         `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${usdcTokenContract}", "backend_public_key": "${backendPublicKey}"}' --accountId ${accountId} --networkId testnet`,
         { stdio: 'inherit' }
       );
     }
 
-    console.log(`\nContract deployed successfully!`);
-    console.log(`Contract: ${accountId}`);
-    console.log(`Admin: ${adminAccount ? adminAccount : finalAdminAccount}`);
-    console.log(`USDC Token Contract: ${usdcTokenContract}`);
-    console.log(`Backend Public Key: ${backendPublicKey}`);
-    console.log(
+    console.info(`\nContract deployed successfully!`);
+    console.info(`Contract: ${accountId}`);
+    console.info(`Admin: ${adminAccount ? adminAccount : finalAdminAccount}`);
+    console.info(`USDC Token Contract: ${usdcTokenContract}`);
+    console.info(`Backend Public Key: ${backendPublicKey}`);
+    console.info(
       `Explorer URL: https://explorer.testnet.near.org/accounts/${accountId}`
     );
   } catch (error) {

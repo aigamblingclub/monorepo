@@ -128,8 +128,8 @@ async function main() {
 
   // Show warning for mainnet deployment
   if (networkArg === 'mainnet') {
-    console.log('⚠️  WARNING: You are about to deploy to NEAR MAINNET ⚠️');
-    console.log(
+    console.info('⚠️  WARNING: You are about to deploy to NEAR MAINNET ⚠️');
+    console.info(
       'This is a production environment. Please confirm your action.'
     );
     const confirmation = await new Promise(resolve => {
@@ -144,35 +144,35 @@ async function main() {
     });
 
     if (!confirmation) {
-      console.log('Deployment cancelled.');
+      console.info('Deployment cancelled.');
       process.exit(0);
     }
   }
 
-  console.log(`Redeploying AI Gambling Club contract to ${networkArg}...`);
-  console.log(`Account ID: ${accountId}`);
-  console.log(`Admin Account: ${finalAdminAccount}`);
-  console.log(`USDC Token Contract: ${finalUsdcContract}`);
-  console.log(`Beneficiary Account: ${beneficiaryAccount}`);
-  console.log(`Backend Public Key: ${backendPublicKey}`);
-  console.log(`Network: ${networkArg}`);
+  console.info(`Redeploying AI Gambling Club contract to ${networkArg}...`);
+  console.info(`Account ID: ${accountId}`);
+  console.info(`Admin Account: ${finalAdminAccount}`);
+  console.info(`USDC Token Contract: ${finalUsdcContract}`);
+  console.info(`Beneficiary Account: ${beneficiaryAccount}`);
+  console.info(`Backend Public Key: ${backendPublicKey}`);
+  console.info(`Network: ${networkArg}`);
 
   try {
     // Login to NEAR account
-    console.log(`\nPlease login to your NEAR account (${accountId})...`);
+    console.info(`\nPlease login to your NEAR account (${accountId})...`);
     execSync(`near login`, { stdio: 'inherit' });
 
     // Safety checks before proceeding
-    console.log('\nPerforming safety checks...');
+    console.info('\nPerforming safety checks...');
 
     // 1. Check target account balance
     const targetAccount = await checkAccountState(accountId, networkArg);
     if (targetAccount.exists) {
-      console.log(
+      console.info(
         `Target account ${accountId} exists with ${targetAccount.balance} NEAR`
       );
       if (targetAccount.balance > 10) {
-        console.log(
+        console.info(
           `⚠️  WARNING: Account has more than 10 NEAR (${targetAccount.balance} NEAR)`
         );
         const proceed = await new Promise(resolve => {
@@ -189,7 +189,7 @@ async function main() {
           );
         });
         if (!proceed) {
-          console.log('Operation cancelled.');
+          console.info('Operation cancelled.');
           process.exit(0);
         }
       }
@@ -226,45 +226,45 @@ async function main() {
       process.exit(1);
     }
 
-    console.log('✅ All safety checks passed');
+    console.info('✅ All safety checks passed');
 
     // Delete the existing contract account
     if (targetAccount.exists) {
-      console.log(`\nDeleting existing contract account...`);
+      console.info(`\nDeleting existing contract account...`);
       execSync(
         `near delete-account ${accountId} ${beneficiaryAccount} --networkId ${networkArg}`,
         { stdio: 'inherit' }
       );
-      console.log(`Successfully deleted account ${accountId}`);
+      console.info(`Successfully deleted account ${accountId}`);
     }
 
     // Create the account again
-    console.log(`\nCreating new account...`);
+    console.info(`\nCreating new account...`);
     execSync(
       `near create-account ${accountId} --masterAccount ${beneficiaryAccount} --initialBalance 10 --networkId ${networkArg}`,
       { stdio: 'inherit' }
     );
 
     // Deploy the contract
-    console.log(`\nDeploying contract...`);
+    console.info(`\nDeploying contract...`);
     execSync(
       `near deploy ${accountId} ${contractFile} --networkId ${networkArg}`,
       { stdio: 'inherit' }
     );
 
     // Initialize the contract
-    console.log(`\nInitializing contract...`);
+    console.info(`\nInitializing contract...`);
     execSync(
       `near call ${accountId} init '{"admin_account": "${finalAdminAccount}", "usdc_token_contract": "${finalUsdcContract}", "backend_public_key": "${backendPublicKey}"}' --accountId ${accountId} --networkId ${networkArg}`,
       { stdio: 'inherit' }
     );
 
-    console.log(`\nContract redeployed successfully!`);
-    console.log(`Contract: ${accountId}`);
-    console.log(`Admin: ${finalAdminAccount}`);
-    console.log(`USDC Token Contract: ${finalUsdcContract}`);
-    console.log(`Backend Public Key: ${backendPublicKey}`);
-    console.log(`Explorer URL: ${networkConfig.explorerUrl}/${accountId}`);
+    console.info(`\nContract redeployed successfully!`);
+    console.info(`Contract: ${accountId}`);
+    console.info(`Admin: ${finalAdminAccount}`);
+    console.info(`USDC Token Contract: ${finalUsdcContract}`);
+    console.info(`Backend Public Key: ${backendPublicKey}`);
+    console.info(`Explorer URL: ${networkConfig.explorerUrl}/${accountId}`);
   } catch (error) {
     console.error('Error redeploying contract:', error.message);
     process.exit(1);

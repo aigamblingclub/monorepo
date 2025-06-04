@@ -84,7 +84,7 @@ interface SecurityValidationResult {
  * ```typescript
  * const result = await validateUserCanBet('alice.near');
  * if (result.success && result.canBet) {
- *   console.log('User can place bets');
+ *   console.info('User can place bets');
  * } else {
  *   console.error('Betting not allowed:', result.errors);
  * }
@@ -97,24 +97,24 @@ export async function validateUserCanBet(
   const errors: string[] = [];
   let canBet = false;
 
-  if (verbose) console.log(`[Security] Starting validation for user: ${nearNamedAddress}`);
+  if (verbose) console.info(`[Security] Starting validation for user: ${nearNamedAddress}`);
 
   try {
     // Validation: Verify user exists in database
-    if (verbose) console.log(`[Security] Step 1: Looking up user in database`);
+    if (verbose) console.info(`[Security] Step 1: Looking up user in database`);
     const user = await getUserByNearAddress(nearNamedAddress);
     if (!user) {
-      if (verbose) console.log(`[Security] User not found in database`);
+      if (verbose) console.info(`[Security] User not found in database`);
       return { success: false, canBet: false, errors: ['User not found'] };
     }
-    if (verbose) console.log(`[Security] User found with ID: ${user.id}`);
+    if (verbose) console.info(`[Security] User found with ID: ${user.id}`);
 
     // Step 1: Get current timestamp in nanoseconds
     const currentTimestamp = BigInt(Date.now() * 1_000_000);
-    if (verbose) console.log(`[Security] Current timestamp: ${currentTimestamp.toString()}`);
+    if (verbose) console.info(`[Security] Current timestamp: ${currentTimestamp.toString()}`);
 
     // Step 2: Get user's current betting status and pending unlock deadline (in parallel)
-    if (verbose) console.log(`[Security] Step 2: Getting user betting status and unlock deadline`);
+    if (verbose) console.info(`[Security] Step 2: Getting user betting status and unlock deadline`);
     let userCanBet: boolean;
     let pendingUnlockDeadline: string | null;
 
@@ -123,29 +123,29 @@ export async function validateUserCanBet(
         getUserCanBet(user.id),
         getPendingUnlockDeadline(user.id),
       ]);
-      if (verbose) console.log(`[Security] User can bet: ${userCanBet}, Pending unlock deadline: ${pendingUnlockDeadline || 'none'}`);
+      if (verbose) console.info(`[Security] User can bet: ${userCanBet}, Pending unlock deadline: ${pendingUnlockDeadline || 'none'}`);
     } catch (error) {
       errors.push(`Failed to get user status: ${(error as Error).message}`);
-      if (verbose) console.log(`[Security] Failed to get user status: ${(error as Error).message}`);
+      if (verbose) console.info(`[Security] Failed to get user status: ${(error as Error).message}`);
       return { success: false, canBet: false, errors };
     }
 
     // Step 3: PRIORITY CHECK - Validate pending unlock deadline (time-sensitive)
     // Validation: Check if pending unlock deadline has expired
     if (pendingUnlockDeadline) {
-      if (verbose) console.log(`[Security] Step 3: Checking pending unlock deadline expiry`);
+      if (verbose) console.info(`[Security] Step 3: Checking pending unlock deadline expiry`);
       const deadlineTimestamp = BigInt(pendingUnlockDeadline);
       if (isPendingUnlockValid(deadlineTimestamp, currentTimestamp)) {
-        if (verbose) console.log(`[Security] Unlock deadline still valid, cant bet, currentTimestamp: ${currentTimestamp.toString()}, deadlineTimestamp: ${deadlineTimestamp.toString()}`);
+        if (verbose) console.info(`[Security] Unlock deadline still valid, cant bet, currentTimestamp: ${currentTimestamp.toString()}, deadlineTimestamp: ${deadlineTimestamp.toString()}`);
         errors.push(`Unlock deadline still valid`);
         return { success: false, canBet: false, errors };
       } else {
-        if (verbose) console.log(`[Security] Unlock deadline not valid anymore`);
+        if (verbose) console.info(`[Security] Unlock deadline not valid anymore`);
       }
     }
 
     // Step 4: Query both lock and unlock events in parallel
-    if (verbose) console.log(`[Security] Step 4: Querying lock/unlock events`);
+    if (verbose) console.info(`[Security] Step 4: Querying lock/unlock events`);
     let lastLockEvent: LockEvent | null;
     let lastUnlockEvent: UnlockEvent | null;
 
@@ -154,24 +154,24 @@ export async function validateUserCanBet(
         getLastLockEvent(user.nearNamedAddress),
         getLastUnlockEvent(user.nearNamedAddress),
       ]);
-      if (verbose) console.log(`[Security] Last lock event: ${lastLockEvent?.timestamp || 'none'}, Last unlock event: ${lastUnlockEvent?.timestamp || 'none'}`);
+      if (verbose) console.info(`[Security] Last lock event: ${lastLockEvent?.timestamp || 'none'}, Last unlock event: ${lastUnlockEvent?.timestamp || 'none'}`);
     } catch (error) {
       errors.push(`Failed to query lock/unlock events: ${(error as Error).message}`);
-      if (verbose) console.log(`[Security] Failed to query events: ${(error as Error).message}`);
+      if (verbose) console.info(`[Security] Failed to query events: ${(error as Error).message}`);
       return { success: false, canBet: false, errors };
     }
 
     // Step 5: Check if user has any transaction history
     // Validation: Handle new users with no blockchain transaction history
     if (!lastLockEvent && !lastUnlockEvent) {
-      if (verbose) console.log(`[Security] Step 5: New user with no transaction history, allowing betting`);
+      if (verbose) console.info(`[Security] Step 5: New user with no transaction history, allowing betting`);
       // New user with no history - allow betting
       canBet = true;
       // First create the balance record for the user
       await updateBalanceOnDB(user.id, user.nearNamedAddress);
       // Then set the userCanBet status to true
       await setUserCanBet(user.id, true);
-      if (verbose) console.log(`[Security] New user setup completed, betting enabled`);
+      if (verbose) console.info(`[Security] New user setup completed, betting enabled`);
       return {
         success: true,
         canBet: true,
@@ -186,30 +186,30 @@ export async function validateUserCanBet(
     // Step 6: Determine which event is more recent
     const lockIsMoreRecent = isLockMoreRecentThanUnlock(lastLockEvent, lastUnlockEvent);
     const unlockIsMoreRecent = !lockIsMoreRecent;
-    if (verbose) console.log(`[Security] Step 6: Lock is more recent than unlock: ${lockIsMoreRecent}`);
+    if (verbose) console.info(`[Security] Step 6: Lock is more recent than unlock: ${lockIsMoreRecent}`);
 
     // Step 7: Main validation logic
-    if (verbose) console.log(`[Security] Step 7: Main validation logic - userCanBet: ${userCanBet}`);
+    if (verbose) console.info(`[Security] Step 7: Main validation logic - userCanBet: ${userCanBet}`);
     
     const nonce = await getNonce(user.id);
-    if (verbose) console.log(`[Security] Step 7.1: Nonce: ${nonce}`);
+    if (verbose) console.info(`[Security] Step 7.1: Nonce: ${nonce}`);
     // Basically this is the first time after an LOCK event and we haven't synced the user balances yet 
     // ## The first 'if' is saying that if it's the last event was a LOCK and the nonce is the same, it
     // means we already synced previously and we are allowed to bet.
     // ## The second 'if' is saying that if it's the last event was a LOCK and the nonce is not the same
     // we should get the user balances on the blockchain and set as the virtual balance on the database.
     if(lockIsMoreRecent && lastLockEvent && lastLockEvent?.transaction_hash === nonce) {
-      if (verbose) console.log(`[Security] Step 7.2: Lock is more recent than unlock and nonce is the same`);
+      if (verbose) console.info(`[Security] Step 7.2: Lock is more recent than unlock and nonce is the same`);
       canBet = true;
       // await setUserCanBet(user.id, true);
     } else if(lockIsMoreRecent && lastLockEvent && lastLockEvent?.transaction_hash !== nonce) {
-      if (verbose) console.log(`[Security] Step 7.3: Lock is more recent than unlock and nonce is not the same`);
+      if (verbose) console.info(`[Security] Step 7.3: Lock is more recent than unlock and nonce is not the same`);
       canBet = true;
       // await setUserCanBet(user.id, false);
       await setNonce(user.id, lastLockEvent?.transaction_hash);
       await updateBalanceOnDB(user.id, user.nearNamedAddress);
     } else if (unlockIsMoreRecent) {
-      if (verbose) console.log(`[Security] Step 7.4: Unlock is more recent than lock`);
+      if (verbose) console.info(`[Security] Step 7.4: Unlock is more recent than lock`);
       canBet = false;
     }
     
@@ -218,12 +218,12 @@ export async function validateUserCanBet(
     //   // Validation: Lock transaction is more recent than unlock
     //   if (lockIsMoreRecent) {
     //     // User can bet and lock is more recent - do nothing, allow betting
-    //     if (verbose) console.log(`[Security] User can bet and lock is recent - allowing betting`);
+    //     if (verbose) console.info(`[Security] User can bet and lock is recent - allowing betting`);
     //     canBet = true;
     //   } else {
     //     // User can bet but unlock is more recent - this shouldn't happen in normal flow
     //     if (verbose)
-    //       console.log(`[Security] User can bet but unlock is more recent - disabling betting`);
+    //       console.info(`[Security] User can bet but unlock is more recent - disabling betting`);
     //     canBet = false;
     //     await setUserCanBet(user.id, false);
     //     // Update both balances to match contract within transaction
@@ -233,7 +233,7 @@ export async function validateUserCanBet(
     //   // userCanBet === false
     //   // Validation: Lock transaction is more recent than unlock (balance sync needed)
     //   if (lockIsMoreRecent) {
-    //     if (verbose) console.log(`[Security] User cannot bet but lock is recent - starting balance sync`);
+    //     if (verbose) console.info(`[Security] User cannot bet but lock is recent - starting balance sync`);
     //     // User cannot bet but lock is more recent - need to sync balances and cleanup
 
     //     try {
@@ -245,7 +245,7 @@ export async function validateUserCanBet(
     //       // Validation: Balance synchronization retry loop with maximum attempts
     //       while (!syncSuccessful && balanceSyncAttempts < maxSyncAttempts) {
     //         balanceSyncAttempts++;
-    //         if (verbose) console.log(`[Security] Balance sync attempt ${balanceSyncAttempts}/${maxSyncAttempts}`);
+    //         if (verbose) console.info(`[Security] Balance sync attempt ${balanceSyncAttempts}/${maxSyncAttempts}`);
 
     //         try {
     //           // Use Prisma transaction for atomic balance updates
@@ -278,10 +278,10 @@ export async function validateUserCanBet(
 
     //           // If transaction completed successfully, we're done
     //           syncSuccessful = true;
-    //           if (verbose) console.log(`[Security] Balance sync successful on attempt ${balanceSyncAttempts}`);
+    //           if (verbose) console.info(`[Security] Balance sync successful on attempt ${balanceSyncAttempts}`);
     //           break;
     //         } catch (syncError) {
-    //           if (verbose) console.log(`[Security] Balance sync attempt ${balanceSyncAttempts} failed: ${(syncError as Error).message}`);
+    //           if (verbose) console.info(`[Security] Balance sync attempt ${balanceSyncAttempts} failed: ${(syncError as Error).message}`);
     //           // Validation: Maximum synchronization attempts reached
     //           if (balanceSyncAttempts >= maxSyncAttempts) {
     //             errors.push(
@@ -298,7 +298,7 @@ export async function validateUserCanBet(
     //       // Validation: Balance synchronization completed successfully
     //       if (syncSuccessful) {
     //         // Successful synchronization - cleanup and allow betting (in parallel)
-    //         if (verbose) console.log(`[Security] Balance sync completed, cleaning up and enabling betting`);
+    //         if (verbose) console.info(`[Security] Balance sync completed, cleaning up and enabling betting`);
 
     //         await  setUserCanBet(user.id, true);
     //         canBet = true;
@@ -312,18 +312,18 @@ export async function validateUserCanBet(
     //       }
     //     } catch (error) {
     //       errors.push(`Balance synchronization process failed: ${(error as Error).message}`);
-    //       if (verbose) console.log(`[Security] Balance sync process failed: ${(error as Error).message}`);
+    //       if (verbose) console.info(`[Security] Balance sync process failed: ${(error as Error).message}`);
     //       return { success: false, canBet: false, errors };
     //     }
     //   } else {
     //     // User cannot bet and unlock is more recent - keep userCanBet as false
-    //     if (verbose) console.log(`[Security] User cannot bet and unlock is more recent - keeping betting disabled`);
+    //     if (verbose) console.info(`[Security] User cannot bet and unlock is more recent - keeping betting disabled`);
     //     canBet = false;
     //     await setUserCanBet(user.id, false);
     //   }
     // }
 
-    if (verbose) console.log(`[Security] Validation completed - Final result: canBet=${canBet}`);
+    if (verbose) console.info(`[Security] Validation completed - Final result: canBet=${canBet}`);
 
     return {
       success: true,
@@ -359,7 +359,7 @@ export async function validateUserCanBet(
  * @example
  * ```typescript
  * const canBet = await getUserCanBet(123);
- * console.log('User betting permission:', canBet);
+ * console.info('User betting permission:', canBet);
  * ```
  */
 export async function getUserCanBet(userId: number): Promise<boolean> {
@@ -440,7 +440,7 @@ export async function setUserCanBet(userId: number, canBet: boolean): Promise<vo
  * ```typescript
  * const deadline = await getPendingUnlockDeadline(123);
  * if (deadline) {
- *   console.log('Unlock deadline:', deadline);
+ *   console.info('Unlock deadline:', deadline);
  * }
  * ```
  */
@@ -538,7 +538,7 @@ export async function setPendingUnlockDeadline(
  * @example
  * ```typescript
  * await clearPendingUnlockDeadline(123);
- * console.log('Unlock deadline cleared for user');
+ * console.info('Unlock deadline cleared for user');
  * ```
  */
 export async function clearPendingUnlockDeadline(userId: number): Promise<void> {
@@ -578,7 +578,7 @@ export async function clearPendingUnlockDeadline(userId: number): Promise<void> 
  * @example
  * ```typescript
  * await updateBalanceOnDB(123, 'user.near');
- * console.log('User balances synchronized with contract');
+ * console.info('User balances synchronized with contract');
  * ```
  */
 async function updateBalanceOnDB(
@@ -629,7 +629,7 @@ async function updateBalanceOnDB(
  * ```typescript
  * const isSync = await checkBalancesAreSynced(123, 'user.near');
  * if (isSync) {
- *   console.log('Balances are synchronized');
+ *   console.info('Balances are synchronized');
  * }
  * ```
  */

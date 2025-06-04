@@ -25,14 +25,14 @@ if (!fs.existsSync(srcFile)) {
   process.exit(1);
 }
 
-console.log('Building AI Gambling Club contract...');
+console.info('Building AI Gambling Club contract...');
 
 try {
   // Use near-sdk-js to build the contract with relative paths
   const command = `npx near-sdk-js build ${srcFile} ${outputFile}`;
-  console.log(`Executing command: ${command}`);
+  console.info(`Executing command: ${command}`);
   execSync(command, { stdio: 'inherit' });
-  console.log(`Contract built successfully: ${outputFile}`);
+  console.info(`Contract built successfully: ${outputFile}`);
 } catch (error) {
   console.error('Error building contract:', error.message);
   process.exit(1);

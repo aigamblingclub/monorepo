@@ -87,7 +87,7 @@ function HomeContent() {
           const newStateStr = JSON.stringify(data);
           if (prevStateStr !== newStateStr && !data.error) {
             if(isDev) {
-              console.log("🔄 Updating game state:", data);
+              console.info("🔄 Updating game state:", data);
             }
             return data;
           }

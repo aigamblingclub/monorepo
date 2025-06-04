@@ -75,7 +75,7 @@ describe('Bet System Integration Tests', () => {
   let apiKey: string;
 
   beforeAll(async () => {
-    console.log('🧹 Starting test cleanup...');
+    console.info('🧹 Starting test cleanup...');
     // Clean up database before tests
     await prisma.userBet.deleteMany();
     await prisma.player_Table.deleteMany();
@@ -84,7 +84,7 @@ describe('Bet System Integration Tests', () => {
     await prisma.apiKey.deleteMany();
     await prisma.user.deleteMany();
     await prisma.player.deleteMany();
-    console.log('✨ Database cleaned up');
+    console.info('✨ Database cleaned up');
   });
 
   afterAll(async () => {
@@ -101,7 +101,7 @@ describe('Bet System Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    console.log('\n🔄 Starting new test setup...');
+    console.info('\n🔄 Starting new test setup...');
     // Reset all mocks before each test
     jest.clearAllMocks();
     (isAccountLocked as jest.Mock).mockResolvedValue(false);
@@ -121,7 +121,7 @@ describe('Bet System Integration Tests', () => {
         lastActiveAt: null,
       },
     });
-    console.log('👤 Created user1:', { id: user1.id, address: user1.nearImplicitAddress });
+    console.info('👤 Created user1:', { id: user1.id, address: user1.nearImplicitAddress });
 
     user2 = await prisma.user.create({
       data: {
@@ -131,7 +131,7 @@ describe('Bet System Integration Tests', () => {
         lastActiveAt: null,
       },
     });
-    console.log('👤 Created user2:', { id: user2.id, address: user2.nearImplicitAddress });
+    console.info('👤 Created user2:', { id: user2.id, address: user2.nearImplicitAddress });
 
     // Create API key for user1
     const apiKeyRecord = await prisma.apiKey.create({
@@ -141,7 +141,7 @@ describe('Bet System Integration Tests', () => {
       },
     });
     apiKey = apiKeyRecord.keyValue;
-    console.log('🔑 Created API key:', { key: apiKey, userId: user1.id });
+    console.info('🔑 Created API key:', { key: apiKey, userId: user1.id });
 
     // Create user balances with locked virtual balance
     const balance1 = await prisma.userBalance.create({
@@ -152,7 +152,7 @@ describe('Bet System Integration Tests', () => {
         userCanBet: true,
       },
     });
-    console.log('💰 Created balance for user1:', { userId: user1.id, balance: balance1.virtualBalance });
+    console.info('💰 Created balance for user1:', { userId: user1.id, balance: balance1.virtualBalance });
 
     const balance2 = await prisma.userBalance.create({
       data: {
@@ -162,7 +162,7 @@ describe('Bet System Integration Tests', () => {
         userCanBet: true,
       },
     });
-    console.log('💰 Created balance for user2:', { userId: user2.id, balance: balance2.virtualBalance });
+    console.info('💰 Created balance for user2:', { userId: user2.id, balance: balance2.virtualBalance });
 
     // Create players
     player1 = await prisma.player.create({
@@ -171,7 +171,7 @@ describe('Bet System Integration Tests', () => {
         playerName: 'Player 1',
       },
     });
-    console.log('🎮 Created player1:', { id: player1.playerId });
+    console.info('🎮 Created player1:', { id: player1.playerId });
 
     player2 = await prisma.player.create({
       data: {
@@ -179,7 +179,7 @@ describe('Bet System Integration Tests', () => {
         playerName: 'Player 2',
       },
     });
-    console.log('🎮 Created player2:', { id: player2.playerId });
+    console.info('🎮 Created player2:', { id: player2.playerId });
 
     // Create a table
     table = await prisma.table.create({
@@ -192,7 +192,7 @@ describe('Bet System Integration Tests', () => {
         winners: '[]',
       },
     });
-    console.log('🎲 Created table:', { id: table.tableId, status: table.tableStatus });
+    console.info('🎲 Created table:', { id: table.tableId, status: table.tableStatus });
 
     // Add players to table
     await prisma.player_Table.create({
@@ -205,7 +205,7 @@ describe('Bet System Integration Tests', () => {
         currentBalance: 1000,
       },
     });
-    console.log('👥 Added player1 to table');
+    console.info('👥 Added player1 to table');
 
     await prisma.player_Table.create({
       data: {
@@ -217,7 +217,7 @@ describe('Bet System Integration Tests', () => {
         currentBalance: 1000,
       },
     });
-    console.log('👥 Added player2 to table');
+    console.info('👥 Added player2 to table');
   });
 
   afterEach(async () => {
@@ -232,14 +232,14 @@ describe('Bet System Integration Tests', () => {
   });
 
   test('should allow users to place bets when virtual balance is locked and table is waiting', async () => {
-    console.log('\n🎯 Starting bet test...');
+    console.info('\n🎯 Starting bet test...');
     // Mock blockchain interactions for this test
     (getOnChainUsdcBalance as jest.Mock).mockResolvedValue(1000);
     (isAccountLocked as jest.Mock).mockResolvedValue(false);
     (getLastLockEvent as jest.Mock).mockResolvedValue(null);
     (getLastUnlockEvent as jest.Mock).mockResolvedValue(null);
 
-    console.log('📤 Sending bet request...');
+    console.info('📤 Sending bet request...');
     // Place bet for user1
     const betResponse = await request(app)
       .post('/api/bet')
@@ -249,7 +249,7 @@ describe('Bet System Integration Tests', () => {
         amount: 100,
       });
 
-    console.log('📥 Received response:', {
+    console.info('📥 Received response:', {
       status: betResponse.status,
       body: betResponse.body
     });
@@ -263,7 +263,7 @@ describe('Bet System Integration Tests', () => {
     const updatedUserBalance = await prisma.userBalance.findUnique({
       where: { userId: user1.id },
     });
-    console.log('💰 Updated balance:', { userId: user1.id, balance: updatedUserBalance?.virtualBalance });
+    console.info('💰 Updated balance:', { userId: user1.id, balance: updatedUserBalance?.virtualBalance });
 
     expect(updatedUserBalance?.virtualBalance).toBe(900); // 1000 - 100
   }, 30000);
@@ -454,16 +454,16 @@ describe('Bet System Integration Tests', () => {
   }, 30000);
 
   test('should not allow multiple bets from the same user', async () => {
-    console.log('\n🔍 === MULTIPLE BETS TEST START ===');
+    console.info('\n🔍 === MULTIPLE BETS TEST START ===');
     
     // Check initial balance
     const initialBalance = await prisma.userBalance.findUnique({
       where: { userId: user1.id },
     });
-    console.log('🔍 Initial balance:', initialBalance?.virtualBalance);
+    console.info('🔍 Initial balance:', initialBalance?.virtualBalance);
 
     // Place first bet
-    console.log('🔍 Placing first bet...');
+    console.info('🔍 Placing first bet...');
     const betResponse1 = await request(app)
       .post('/api/bet')
       .set('x-api-key', apiKey)
@@ -472,37 +472,37 @@ describe('Bet System Integration Tests', () => {
         amount: 100,
       });
 
-    console.log('🔍 First bet response:', { status: betResponse1.status, success: betResponse1.body.success });
+    console.info('🔍 First bet response:', { status: betResponse1.status, success: betResponse1.body.success });
     expect(betResponse1.status).toBe(200);
     expect(betResponse1.body.success).toBe(true);
 
     // Force SQLite WAL checkpoint and synchronization
-    console.log('🔍 Forcing SQLite WAL checkpoint...');
+    console.info('🔍 Forcing SQLite WAL checkpoint...');
     await prisma.$queryRaw`PRAGMA wal_checkpoint(FULL);`;
     await prisma.$queryRaw`PRAGMA synchronous = FULL;`;
     await prisma.$disconnect();
     await new Promise(resolve => setTimeout(resolve, 100));
     
     // Wait much longer to ensure isolation
-    console.log('🔍 Waiting 2000ms for complete transaction isolation...');
+    console.info('🔍 Waiting 2000ms for complete transaction isolation...');
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Verify first bet was committed to database with fresh connection
     let balanceAfterFirstBet = await prisma.userBalance.findUnique({
       where: { userId: user1.id },
     });
-    console.log('🔍 Balance after first bet (fresh connection):', balanceAfterFirstBet?.virtualBalance);
+    console.info('🔍 Balance after first bet (fresh connection):', balanceAfterFirstBet?.virtualBalance);
     
     // Check if bet was created
     const betCount = await prisma.userBet.count({
       where: { userId: user1.id, tableId: table.tableId }
     });
-    console.log('🔍 Number of bets created:', betCount);
+    console.info('🔍 Number of bets created:', betCount);
 
     expect(balanceAfterFirstBet?.virtualBalance).toBe(900); // First bet should be processed
 
     // Try to place second bet - should fail
-    console.log('🔍 Placing second bet (should fail)...');
+    console.info('🔍 Placing second bet (should fail)...');
     const betResponse2 = await request(app)
       .post('/api/bet')
       .set('x-api-key', apiKey)
@@ -511,13 +511,13 @@ describe('Bet System Integration Tests', () => {
         amount: 200,
       });
 
-    console.log('🔍 Second bet response:', { status: betResponse2.status, success: betResponse2.body.success, error: betResponse2.body.error });
+    console.info('🔍 Second bet response:', { status: betResponse2.status, success: betResponse2.body.success, error: betResponse2.body.error });
     expect(betResponse2.status).toBe(400);
     expect(betResponse2.body.success).toBe(false);
     expect(betResponse2.body.error).toContain('User is in an active game');
 
     // Force another database refresh after failed bet
-    console.log('🔍 Forcing database refresh after second bet...');
+    console.info('🔍 Forcing database refresh after second bet...');
     await prisma.$queryRaw`PRAGMA wal_checkpoint(FULL);`;
     await prisma.$disconnect();
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -526,15 +526,15 @@ describe('Bet System Integration Tests', () => {
     const finalUserBalance = await prisma.userBalance.findUnique({
       where: { userId: user1.id },
     });
-    console.log('🔍 Final balance (after refresh):', finalUserBalance?.virtualBalance);
+    console.info('🔍 Final balance (after refresh):', finalUserBalance?.virtualBalance);
     
     // Check final bet count
     const finalBetCount = await prisma.userBet.count({
       where: { userId: user1.id, tableId: table.tableId }
     });
-    console.log('🔍 Final number of bets:', finalBetCount);
+    console.info('🔍 Final number of bets:', finalBetCount);
     
-    console.log('🔍 === MULTIPLE BETS TEST END ===\n');
+    console.info('🔍 === MULTIPLE BETS TEST END ===\n');
     
     /* 
      * SQLite Transaction Isolation Issue:
@@ -745,8 +745,8 @@ describe('Bet System Integration Tests', () => {
     const user1UpdatedBalance = await getUserVirtualBalanceAndSync(user1.id, true);
     const user2UpdatedBalance = await getUserVirtualBalanceAndSync(user2.id, true);
 
-    console.log('🎯 User1 updated balance:', user1UpdatedBalance);
-    console.log('🎯 User2 updated balance:', user2UpdatedBalance);
+    console.info('🎯 User1 updated balance:', user1UpdatedBalance);
+    console.info('🎯 User2 updated balance:', user2UpdatedBalance);
 
     // Verify bet statuses were updated
     const user1Bet = await prisma.userBet.findFirst({
@@ -881,7 +881,7 @@ describe('Bet System Integration Tests', () => {
     const user2UpdatedBalance = await getUserVirtualBalanceAndSync(user2.id, true);
     const user3UpdatedBalance = await getUserVirtualBalanceAndSync(user3.id, true);
 
-    console.log('🎯 Multiple winners test balances:', {
+    console.info('🎯 Multiple winners test balances:', {
       user1: user1UpdatedBalance,
       user2: user2UpdatedBalance,
       user3: user3UpdatedBalance
@@ -1000,7 +1000,7 @@ describe('Bet System Integration Tests', () => {
     const user1UpdatedBalance = await getUserVirtualBalanceAndSync(user1.id, true);
     const user2UpdatedBalance = await getUserVirtualBalanceAndSync(user2.id, true);
 
-    console.log('🎯 Uneven split test balances:', {
+    console.info('🎯 Uneven split test balances:', {
       user1: user1UpdatedBalance,
       user2: user2UpdatedBalance
     });

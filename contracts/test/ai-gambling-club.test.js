@@ -68,7 +68,7 @@ describe('AI Gambling Club Contract Tests', function () {
       backendWallet = new ethers.Wallet(backendPrivateKey);
       backendAddress = backendWallet.address;
 
-      console.log(`Successfully connected to NEAR accounts:
+      console.info(`Successfully connected to NEAR accounts:
       - Main account: ${AccountAddress}
       - Bob's account: ${bobAddress}
       - Backend wallet: ${backendAddress}`);
@@ -118,7 +118,7 @@ describe('AI Gambling Club Contract Tests', function () {
           .includes('Contract already initialized') ||
           deployResult.alreadyInitialized === true)
       ) {
-        console.log(
+        console.info(
           'Contract was already deployed and initialized at',
           Contract
         );
@@ -129,7 +129,7 @@ describe('AI Gambling Club Contract Tests', function () {
       expect(deployResult.success).to.be.true;
       expect(deployResult.contractId).to.equal(ContractAddress);
 
-      console.log(`Successfully deployed contract to ${ContractAddress}`);
+      console.info(`Successfully deployed contract to ${ContractAddress}`);
     } catch (error) {
       console.error('Deployment error:', error);
       throw error;
@@ -143,7 +143,7 @@ describe('AI Gambling Club Contract Tests', function () {
       const admin = await callViewMethod(ContractAddress, 'getAdmin', {});
 
       expect(admin).includes(AccountAddress);
-      console.log(`Admin account is ${admin}`);
+      console.info(`Admin account is ${admin}`);
     } catch (error) {
       console.error('Error getting admin:', error);
       throw error;
@@ -159,11 +159,11 @@ describe('AI Gambling Club Contract Tests', function () {
         'getAdmin',
         {}
       );
-      console.log('Current admin:', currentAdmin);
+      console.info('Current admin:', currentAdmin);
 
       // New admin account is the same as the current admin in this test
       const newAdmin = AccountAddress;
-      console.log('New admin will be:', newAdmin);
+      console.info('New admin will be:', newAdmin);
 
       // Call the changeAdmin method
       await callWriteMethod(Contract, ContractAddress, 'changeAdmin', {
@@ -172,10 +172,10 @@ describe('AI Gambling Club Contract Tests', function () {
 
       // Verify the admin was changed
       const admin = await callViewMethod(ContractAddress, 'getAdmin', {});
-      console.log('Admin after change:', admin);
+      console.info('Admin after change:', admin);
       expect(admin).to.equal(newAdmin);
 
-      console.log(`Successfully changed admin to ${newAdmin}`);
+      console.info(`Successfully changed admin to ${newAdmin}`);
     } catch (error) {
       console.error('Error changing admin:', error);
       throw error;
@@ -188,14 +188,14 @@ describe('AI Gambling Club Contract Tests', function () {
       // Set a new Ethereum address
       const newBackendAddress = process.env.BACKEND_PUBLIC_KEY; // Using the same address from env
 
-      console.log('Updating backend signer to:', newBackendAddress);
+      console.info('Updating backend signer to:', newBackendAddress);
 
       // Call the updateBackendSigner method
       await callWriteMethod(Contract, ContractAddress, 'updateBackendSigner', {
         new_public_key: newBackendAddress,
       });
 
-      console.log(
+      console.info(
         `Successfully updated backend signer to ${newBackendAddress}`
       );
     } catch (error) {
@@ -212,7 +212,7 @@ describe('AI Gambling Club Contract Tests', function () {
         account_id: bobAddress,
       });
       if (isLocked) {
-        console.log('Account is locked, skipping usdct transfer test');
+        console.info('Account is locked, skipping usdct transfer test');
         this.skip();
         return;
       }
@@ -230,7 +230,7 @@ describe('AI Gambling Club Contract Tests', function () {
         { account_id: bobAddress }
       );
 
-      console.log('Initial contract balance:', initialContractBalance);
+      console.info('Initial contract balance:', initialContractBalance);
 
       // Convert USD amount to USDC decimals
       const transferAmount = (usdAmount * 1_000_000).toString();
@@ -265,8 +265,8 @@ describe('AI Gambling Club Contract Tests', function () {
         BigInt(newContractBalance) - BigInt(initialContractBalance)
       ).to.equal(BigInt(transferAmount));
 
-      console.log(`Successfully transferred ${usdAmount} USDC to contract`);
-      console.log(`New contract balance: ${newContractBalance}`);
+      console.info(`Successfully transferred ${usdAmount} USDC to contract`);
+      console.info(`New contract balance: ${newContractBalance}`);
     } catch (error) {
       console.error('Error in USDC transfer test:', error);
       throw error;
@@ -305,7 +305,7 @@ describe('AI Gambling Club Contract Tests', function () {
       );
       expect(finalLockStatus).to.be.true;
 
-      console.log(`Successfully locked USDC balance for ${AccountAddress}`);
+      console.info(`Successfully locked USDC balance for ${AccountAddress}`);
     } catch (error) {
       console.error('Error in USDC lock test:', error);
       throw error;
@@ -323,7 +323,7 @@ describe('AI Gambling Club Contract Tests', function () {
       );
 
       if (!isInitiallyLocked) {
-        console.log('Account not locked, locking it first...');
+        console.info('Account not locked, locking it first...');
         await callWriteMethod(Bob, ContractAddress, 'lockUsdcBalance', {});
 
         // Verify it's now locked
@@ -333,7 +333,7 @@ describe('AI Gambling Club Contract Tests', function () {
           { account_id: bobAddress }
         );
         expect(isNowLocked).to.be.true;
-        console.log('Account successfully locked');
+        console.info('Account successfully locked');
       }
 
       // Get initial balance
@@ -348,7 +348,7 @@ describe('AI Gambling Club Contract Tests', function () {
         account_id: bobAddress,
       });
 
-      console.log('%s Initial Nonce: %s', bobAddress, initialNonce);
+      console.info('%s Initial Nonce: %s', bobAddress, initialNonce);
 
       // Create game result message
       const gameResult = {
@@ -360,9 +360,9 @@ describe('AI Gambling Club Contract Tests', function () {
 
       // Generate signature using ethers wallet
       const message = JSON.stringify(gameResult);
-      console.log('Message:', message);
+      console.info('Message:', message);
       const signature = await backendWallet.signMessage(message);
-      console.log('Signature:', signature);
+      console.info('Signature:', signature);
 
       // Call unlockUsdcBalance
       try {
@@ -400,13 +400,13 @@ describe('AI Gambling Club Contract Tests', function () {
         account_id: bobAddress,
       });
 
-      console.log('%s Final Nonce: %s', bobAddress, finalNonce);
+      console.info('%s Final Nonce: %s', bobAddress, finalNonce);
       expect(finalNonce).to.equal(initialNonce + 1);
 
-      console.log(
+      console.info(
         `Successfully unlocked USDC balance for ${bobAddress} with ${gameResult.amount} USDC win`
       );
-      console.log(
+      console.info(
         `Nonce correctly incremented from ${initialNonce} to ${finalNonce}`
       );
     } catch (error) {
@@ -426,7 +426,7 @@ describe('AI Gambling Club Contract Tests', function () {
       );
 
       if (!isInitiallyLocked) {
-        console.log('Account not locked, locking it first...');
+        console.info('Account not locked, locking it first...');
         await callWriteMethod(Bob, ContractAddress, 'lockUsdcBalance', {});
 
         // Verify it's now locked
@@ -436,7 +436,7 @@ describe('AI Gambling Club Contract Tests', function () {
           { account_id: bobAddress }
         );
         expect(isNowLocked).to.be.true;
-        console.log('Account successfully locked');
+        console.info('Account successfully locked');
       }
 
       // Get initial balance
@@ -446,14 +446,14 @@ describe('AI Gambling Club Contract Tests', function () {
         { account_id: bobAddress }
       );
 
-      console.log('%s Initial Balance: %s', bobAddress, initialBalance);
+      console.info('%s Initial Balance: %s', bobAddress, initialBalance);
 
       // Get initial nonce
       const initialNonce = await callViewMethod(ContractAddress, 'getNonce', {
         account_id: bobAddress,
       });
 
-      console.log('%s Initial Nonce: %s', bobAddress, initialNonce);
+      console.info('%s Initial Nonce: %s', bobAddress, initialNonce);
 
       // Create game result message with a loss
       const gameResult = {
@@ -465,9 +465,9 @@ describe('AI Gambling Club Contract Tests', function () {
 
       // Generate signature using ethers wallet
       const message = JSON.stringify(gameResult);
-      console.log('Message:', message);
+      console.info('Message:', message);
       const signature = await backendWallet.signMessage(message);
-      console.log('Signature:', signature);
+      console.info('Signature:', signature);
 
       // Call unlockUsdcBalance
       try {
@@ -489,7 +489,7 @@ describe('AI Gambling Club Contract Tests', function () {
         { account_id: bobAddress }
       );
 
-      console.log('%s Final Balance: %s', bobAddress, finalBalance);
+      console.info('%s Final Balance: %s', bobAddress, finalBalance);
 
       // Verify balance decreased by loss amount
       expect(BigInt(finalBalance) - BigInt(initialBalance)).to.equal(
@@ -507,13 +507,13 @@ describe('AI Gambling Club Contract Tests', function () {
         account_id: bobAddress,
       });
 
-      console.log('%s Final Nonce: %s', bobAddress, finalNonce);
+      console.info('%s Final Nonce: %s', bobAddress, finalNonce);
       expect(finalNonce).to.equal(initialNonce + 1);
 
-      console.log(
+      console.info(
         `Successfully unlocked USDC balance for ${bobAddress} with ${gameResult.amount} USDC loss`
       );
-      console.log(
+      console.info(
         `Nonce correctly incremented from ${initialNonce} to ${finalNonce}`
       );
     } catch (error) {
@@ -532,7 +532,7 @@ describe('AI Gambling Club Contract Tests', function () {
     );
 
     if (!isInitiallyLocked) {
-      console.log('Account not locked, locking it first...');
+      console.info('Account not locked, locking it first...');
       await callWriteMethod(Bob, ContractAddress, 'lockUsdcBalance', {});
 
       // Verify it's now locked
@@ -542,7 +542,7 @@ describe('AI Gambling Club Contract Tests', function () {
         { account_id: bobAddress }
       );
       expect(isNowLocked).to.be.true;
-      console.log('Account successfully locked');
+      console.info('Account successfully locked');
     }
 
     // Get initial balance
@@ -552,14 +552,14 @@ describe('AI Gambling Club Contract Tests', function () {
       { account_id: bobAddress }
     );
 
-    console.log('%s Initial Balance: %s', bobAddress, initialBalance);
+    console.info('%s Initial Balance: %s', bobAddress, initialBalance);
 
     // Get initial nonce
     const initialNonce = await callViewMethod(ContractAddress, 'getNonce', {
       account_id: bobAddress,
     });
 
-    console.log('%s Initial Nonce: %s', bobAddress, initialNonce);
+    console.info('%s Initial Nonce: %s', bobAddress, initialNonce);
 
     // Create game result message with a loss
     const gameResult = {
@@ -571,9 +571,9 @@ describe('AI Gambling Club Contract Tests', function () {
 
     // Generate signature using ethers wallet
     const message = JSON.stringify(gameResult);
-    console.log('Message:', message);
+    console.info('Message:', message);
     const signature = await backendWallet.signMessage(message);
-    console.log('Signature:', signature);
+    console.info('Signature:', signature);
 
     // Sabotage the value to withdraw
     gameResult.amount = '50000000'; // 50 USDC
@@ -602,10 +602,10 @@ describe('AI Gambling Club Contract Tests', function () {
           'clearPendingWithdrawal',
           { account_id: bobAddress }
         );
-        console.log('Cleared any pending withdrawal status');
+        console.info('Cleared any pending withdrawal status');
       } catch (error) {
         // Ignore if method doesn't exist or fails
-        console.log('No pending withdrawal to clear or method failed');
+        console.info('No pending withdrawal to clear or method failed');
       }
 
       // Check if account is locked, if yes, unlock it first
@@ -616,7 +616,7 @@ describe('AI Gambling Club Contract Tests', function () {
       );
 
       if (isInitiallyLocked) {
-        console.log('Account locked, unlocking it first...');
+        console.info('Account locked, unlocking it first...');
 
         const initialNonce = await callViewMethod(ContractAddress, 'getNonce', {
           account_id: bobAddress,
@@ -636,7 +636,7 @@ describe('AI Gambling Club Contract Tests', function () {
           message: message,
           signature: signature,
         });
-        console.log('Account unlocked successfully');
+        console.info('Account unlocked successfully');
       }
 
       // Get initial balance
@@ -645,7 +645,7 @@ describe('AI Gambling Club Contract Tests', function () {
         'getUsdcBalance',
         { account_id: bobAddress }
       );
-      console.log(
+      console.info(
         `Initial USDC balance on the AGC contract state: ${initialBalance}`
       );
 
@@ -655,7 +655,7 @@ describe('AI Gambling Club Contract Tests', function () {
         'ft_balance_of',
         { account_id: bobAddress }
       );
-      console.log(
+      console.info(
         `Initial USDC balance on Bob's account: ${initialBalanceOnUsdcContract}`
       );
 
@@ -673,7 +673,7 @@ describe('AI Gambling Club Contract Tests', function () {
         'getUsdcBalance',
         { account_id: bobAddress }
       );
-      console.log(
+      console.info(
         `Final USDC balance on the AGC contract state: ${finalBalance}`
       );
 
@@ -683,7 +683,7 @@ describe('AI Gambling Club Contract Tests', function () {
         'ft_balance_of',
         { account_id: bobAddress }
       );
-      console.log(
+      console.info(
         `Final USDC balance on Bob's account: ${finalBalanceOnUsdcContract}`
       );
 
@@ -698,7 +698,7 @@ describe('AI Gambling Club Contract Tests', function () {
           BigInt(initialBalanceOnUsdcContract)
       ).to.equal(BigInt('1000000'));
 
-      console.log('Withdrawal test completed successfully!');
+      console.info('Withdrawal test completed successfully!');
     } catch (error) {
       console.error('Error in USDC withdrawal test:', error);
       throw error;

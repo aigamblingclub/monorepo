@@ -64,7 +64,7 @@ export async function getUserVirtualBalanceAndSync(userId: number, verbose: bool
 
   if (!userBalance) {
     if (verbose) {
-      console.log('🔍 User balance not found');
+      console.info('🔍 User balance not found');
     }
     return 0;
   }
@@ -78,7 +78,7 @@ export async function getUserVirtualBalanceAndSync(userId: number, verbose: bool
       data: { virtualBalance: userVirtualBalance + pendingRewards.rewardAmount },
     });
     if (verbose) {
-      console.log('🔍 User balance updated', userBalanceUpdated);
+      console.info('🔍 User balance updated', userBalanceUpdated);
     }
 
     // update user bet status to WON
@@ -122,7 +122,7 @@ export async function calculateRewardDistribution(
   });
   
   if (verbose) {
-    console.log('🔍 [calculateRewardDistribution] allTableBets', allTableBets);
+    console.info('🔍 [calculateRewardDistribution] allTableBets', allTableBets);
   }
 
   // **REWARD DISTRIBUTION FORMULA IMPLEMENTATION**
@@ -148,15 +148,15 @@ export async function calculateRewardDistribution(
   }
 
   if (verbose) {
-    console.log('🔍 === REWARD DISTRIBUTION CALCULATION ===');
-    console.log('🔍 tableId:', tableId);
-    console.log('🔍 userId:', userId);
-    console.log('🔍 winners:', winners);
-    console.log('🔍 totalPot:', totalPot);
-    console.log('🔍 totalWinningBetsAmount:', totalWinningBetsAmount);
-    console.log('🔍 userTotalBetOnWinners:', userTotalBetOnWinners);
-    console.log('🔍 rewardAmount:', rewardAmount);
-    console.log('🔍 ==========================================');
+    console.info('🔍 === REWARD DISTRIBUTION CALCULATION ===');
+    console.info('🔍 tableId:', tableId);
+    console.info('🔍 userId:', userId);
+    console.info('🔍 winners:', winners);
+    console.info('🔍 totalPot:', totalPot);
+    console.info('🔍 totalWinningBetsAmount:', totalWinningBetsAmount);
+    console.info('🔍 userTotalBetOnWinners:', userTotalBetOnWinners);
+    console.info('🔍 rewardAmount:', rewardAmount);
+    console.info('🔍 ==========================================');
   }
 
   return rewardAmount;
@@ -185,12 +185,12 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   });
   
   if (verbose) {
-    console.log('🔍 [getPendingRewards] userBet', userBet);
+    console.info('🔍 [getPendingRewards] userBet', userBet);
   }
   
   if (!userBet) {
     if (verbose) {
-      console.log('🔍 [getPendingRewards] No pending bets found');
+      console.info('🔍 [getPendingRewards] No pending bets found');
     }
     return { hasPendingRewards: false, bet: null, rewardAmount: 0 };
   }
@@ -201,12 +201,12 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   });
   
   if (verbose) {
-    console.log('🔍 [getPendingRewards] table', table);
+    console.info('🔍 [getPendingRewards] table', table);
   }
   
   if (!table) {
     if (verbose) {
-      console.log('🔍 [getPendingRewards] Table not found');
+      console.info('🔍 [getPendingRewards] Table not found');
     }
     return { hasPendingRewards: false, bet: null, rewardAmount: 0 };
   }
@@ -217,17 +217,17 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   const isWinner = isGameOver && normalizedWinners.includes(userBet.playerId);
 
   if (verbose) {
-    console.log('🔍 [getPendingRewards] tableStatus', table.tableStatus);
-    console.log('🔍 [getPendingRewards] table.winners (raw)', table.winners);
-    console.log('🔍 [getPendingRewards] normalizedWinners', normalizedWinners);
-    console.log('🔍 [getPendingRewards] isGameOver', isGameOver);
-    console.log('🔍 [getPendingRewards] isWinner', isWinner);
+    console.info('🔍 [getPendingRewards] tableStatus', table.tableStatus);
+    console.info('🔍 [getPendingRewards] table.winners (raw)', table.winners);
+    console.info('🔍 [getPendingRewards] normalizedWinners', normalizedWinners);
+    console.info('🔍 [getPendingRewards] isGameOver', isGameOver);
+    console.info('🔍 [getPendingRewards] isWinner', isWinner);
   }
 
   // If game is over but user didn't win, update bet status to LOST
   if (isGameOver && !isWinner) {
     if (verbose) {
-      console.log('🔍 [getPendingRewards] Updating bet status to LOST');
+      console.info('🔍 [getPendingRewards] Updating bet status to LOST');
     }
     
     await prisma.userBet.update({
@@ -255,7 +255,7 @@ export async function getPendingRewards(userId: number, verbose: boolean = false
   );
 
   if (verbose) {
-    console.log('🔍 [getPendingRewards] User is a winner, will update bet status to WON in getUserVirtualBalanceAndSync');
+    console.info('🔍 [getPendingRewards] User is a winner, will update bet status to WON in getUserVirtualBalanceAndSync');
   }
 
   return { 
