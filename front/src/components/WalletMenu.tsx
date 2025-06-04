@@ -223,7 +223,7 @@ export function WalletMenu() {
               </label>
               <div className='bg-black border border-white rounded px-3 py-2 font-mono text-sm text-white'>
                 {isLoadingBalances ? (
-                  <span className='animate-pulse'>Loading...</span>
+                  <span className='animate-pulse text-yellow-400'>Loading...</span>
                 ) : (
                   <span className='text-green-400'>{`${formatNearBalance(nearBalance)} NEAR`}</span>
                 )}
@@ -237,7 +237,7 @@ export function WalletMenu() {
               </label>
               <div className='bg-black border border-white rounded px-3 py-2 font-mono text-sm text-white'>
                 {isLoadingBalances ? (
-                  <span className='animate-pulse'>Loading...</span>
+                  <span className='animate-pulse text-yellow-400'>Loading...</span>
                 ) : (
                   <span className='text-green-400'>
                     {formatUsdcDisplay(walletUsdcBalance)}
@@ -253,7 +253,7 @@ export function WalletMenu() {
               </label>
               <div className='bg-black border border-white rounded px-3 py-2 font-mono text-sm text-white'>
                 {isLoadingBalances ? (
-                  <span className='animate-pulse'>Loading...</span>
+                  <span className='animate-pulse text-yellow-400'>Loading...</span>
                 ) : (
                   <span className='text-green-400'>
                     {formatUsdcDisplay(agcUsdcBalance)}

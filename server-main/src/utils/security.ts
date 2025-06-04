@@ -137,7 +137,7 @@ export async function validateUserCanBet(
       const deadlineTimestamp = BigInt(pendingUnlockDeadline);
       if (isPendingUnlockValid(deadlineTimestamp, currentTimestamp)) {
         if (verbose) console.info(`[Security] Unlock deadline still valid, cant bet, currentTimestamp: ${currentTimestamp.toString()}, deadlineTimestamp: ${deadlineTimestamp.toString()}`);
-        errors.push(`Unlock deadline still valid`);
+        errors.push(`Unlock deadline still valid. Please wait -${(deadlineTimestamp - currentTimestamp) / BigInt(1_000_000_000)}- seconds before trying again.`);
         return { success: false, canBet: false, errors };
       } else {
         if (verbose) console.info(`[Security] Unlock deadline not valid anymore`);
@@ -213,7 +213,7 @@ export async function validateUserCanBet(
       if (verbose) console.info(`[Security] Step 7.3: Lock is more recent than unlock and nonce is not the same. Syncing balances...`);
       canBet = true;
       // await setUserCanBet(user.id, false);
-      prisma.$transaction(async (tx: Prisma.TransactionClient) => {     
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {     
         await Promise.all([
           setNonce(user.id, lastLockEvent?.transaction_hash, tx),
           updateBalanceOnDB(user.id, user.nearNamedAddress, tx),

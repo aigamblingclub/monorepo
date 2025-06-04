@@ -205,7 +205,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 {gameState.round?.currentBet > 0 && (
                   <div className='current-bet'>
                     Current Bet:{' '}
-                    <span className='text-green-400'>
+                    <span className='text-yellow-400'>
                       ${formatChips(gameState?.round?.currentBet || 0)}
                     </span>
                   </div>

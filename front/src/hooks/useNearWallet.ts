@@ -320,6 +320,26 @@ export function useNearWallet() {
     });
 
     if (!response.ok) {
+      const errorResponse = await response.json();
+      if (isDev) {
+        console.error("[getVirtualUsdcBalance] Error:", errorResponse);
+      }
+      
+      // Check if this is the unlock deadline error
+      if (errorResponse?.error && typeof errorResponse.error === 'string') {
+        const errorMessage = errorResponse.error;
+        if (errorMessage.includes('Unlock deadline still valid. Please wait')) {
+          // Extract seconds from the message using regex to find content between dashes
+          const match = errorMessage.match(/-(\d+)-/);
+          if (match && match[1]) {
+            const seconds = parseInt(match[1], 10) + 5; // Add 5 seconds
+            const customError = new Error('UNLOCK_DEADLINE_ERROR');
+            (customError as any).unlockSecondsLeft = seconds;
+            throw customError;
+          }
+        }
+      }
+      
       throw new Error('Failed to fetch virtual balance');
     }
 

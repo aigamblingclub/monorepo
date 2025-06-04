@@ -70,6 +70,7 @@ export async function getUserVirtualBalanceAndSync(userId: number, verbose: bool
       throw new Error(`User cannot bet: ${response.errors[0]}`);
     }
 
+    
     const userBalance = await prisma.userBalance.findFirst({
       where: { userId },
     });
@@ -103,7 +104,7 @@ export async function getUserVirtualBalanceAndSync(userId: number, verbose: bool
     if (verbose) {
       console.error('[getUserVirtualBalanceAndSync] Error:', error);
     }
-    throw new Error(`[BALANCE][SYNC] Error in getUserVirtualBalanceAndSync: ${error}`);
+    throw new Error(`[BALANCE][SYNC] ${error}`);
   }
 }
 

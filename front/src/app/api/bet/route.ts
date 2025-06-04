@@ -19,7 +19,7 @@ export async function GET() {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: 'Failed to fetch balance' },
+        { error: 'Failed to fetch bet' },
         { status: 500 }
       );
     }
@@ -28,7 +28,7 @@ export async function GET() {
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch balance' },
+      { error: 'Failed to fetch bet' },
       { status: 500 }
     );
   }
