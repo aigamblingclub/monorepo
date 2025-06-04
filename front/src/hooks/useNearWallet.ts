@@ -81,7 +81,7 @@ async function getViewAccount() {
       return viewAccount;
     } catch (error) {
       if (isDev) {
-        console.error("getViewAccount error:", error);
+        console.error("[getViewAccount] Error:", error);
       }
       nearConnection = null; // Reset connection to try next endpoint
       viewAccount = null;
@@ -107,7 +107,7 @@ export async function callViewMethod(
     return result;
   } catch (error) {
     if (isDev) {
-      console.error("callViewMethod error:", error);
+      console.error("[callViewMethod] Error:", error);
     }
     throw new Error('Failed to get view account');
   }
@@ -200,7 +200,7 @@ export function useNearWallet() {
       modal.show();
     } catch (err) {
       if (isDev) {
-        console.error("signIn error:", err);
+        console.error("[signIn] Error:", err);
       }
       setWalletState(prev => ({ ...prev, isConnecting: false }));
     }
@@ -282,7 +282,7 @@ export function useNearWallet() {
           return accountState.amount;
         } catch (error) {
           if (isDev) {
-            console.error("getNearBalance error:", error);
+            console.error("[getNearBalance] Error:", error);
           }
           throw new Error('Failed to get NEAR balance');
         }

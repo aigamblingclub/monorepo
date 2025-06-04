@@ -115,7 +115,6 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
 
     // Fetch user to get the address
     const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
-    
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -139,10 +138,11 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
       }
     });
 
+    // There is an active game, so we can't bet
     if (currentTable?.tableStatus !== 'WAITING') {
       return res.status(400).json({
         success: false,
-        error: 'Table is not waiting, please wait for the next game',
+        error: 'There is an active game, please wait for the next',
       });
     }
 
@@ -164,7 +164,6 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
 
     // Start a transaction to ensure atomicity
     try {
-      
       const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {        
         // Get user's virtual balance and check if they have enough (within transaction)
         const virtualBalance = await getUserVirtualBalanceAndSync(userId, true);

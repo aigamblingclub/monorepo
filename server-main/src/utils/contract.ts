@@ -25,8 +25,7 @@
 
 import { ethers } from 'ethers';
 import { UserBet } from '@/prisma';
-import { getOnChainNonce } from '@/utils/near';
-import { updateUserBetStatus } from './bet';
+import { getOnChainNonce, isAccountLocked } from '@/utils/near';
 import { prisma } from '@/config/prisma.config';
 import { getUserVirtualBalanceAndSync } from './rewards';
 import { getPendingUnlockDeadline, isPendingUnlockValid } from './security';
@@ -217,20 +216,20 @@ export async function checkPendingUnlock(
     // Validation: Check if user has active pending unlock operation
     if (userBalance) {
       if (verbose) {
-        console.info('🔍 User has a pending unlock that has not expired yet');
+        console.info('[checkPendingUnlock] User has a pending unlock that has not expired yet');
       }
       return {
         hasPendingUnlock: true,
-        error: 'User has a pending unlock that has not expired yet',
+        error: 'User has a recent unlock operation. Please wait 1 minute before trying again.',
       };
     }
 
     if (verbose) {
-      console.info('🔍 User has no pending unlock');
+      console.info('[checkPendingUnlock] User has no pending unlock');
     }
     return { hasPendingUnlock: false };
   } catch (error) {
-    throw new Error('Error checking pending unlock');
+    throw new Error(`[checkPendingUnlock] Error checking pending unlock: ${error}`);
   }
 }
 
@@ -296,39 +295,6 @@ export async function checkUserCanUnlock(
     return { canUnlock: true };
   } catch (error) {
     throw new Error('Error checking user game status');
-  }
-}
-
-/**
- * User Nonce Update Operations
- *
- * Updates the user's nonce value in the database to maintain synchronization
- * with blockchain transaction ordering. This ensures proper sequencing of
- * blockchain operations and prevents replay attacks.
- *
- * @param {number} userId - Unique identifier of the user in the database
- * @param {number} newNonce - New nonce value to set for the user
- * @returns {Promise<void>} Resolves when nonce is successfully updated
- *
- * @throws {Error} Database update operation failure during nonce modification
- * @throws {Error} User not found error when updating non-existent user
- *
- * @security WARNING: Nonce management is critical for preventing transaction replay attacks
- *
- * @example
- * ```typescript
- * await updateUserNonce(123, 5);
- * console.info('User nonce updated successfully');
- * ```
- */
-export async function updateUserNonce(userId: number, newNonce: number): Promise<void> {
-  try {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { nonce: newNonce },
-    });
-  } catch (error) {
-    throw new Error('Error updating user nonce');
   }
 }
 
@@ -411,7 +377,7 @@ function normalizeWinners(winners: string | string[]): string[] {
  * console.info('User reward amount:', reward);
  * ```
  */
-export async function calculateRewardDistribution(
+export async function calculateRewardDistribution( // TODO: move to rewards.ts
   tableId: string, 
   userId: number, 
   winners: string[], 
@@ -489,7 +455,7 @@ export async function calculateRewardDistribution(
  * }
  * ```
  */
-export async function getPendingRewards(userId: number, verbose: boolean = false): Promise<{ 
+export async function getPendingRewards(userId: number, verbose: boolean = false): Promise<{ // TODO: move to rewards.ts
   hasPendingRewards: boolean; 
   bet: UserBet | null; 
   rewardAmount: number 
@@ -605,10 +571,9 @@ export async function getUserOnChainBalance(userId: number): Promise<number> {
       where: { userId },
       select: { onchainBalance: true },
     });
-
     return userBalance?.onchainBalance || 0;
   } catch (error) {
-    throw new Error('Error getting user on-chain balance');
+    throw new Error(`[getUserOnChainBalance] Error getting user on-chain balance: ${error}`);
   }
 }
 
@@ -646,7 +611,7 @@ export async function calculateUnlockAmountChange(userId: number, verbose: boole
     // Return the difference (positive for wins, negative for losses)
     return virtualBalance - onChainBalance;
   } catch (error) {
-    throw new Error('Error calculating unlock amount change');
+    throw new Error(`[calculateUnlockAmountChange] Error calculating unlock amount change: ${error}`);
   }
 }
 
@@ -690,15 +655,23 @@ export async function validateUnlockRequest(
       if (verbose) {
         console.info('🔍 User not found');
       }
-      return { isValid: false, error: '[Contract][validateUnlockRequest] User not found' };
+      return { isValid: false, error: 'User not found' };
     }  
 
     // 2. Check if user has a pending unlock and if user is in an active game in parallel
-    const [pendingUnlockCheck, tableStatus, pendingUnlockDeadline] = await Promise.all([
+    const [pendingUnlockCheck, tableStatus, pendingUnlockDeadline, accountIsLocked] = await Promise.all([
       checkPendingUnlock(user.id, verbose), // TODO: use getPendingUnlockDeadline instead
       checkUserCanUnlock(user.id, verbose),
       getPendingUnlockDeadline(user.id),
+      isAccountLocked(user.nearNamedAddress),
     ]);
+
+    if (!accountIsLocked) {
+      if (verbose) {
+        console.info('[Contract][validateUnlockRequest] Account is unlocked');
+      }
+      return { isValid: false, error: 'Account must be locked' };
+    }
 
     // Validation: Check if user has active pending unlock operation
     if (pendingUnlockCheck.hasPendingUnlock) {
@@ -723,7 +696,7 @@ export async function validateUnlockRequest(
     const currentTimestamp = BigInt(Date.now() * 1_000_000);
     // Validation: Check if user has betting permissions (security-critical)
     if (pendingUnlockDeadline && isPendingUnlockValid(BigInt(pendingUnlockDeadline), currentTimestamp)) {
-      return { isValid: false, error: '[Contract][validateUnlockRequest] Unlock deadline still valid' };
+      return { isValid: false, error: 'User has a recent unlock operation. Please wait 1 minute before trying again.' };
     }
 
     // 4. Check nonce synchronization and get virtual balance in parallel

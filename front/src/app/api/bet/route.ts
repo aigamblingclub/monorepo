@@ -27,7 +27,6 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Bet fetch error:", error);
     return NextResponse.json(
       { error: 'Failed to fetch balance' },
       { status: 500 }
@@ -73,7 +72,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Place bet error:", error);
     return NextResponse.json({ error: 'Failed to place bet' }, { status: 500 });
   }
 }

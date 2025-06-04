@@ -51,7 +51,7 @@ export const usePlayerBetting = () => {
         setUsdcBalance(atomicToDecimal(balanceNum));
       } catch (error) {
         if (isDev) {
-          console.error("getUsdcBalance error:", error);
+          console.error("[getUsdcBalance] Error:", error);
         }
         setUsdcBalance('0.00');
       }
@@ -96,7 +96,7 @@ export const usePlayerBetting = () => {
       getUsdcBalance();
     } catch (err) {
       if (isDev) {
-        console.error("fetchData error:", err);
+        console.error("[fetchData] Error:", err);
       }
       setError('Failed to load betting data');
       setPlayerBets([]);
@@ -138,7 +138,7 @@ export const usePlayerBetting = () => {
         return true;
       } catch (err) {
         if (isDev) {
-          console.error("placeBet error:", err);
+          console.error("[placeBet] Error:", err);
         }
         setError('Failed to place bet');
         return false;

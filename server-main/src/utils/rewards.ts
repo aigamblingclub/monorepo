@@ -12,6 +12,7 @@
 import { UserBet } from '@/prisma';
 import { prisma } from '@/config/prisma.config';
 import { updateUserBetStatus } from './bet';
+import { validateUserCanBet } from './security';
 
 // Type definitions for better TypeScript support
 type BetData = {
@@ -58,35 +59,52 @@ export function normalizeWinners(winners: string | string[]): string[] {
  * @returns {Promise<number>} Updated virtual balance amount
  */
 export async function getUserVirtualBalanceAndSync(userId: number, verbose: boolean = false): Promise<number> {
-  const userBalance = await prisma.userBalance.findFirst({
-      where: { userId },
-  });
-
-  if (!userBalance) {
-    if (verbose) {
-      console.info('🔍 User balance not found');
-    }
-    return 0;
-  }
-
-  let userVirtualBalance = userBalance.virtualBalance;
-
-  const pendingRewards = await getPendingRewards(userId, verbose);
-  if (pendingRewards.hasPendingRewards && pendingRewards.bet) {
-    const userBalanceUpdated = await prisma.userBalance.update({
-      where: { userId },
-      data: { virtualBalance: userVirtualBalance + pendingRewards.rewardAmount },
+  try {
+    const user = await prisma.user.findFirst({
+      where: { id: userId },
     });
-    if (verbose) {
-      console.info('🔍 User balance updated', userBalanceUpdated);
+    if(!user) throw new Error('User not found');
+    
+    const response = await validateUserCanBet(user.nearNamedAddress, verbose);
+    if(!response.success) {
+      throw new Error(`User cannot bet: ${response.errors[0]}`);
     }
 
-    // update user bet status to WON
-    await updateUserBetStatus(pendingRewards.bet.id);
+    const userBalance = await prisma.userBalance.findFirst({
+      where: { userId },
+    });
 
-    userVirtualBalance = userBalanceUpdated.virtualBalance;
+    if (!userBalance) {
+      if (verbose) {
+        console.info('[getUserVirtualBalanceAndSync] User balance not found');
+      }
+      throw new Error('Could not find user balance');
+    }
+
+    let userVirtualBalance = userBalance.virtualBalance;
+
+    const pendingRewards = await getPendingRewards(userId, verbose);
+    if (pendingRewards.hasPendingRewards && pendingRewards.bet) {
+      const userBalanceUpdated = await prisma.userBalance.update({
+        where: { userId },
+        data: { virtualBalance: userVirtualBalance + pendingRewards.rewardAmount },
+      });
+      if (verbose) {
+        console.info('[getUserVirtualBalanceAndSync] User balance updated', userBalanceUpdated);
+      }
+
+      // update user bet status to WON
+      await updateUserBetStatus(pendingRewards.bet.id);
+
+      userVirtualBalance = userBalanceUpdated.virtualBalance;
+    }
+    return userVirtualBalance;
+  } catch (error) {
+    if (verbose) {
+      console.error('[getUserVirtualBalanceAndSync] Error:', error);
+    }
+    throw new Error(`[BALANCE][SYNC] Error in getUserVirtualBalanceAndSync: ${error}`);
   }
-  return userVirtualBalance;
 }
 
 /**

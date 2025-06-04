@@ -190,7 +190,14 @@ export async function validateUserCanBet(
 
     // Step 7: Main validation logic
     if (verbose) console.info(`[Security] Step 7: Main validation logic - userCanBet: ${userCanBet}`);
-    
+
+    // Step 7.1: Check if account is unlocked, and if it is, we can't bet
+    const accountIsLocked = await isAccountLocked(user.nearNamedAddress);
+    if (!accountIsLocked) {
+      errors.push(`Account is unlocked`);
+      return { success: false, canBet: false, errors };
+    }
+
     const nonce = await getNonce(user.id);
     if (verbose) console.info(`[Security] Step 7.1: Nonce: ${nonce}`);
     // Basically this is the first time after an LOCK event and we haven't synced the user balances yet 
@@ -203,11 +210,15 @@ export async function validateUserCanBet(
       canBet = true;
       // await setUserCanBet(user.id, true);
     } else if(lockIsMoreRecent && lastLockEvent && lastLockEvent?.transaction_hash !== nonce) {
-      if (verbose) console.info(`[Security] Step 7.3: Lock is more recent than unlock and nonce is not the same`);
+      if (verbose) console.info(`[Security] Step 7.3: Lock is more recent than unlock and nonce is not the same. Syncing balances...`);
       canBet = true;
       // await setUserCanBet(user.id, false);
-      await setNonce(user.id, lastLockEvent?.transaction_hash);
-      await updateBalanceOnDB(user.id, user.nearNamedAddress);
+      prisma.$transaction(async (tx: Prisma.TransactionClient) => {     
+        await Promise.all([
+          setNonce(user.id, lastLockEvent?.transaction_hash, tx),
+          updateBalanceOnDB(user.id, user.nearNamedAddress, tx),
+        ]);       
+      });
     } else if (unlockIsMoreRecent) {
       if (verbose) console.info(`[Security] Step 7.4: Unlock is more recent than lock`);
       canBet = false;
@@ -669,18 +680,33 @@ export async function checkBalancesAreSynced(
 }
 
 export async function getNonce(userId: number): Promise<string> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { nonce: true },
-  });
-  return user?.nonce ?? "";
+  try {
+    // Get nonce from database
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { nonce: true },
+    });
+
+    // If no user found, return empty string
+    if(!user) throw new Error(`Could not find user with id: ${userId}`);
+
+    // Return nonce
+    return user?.nonce ?? "";
+  } catch (error) {
+    throw new Error(`[getNonce] Failed to get nonce: ${(error as Error).message}`);
+  }
 }
 
-export async function setNonce(userId: number, nonce: string): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { nonce: nonce },
-  });
+export async function setNonce(userId: number, nonce: string, tx?: Prisma.TransactionClient): Promise<void> {
+  try {
+    // Update nonce in database
+    await (tx ?? prisma).user.update({
+      where: { id: userId },
+      data: { nonce: nonce },
+    });
+  } catch (error) {
+    throw new Error(`[setNonce] Failed to set nonce: ${(error as Error).message}`);
+  }
 }
 
 export function isPendingUnlockValid(pendingUnlockDeadline: bigint, currentTimestamp: bigint): boolean {
