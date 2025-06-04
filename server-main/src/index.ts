@@ -58,11 +58,15 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to AI Gaming Club API' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on PORT ${PORT}`);
-  console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on PORT ${PORT}`);
+    console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
+  });
+}
+
+export { app };
 
 // Update poker state every 2 seconds
 updatePokerState(2000);
