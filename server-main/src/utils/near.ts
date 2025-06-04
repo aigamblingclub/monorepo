@@ -40,9 +40,12 @@ export async function callViewMethod(
  * @param accountId User's NEAR account ID
  * @returns User's current nonce
  */
-export async function getOnChainNonce(accountId: string): Promise<number> {
+export async function getOnChainNonce(accountId: string, verbose: boolean = false): Promise<number> {
   try {
     const nonce = await callViewMethod(AGC_CONTRACT_ID, 'getNonce', { account_id: accountId });
+    if (verbose) {
+      console.log('[Near] [getOnChainNonce] On-chain nonce:', nonce, 'for account:', accountId);
+    }
     return nonce;
   } catch (error) {
     // Return 0 if there's an error

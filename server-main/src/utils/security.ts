@@ -32,16 +32,10 @@ import {
   LockEvent,
   UnlockEvent,
 } from './events';
-import { PrismaClient, Prisma } from '@/prisma';
+import { Prisma } from '@/prisma';
 import { getOnChainUsdcBalance, isAccountLocked } from './near';
 import { AGC_CONTRACT_ID } from './env';
-
-/**
- * @type {PrismaClient}
- * Database client instance for all security-related database operations.
- * Used for user balance management, betting permissions, and unlock deadline tracking.
- */
-const prisma = new PrismaClient();
+import { prisma } from '@/config/prisma.config';
 
 /**
  * @typedef {Object} SecurityValidationResult

@@ -17,24 +17,26 @@ export const updatePokerState = async (interval: number) => {
     });
     currentStatePoker = raw ? JSON.parse(raw.data as string) : null;
   }
-  setInterval(async () => {
-    if (!SERVER_POKER) {
-      return;
-    }
 
-    let currentState: any;
-    if (isDev) {
-      currentState = fakeData[0];
-    } else if (isProd) {
-      currentState = await getCurrentStatePoker();
-    }
-    // Only update the state if the data is different
+  if (process.env.NODE_ENV !== 'test') {
+    setInterval(async () => {
+      if (!SERVER_POKER) {
+        return;
+      }
+      let currentState: any;
+      if (isDev) {
+        currentState = fakeData[0];
+      } else if (isProd) {
+        currentState = await getCurrentStatePoker();
+      }
+      // Only update the state if the data is different
 
-    if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
-      currentStatePoker = currentState;
-      await saveCurrentStateToDatabase(currentState);
-    }
-  }, interval || 2000);
+      if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
+        currentStatePoker = currentState;
+        await saveCurrentStateToDatabase(currentState);
+      }
+    }, interval || 2000);
+  }
 };
 
 const getCurrentStatePoker = async () => {
