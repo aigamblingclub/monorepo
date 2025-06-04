@@ -20,19 +20,16 @@ export function Transactions({
 }: TransactionsProps) {
   const { accountId } = useAuth();
   const { callMethod } = useNearWallet();
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
+  // Values are stored in atomic units (from TransactionInput)
+  const [depositAmount, setDepositAmount] = useState<number>(0);
+  const [withdrawAmount, setWithdrawAmount] = useState<number>(0);
   const [isLoadingDeposit, setIsLoadingDeposit] = useState(false);
   const [isLoadingWithdraw, setIsLoadingWithdraw] = useState(false);
   const [errorDeposit, setErrorDeposit] = useState<string | null>(null);
   const [errorWithdraw, setErrorWithdraw] = useState<string | null>(null);
 
   const handleDeposit = async () => {
-    if (
-      !depositAmount ||
-      isNaN(Number(depositAmount)) ||
-      Number(depositAmount) <= 0
-    ) {
+    if (depositAmount <= 0) {
       setErrorDeposit('Please enter a valid amount');
       return;
     }
@@ -42,40 +39,32 @@ export function Transactions({
     try {
       setIsLoadingDeposit(true);
       setErrorDeposit(null);
-
-      // Start spinner immediately for visual feedback
       startSpinner();
 
-      const transferAmount = (Number(depositAmount) * 1_000_000).toString();
+      // depositAmount is already in atomic units from TransactionInput
       await callMethod({
         methodName: 'ft_transfer_call',
         args: {
           receiver_id: NEXT_PUBLIC_CONTRACT_ID,
-          amount: transferAmount,
+          amount: depositAmount.toString(),
           msg: 'Deposit to AI Gambling Club',
         },
         deposit: '1',
         receiverId: NEXT_PUBLIC_USDC_CONTRACT_ID,
       });
 
-      // Only start balance refresh after successful transaction
       refreshInterval = startBalanceRefresh();
-      setDepositAmount('');
+      setDepositAmount(0);
     } catch (err) {
       setErrorDeposit(err instanceof Error ? err.message : 'Failed to deposit');
     } finally {
       setIsLoadingDeposit(false);
-      // Stop spinner and balance refresh
       stopTransactionState(refreshInterval);
     }
   };
 
   const handleWithdraw = async () => {
-    if (
-      !withdrawAmount ||
-      isNaN(Number(withdrawAmount)) ||
-      Number(withdrawAmount) <= 0
-    ) {
+    if (withdrawAmount <= 0) {
       setErrorWithdraw('Please enter a valid amount');
       return;
     }
@@ -85,30 +74,26 @@ export function Transactions({
     try {
       setIsLoadingWithdraw(true);
       setErrorWithdraw(null);
-
-      // Start spinner immediately for visual feedback
       startSpinner();
 
-      const transferAmount = (Number(withdrawAmount) * 1_000_000).toString();
+      // withdrawAmount is already in atomic units from TransactionInput
       await callMethod({
         methodName: 'withdrawUsdc',
         args: {
-          amount: transferAmount,
+          amount: withdrawAmount.toString(),
         },
         deposit: '0',
         receiverId: NEXT_PUBLIC_CONTRACT_ID,
       });
 
-      // Only start balance refresh after successful transaction
       refreshInterval = startBalanceRefresh();
-      setWithdrawAmount('');
+      setWithdrawAmount(0);
     } catch (err) {
       setErrorWithdraw(
         err instanceof Error ? err.message : 'Failed to withdraw'
       );
     } finally {
       setIsLoadingWithdraw(false);
-      // Stop spinner and balance refresh
       stopTransactionState(refreshInterval);
     }
   };
@@ -117,8 +102,8 @@ export function Transactions({
     <div className='mb-4'>
       <TransactionInput
         id='deposit'
-        value={depositAmount}
-        onChange={e => setDepositAmount(e.target.value)}
+        value={depositAmount}  // Atomic units
+        onChange={setDepositAmount}  // Will receive atomic units from TransactionInput
         onAction={handleDeposit}
         isLoading={isLoadingDeposit}
         isDisabled={isLoadingDeposit || !accountId}
@@ -127,8 +112,8 @@ export function Transactions({
       />
       <TransactionInput
         id='withdraw'
-        value={withdrawAmount}
-        onChange={e => setWithdrawAmount(e.target.value)}
+        value={withdrawAmount}  // Atomic units
+        onChange={setWithdrawAmount}  // Will receive atomic units from TransactionInput
         onAction={handleWithdraw}
         isLoading={isLoadingWithdraw}
         isDisabled={isLoadingWithdraw || !accountId}

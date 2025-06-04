@@ -111,6 +111,10 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     }
   }, [gameState.tableStatus, waitingStartTime]);
 
+  const getGamePlayerById = (id: string) => {
+    return gameState?.players?.find(player => player.id === id);
+  };
+
   return (
     <div className='w-[50vw] h-[50vh] max-w-[800px] max-h-[500px] bg-black border-2 border-white relative overflow-hidden flex justify-center items-center'>
       {/* Center area with POT and cards */}
@@ -149,12 +153,13 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               `Winner: ${gameState.winner}`}
             {gameState.tableStatus === 'GAME_OVER' &&
               gameState.winner &&
-              `Game Over - Winner: ${gameState.winner}`}
+              `Game Over - Winner: ${getGamePlayerById(gameState.winner)?.playerName}`}
 
             {gameState.tableStatus === 'PLAYING' && ready && (
               <>
                 <div>Phase: {getPhaseLabel(gameState.phase.street)}</div>
                 <div>Round: {gameState.round.roundNumber}</div>
+                <div>Turn: {gameState.phase.actionCount}</div>
               </>
             )}
           </div>
@@ -194,14 +199,14 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 <div>
                   POT:{' '}
                   <span className='text-green-400'>
-                    ${formatChips(gameState.round.volume)}
+                    ${formatChips(gameState?.round?.volume || 0)}
                   </span>
                 </div>
                 {gameState.round?.currentBet > 0 && (
                   <div className='current-bet'>
                     Current Bet:{' '}
                     <span className='text-green-400'>
-                      ${formatChips(gameState.round.currentBet)}
+                      ${formatChips(gameState?.round?.currentBet || 0)}
                     </span>
                   </div>
                 )}
