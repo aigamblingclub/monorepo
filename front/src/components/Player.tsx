@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card as CardType, PlayerState, formatChips } from '../types/poker';
 import { Card } from './Card';
+import { formatUSDCtoDisplay } from '../utils/currency';
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -186,7 +187,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className='text-white font-mono text-[10px]'>
                   <span className='text-gray-400'>Pool:</span>
                   <span className='text-blue-400 ml-1'>
-                    ${formatChips(totalContractBet)}
+                    ${formatUSDCtoDisplay(totalContractBet)}
                   </span>
                 </div>
               )}
@@ -194,7 +195,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className='text-white font-mono text-[10px]'>
                   <span className='text-gray-400'>Your Bet:</span>
                   <span className='text-blue-400 ml-1'>
-                    ${formatChips(userContractBet)}
+                    ${formatUSDCtoDisplay(userContractBet)}
                   </span>
                 </div>
               )}

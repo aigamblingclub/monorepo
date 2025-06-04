@@ -13,14 +13,15 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({
   useEffect(() => {
     // Add new move to history if it exists and is different from the last one
     if (
-      gameState.lastMove &&
+      gameState &&
+      gameState?.lastMove &&
       (!moveHistory.length ||
         JSON.stringify(gameState.lastMove) !==
-          JSON.stringify(moveHistory[moveHistory.length - 1]))
+          JSON.stringify(moveHistory?.[moveHistory.length - 1]))
     ) {
-      setMoveHistory(prev => [...prev, gameState.lastMove]);
+      setMoveHistory(prev => [...prev, gameState?.lastMove]);
     }
-  }, [gameState.lastMove, moveHistory]);
+  }, [gameState, moveHistory]);
 
   const getMoveDescription = (move: NonNullable<PokerState['lastMove']>) => {
     const { playerId, move: playerMove } = move;

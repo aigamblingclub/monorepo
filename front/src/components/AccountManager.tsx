@@ -19,7 +19,7 @@ import { formatUsdcDisplay } from '@/utils/usdcBalance';
 import { Transactions } from './Transactions';
 import { LockOperations } from './LockOperations';
 import { PlayerBetting } from './PlayerBetting';
-import { PlayerState } from '../types/poker';
+import { PlayerState, PokerState } from '../types/poker';
 import { isDev } from '@/utils/env';
 
 export interface PlayerBet {
@@ -33,6 +33,7 @@ interface AccountManagerProps {
   playerBets?: PlayerBet[];
   onPlaceBet?: (playerId: string, amount: number) => void;
   tableStatus?: string;
+  gameState: PokerState;
 }
 
 export function AccountManager({
@@ -40,6 +41,7 @@ export function AccountManager({
   playerBets = [],
   onPlaceBet = () => {},
   tableStatus = 'WAITING',
+  gameState,
 }: AccountManagerProps) {
   const { accountId, apiKey } = useAuth();
   const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance } =
@@ -107,15 +109,14 @@ export function AccountManager({
   }, [accountId, getIsUsdcLocked]);
 
   /**
-   * Fetch balances only when accountId changes
+   * Fetch balances when accountId changes or gameState updates
    */
   useEffect(() => {
     if (accountId) {
       fetchBalances();
       fetchIsUsdcLocked();
     }
-  }, [accountId]);  // eslint-disable-line react-hooks/exhaustive-deps
-
+  }, [accountId, gameState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Start spinner only (visual feedback)

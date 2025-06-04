@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
 import { PokerState, PlayerState } from '@/types/poker';
+import { isDev } from '@/utils/env';
 
 interface ChatMessage {
   id: string;
@@ -15,32 +16,13 @@ interface ChatProps {
 }
 
 export const Chat: React.FC<ChatProps> = ({ gameState }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      text: 'Hello, how are you?',
-      timestamp: new Date(),
-      playerName: 'John Doe',
-    },
-    {
-      id: '2',
-      text: 'I am fine, thank you!',
-      timestamp: new Date(),
-      playerName: 'Jane Doe',
-    },
-    {
-      id: '3',
-      text: 'I am fine, thank you!',
-      timestamp: new Date(),
-      playerName: 'Jane Doe',
-    },
-    {
-      id: '4',
-      text: 'I am fine, thank you!',
-      timestamp: new Date(),
-      playerName: 'Jane Doe',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  useEffect(() => {
+    if (isDev) {
+      setMessages(fakeData);
+    }
+  }, [gameState]);
 
   useEffect(() => {
     const roleplay = gameState?.lastMove?.move?.decisionContext?.roleplay;
@@ -94,3 +76,30 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
     </div>
   );
 };
+
+const fakeData = [
+  {
+      id: '1',
+      text: 'Hello, how are you?',
+      timestamp: new Date(),
+      playerName: 'John Doe',
+    },
+    {
+      id: '2',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    {
+      id: '3',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    {
+      id: '4',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+];
