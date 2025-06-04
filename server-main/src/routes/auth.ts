@@ -1,30 +1,31 @@
 import { Router } from 'express';
-import { PrismaClient } from '@/prisma';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
 import crypto from 'crypto';
 import { authenticate, AUTH_MESSAGE, generateChallenge } from '../utils/near-auth';
 import { getUserVirtualBalance } from '@/utils/contract';
 import { FRONTEND_URL } from '@/utils/env';
+import { prisma } from '../config/prisma.config';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Store challenges temporarily (in production, use Redis or similar)
 const challenges = new Map<string, { challenge: Buffer; timestamp: number }>();
 
 // Clean up old challenges every 5 minutes
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, value] of challenges.entries()) {
-      if (now - value.timestamp > 5 * 60 * 1000) {
-        // 5 minutes
-        challenges.delete(key);
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(
+    () => {
+      const now = Date.now();
+      for (const [key, value] of challenges.entries()) {
+        if (now - value.timestamp > 5 * 60 * 1000) {
+          // 5 minutes
+          challenges.delete(key);
+        }
       }
-    }
-  },
-  5 * 60 * 1000,
-);
+    },
+    5 * 60 * 1000,
+  );
+}
 
 /**
  * @swagger

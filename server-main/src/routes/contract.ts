@@ -143,7 +143,7 @@ router.post('/sign-message', validateApiKey, async (req: AuthenticatedRequest, r
     }
 
     // Validation: Check if current nonce data is available for transaction ordering
-    if (!validation.currentNonce) {
+    if (!validation.currentNonce && validation.currentNonce !== 0) {
       return res.status(400).json({
         success: false,
         error: 'Current nonce is not available',

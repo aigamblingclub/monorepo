@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
-import { PrismaClient } from '@/prisma';
-import { getUserVirtualBalance } from '@/utils/contract';
+import { getUserVirtualBalanceAndSync } from '@/utils/rewards';
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // Extend AuthenticatedRequest to include user
@@ -48,6 +46,7 @@ interface GetBalanceResponse {
  */
 router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) => {
   try {
+    console.log('🔍 api/balance/');
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({
@@ -56,7 +55,7 @@ router.get('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) =
       });
     }
 
-    const virtualBalance = await getUserVirtualBalance(userId);
+    const virtualBalance = await getUserVirtualBalanceAndSync(userId, true);
 
     const response: GetBalanceResponse = {
       success: true,

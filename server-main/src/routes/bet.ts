@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { validateApiKey, AuthenticatedRequest } from '@/middleware/auth';
-import { PrismaClient, Prisma } from '../prisma/generated';
+import { Prisma } from '@/prisma/generated';
+import { getPendingUnlockDeadline, validateUserCanBet } from '../utils/security';
+import { prisma } from '../config/prisma.config';
+import { checkUserCanBet } from '@/utils/bet';
 
-const prisma = new PrismaClient();
 const router = Router();
 
 interface CreateBetRequest {
-  tableId: string;
   playerId: string;
   amount: number;
 }
@@ -57,13 +58,9 @@ interface ExtendedAuthenticatedRequest extends AuthenticatedRequest {
  *           schema:
  *             type: object
  *             required:
- *               - tableId
  *               - playerId
  *               - amount
  *             properties:
- *               tableId:
- *                 type: string
- *                 description: ID of the table
  *               playerId:
  *                 type: string
  *                 description: ID of the player to bet on
@@ -101,6 +98,13 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
     }
 
     // Validate amount
+    if (typeof amount !== 'number' || isNaN(amount)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid amount',
+      });
+    }
+
     if (amount <= 0) {
       return res.status(400).json({
         success: false,
@@ -108,103 +112,136 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
       });
     }
 
-    // current table
+    // Fetch user to get the address
+    const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
+    
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    // Check if user can bet on chain
+    const validationResult = await validateUserCanBet(user.nearNamedAddress, true);
+    if (!validationResult.success || !validationResult.canBet) {
+      return res.status(400).json({
+        success: false,
+        error: validationResult.errors[0] || 'User cannot bet on chain',
+      });
+    }
+
+    // Get current active table
     const currentTable = await prisma.table.findFirst({
       orderBy: {
-        createdAt: 'desc',
+        createdAt: 'desc'
+      }
+    });
+
+    if (currentTable?.tableStatus !== 'WAITING') {
+      return res.status(400).json({
+        success: false,
+        error: 'Table is not waiting, please wait for the next game',
+      });
+    }
+
+    // Check if player exists at table
+    const playerTable = await prisma.player_Table.findFirst({
+      where: { 
+        playerId,
+        tableId: currentTable.tableId,
+        status: 'active'
       },
     });
 
-    if (!currentTable) {
-      throw new Error('Table not found');
-    }
-
-    // Not do bets when the game was started, only when the game is waiting
-    if (currentTable.tableStatus !== 'WAITING') {
-      throw new Error('Table is not waiting, please wait for the next game');
-    }
-
-    // current table
-    const currentPlayerTable = await prisma.player_Table.findFirst({
-      where: { playerId: playerId, tableId: currentTable.tableId },
-    });
-
-    if (!currentPlayerTable) {
+    if (!playerTable) {
       return res.status(400).json({
         success: false,
-        error: 'Player is not in the table, please try again later',
+        error: 'Player not at table',
       });
     }
 
     // Start a transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Get user's current balance
-      const userBalance = await tx.userBalance.findFirst({
-        where: { userId },
+    try {
+      
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {        
+        // Get user's virtual balance and check if they have enough (within transaction)
+        const userBalance = await tx.userBalance.findUnique({
+          where: { userId },
+          select: { virtualBalance: true },
+        });
+        const virtualBalance = userBalance?.virtualBalance || 0;
+
+        if (amount > virtualBalance) {
+          throw new Error('Insufficient virtual balance');
+        }
+
+        // Check if user can bet
+        const gameStatus = await checkUserCanBet(userId);
+        if (!gameStatus.canBet) {
+          throw new Error(gameStatus.error || 'User is in an active game');
+        }
+
+        // Check if user has pending unlock
+        const pendingUnlockDeadline = await getPendingUnlockDeadline(userId);
+        if(pendingUnlockDeadline && BigInt(pendingUnlockDeadline) > BigInt(Date.now() * 1_000_000)) {
+          throw new Error('Pending unlock deadline');
+        }
+
+        // Create the bet
+        const bet = await tx.userBet.create({
+          data: {
+            userId,
+            tableId: currentTable.tableId,
+            playerId,
+            amount,
+          },
+        });
+
+        // Update user's virtual balance
+        const updatedBalance = await tx.userBalance.update({
+          where: { userId },
+          data: {
+            virtualBalance: virtualBalance - amount,
+          },
+        });
+
+        
+        return bet;
       });
-
-      if (!userBalance) {
-        throw new Error('User balance not found');
-      }
-
-      // Check if user has sufficient virtual balance
-      if (userBalance.virtualBalance < amount) {
-        throw new Error('Insufficient virtual balance');
-      }
-
-      // Get the current active round for the table
-      // const currentRound = await tx.round.findFirst({
-      //   where: {
-      //     tableId,
-      //     table: {
-      //       tableStatus: 'PLAYING'
-      //     }
-      //   },
-      //   orderBy: {
-      //     roundNumber: 'desc'
-      //   }
-      // });
-
-      // if (!currentRound) {
-      //   throw new Error('No active round found for this table');
-      // }
-
-      // Create the bet
-      const bet = await tx.userBet.create({
-        data: {
-          userId,
-          tableId: currentTable.tableId,
-          playerId,
-          // roundId
-          amount,
+      
+      const response: CreateBetResponse = {
+        success: true,
+        bet: {
+          id: result.id,
+          amount: result.amount,
+          createdAt: result.createdAt,
         },
+      };
+
+      return res.status(200).json(response);
+    } catch (error) {      
+      if (error instanceof Error) {
+        return res.status(400).json({
+          success: false,
+          error: error.message,
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error',
       });
-
-      // Update user's virtual balance
-      await tx.userBalance.update({
-        where: { id: userBalance.id },
-        data: {
-          virtualBalance: userBalance.virtualBalance - amount,
-        },
-      });
-
-      return bet;
-    });
-
-    const response: CreateBetResponse = {
-      success: true,
-      bet: {
-        id: result.id,
-        amount: result.amount,
-        createdAt: result.createdAt,
-      },
-    };
-
-    return res.json(response);
+    }
   } catch (error) {
+    if (error instanceof Error) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal server error',
+      error: 'Internal server error',
     });
   }
 });
@@ -298,6 +335,7 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
       by: ['playerId'],
       where: {
         tableId: table.tableId,
+        status: 'PENDING',
       },
       _sum: {
         amount: true,
@@ -310,6 +348,7 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
       where: {
         tableId: table.tableId,
         userId,
+        status: 'PENDING',
       },
       _sum: {
         amount: true,
@@ -318,15 +357,15 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
 
     // Convert user bets to a map for easier lookup
     const userBetsMap = userBetsByPlayer.reduce(
-      (acc, bet) => {
+      (acc: Record<string, number>, bet: { playerId: string; _sum: { amount: number | null } }) => {
         acc[bet.playerId] = bet._sum.amount || 0;
         return acc;
       },
-      {} as Record<string, number>,
+      {} as Record<string, number>
     );
 
     // Convert bets by player to the required format
-    const playerBets: BetResponse[] = betsByPlayerResult.map(bet => ({
+    const playerBets: BetResponse[] = betsByPlayerResult.map((bet: { playerId: string; _sum: { amount: number | null } }) => ({
       playerId: bet.playerId,
       totalBet: bet._sum.amount || 0,
       totalUserBet: userBetsMap[bet.playerId] || 0,
@@ -336,11 +375,11 @@ router.get('/all', validateApiKey, async (req: ExtendedAuthenticatedRequest, res
       success: true,
       playerBets,
       totalBetsByPlayer: betsByPlayerResult.reduce(
-        (acc, bet) => {
+        (acc: Record<string, number>, bet: { playerId: string; _sum: { amount: number | null } }) => {
           acc[bet.playerId] = bet._sum.amount || 0;
           return acc;
         },
-        {} as Record<string, number>,
+        {} as Record<string, number>
       ),
       totalBets: totalBetsResult._sum.amount || 0,
     };
