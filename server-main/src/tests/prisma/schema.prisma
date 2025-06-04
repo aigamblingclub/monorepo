@@ -1,0 +1,219 @@
+// This is your Prisma schema file for tests
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./test.sqlite"
+}
+
+/// Authentication
+model User {
+  id                  Int       @id @default(autoincrement())
+  nearImplicitAddress String    @unique
+  nearNamedAddress    String    @unique
+  nonce               Int       @default(0)
+  lastActiveAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now())
+  apiKeys             ApiKey[]
+  userBalance         UserBalance?
+  userBets            UserBet[]
+
+  @@index([nearImplicitAddress], name: "idx_near_account")
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  keyValue   String    @unique
+  userId     Int
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  totalUses  Int       @default(0)
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@index([keyValue], name: "idx_api_key_value")
+}
+
+model UserBalance {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int      @unique
+  onchainBalance   Int
+  virtualBalance   Int
+  pendingUnlock   Boolean @default(false)
+  pendingUnlockDeadline     DateTime?
+  userCanBet      Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Game Core
+model Table {
+  id          Int      @id @default(autoincrement())
+  tableId     String   @unique
+  tableStatus String   // WAITING, PLAYING, ROUND_OVER, GAME_OVER
+  volume      Int // Sum of all rounds volume
+  config      Json
+  winners     String // Player IDs
+  totalBets   Int // Sum of all bets
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  playerTables Player_Table[]
+  rounds       Round[]
+  phases       Phase[]
+  moves        Moves[]
+  playerHands  PlayerHand[]
+  userBets     UserBet[]
+}
+
+model Player {
+  id              Int    @id @default(autoincrement())
+  playerId        String   @unique
+  playerName      String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  playerTables    Player_Table[]
+  moves           Moves[]
+  playerHands     PlayerHand[]
+  userBets        UserBet[]
+}
+
+/// Game Flow
+model Round {
+  id          Int      @id @default(autoincrement())
+  table       Table    @relation(fields: [tableId], references: [tableId])
+  tableId     String
+  roundNumber Int
+  volume      Int // Sum of all phases volume (pot)
+  winners     String // Player IDs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  phases      Phase[]
+  moves       Moves[]
+  playerHands PlayerHand[]
+  userBets    UserBet[]
+}
+
+model Phase {
+  id        Int      @id @default(autoincrement())
+  table     Table    @relation(fields: [tableId], references: [tableId])
+  tableId   String
+  round     Round    @relation(fields: [roundId], references: [id])
+  roundId   Int
+  phaseName String
+  volume    Int // Sum of all moves volume
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  moves     Moves[]
+}
+
+model DecisionContext {
+  id          Int      @id @default(autoincrement())
+  thinking    String
+  explanation String
+  analysis    String
+  reasoning   String
+  strategy    String
+  logic       String
+  roleplay    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  moves       Moves[]
+}
+
+model Moves {
+  id        String   @id @default(uuid())
+  table     Table    @relation(fields: [tableId], references: [id])
+  tableId   Int
+  round     Round    @relation(fields: [roundId], references: [id])
+  roundId   Int
+  phase     Phase    @relation(fields: [phaseId], references: [id])
+  phaseId   Int
+  player    Player   @relation(fields: [playerId], references: [playerId])
+  playerId  String
+  playerTurn Int
+  move      String
+  decisionContext DecisionContext @relation(fields: [decisionContextId], references: [id])
+  decisionContextId Int
+  amount    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlayerHand {
+  id        Int      @id @default(autoincrement())
+  table     Table    @relation(fields: [tableId], references: [id])
+  tableId   Int
+  round     Round    @relation(fields: [roundId], references: [id])
+  roundId   Int
+  player    Player   @relation(fields: [playerId], references: [playerId])
+  playerId  String
+  firstCardRank Int
+  firstCardSuit String
+  secondCardRank Int
+  secondCardSuit String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+  DRAW
+  // REFUNDED
+  // CANCELLED
+}
+/// Betting System
+model UserBet {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  table     Table    @relation(fields: [tableId], references: [tableId])
+  tableId   String
+  player    Player   @relation(fields: [playerId], references: [playerId])
+  playerId  String
+  round     Round?   @relation(fields: [roundId], references: [id])
+  roundId   Int?
+  amount    Int
+  status    BetStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// State Management
+model RawState {
+  id        Int      @id @default(autoincrement())
+  status    String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Player_Table {
+  id        Int      @id @default(autoincrement())
+  player    Player   @relation(fields: [playerId], references: [playerId])
+  playerId  String
+  table     Table    @relation(fields: [tableId], references: [tableId])
+  tableId   String
+  status    String    // Non Necessary, use Move.
+  volume    Int // ? total volume of the table by player (sum of all bets in all rounds)
+  initialBalance  Int // ? initial balance (chips) of the player
+  currentBalance  Int // ? current balance (chips) of the player
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, tableId])
+}
