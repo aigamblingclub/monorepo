@@ -198,7 +198,7 @@ export async function validateUserCanBet(
     const accountIsLocked = await isAccountLocked(user.nearNamedAddress);
     if (!accountIsLocked) {
       errors.push(`Account is unlocked`);
-      return { success: false, canBet: false, errors };
+      return { success: true, canBet: false, errors };
     }
 
     const nonce = await getNonce(user.id);
