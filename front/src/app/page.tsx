@@ -113,7 +113,7 @@ function HomeContent() {
       <div className='flex items-center justify-center pt-20 bg-black'>
         <div className='bg-black border-2 border-white rounded p-6'>
           <div className='text-white font-mono text-lg mb-4'>
-            Loading game state...
+            Loading Game...
           </div>
           <div className='flex items-center justify-center'>
             <div className='animate-pulse w-4 h-4 bg-green-400 rounded mr-2'></div>
@@ -151,7 +151,7 @@ function HomeContent() {
       <div className='flex items-center justify-center pt-20 bg-black'>
         <div className='bg-black border-2 border-white rounded p-6'>
           <div className='text-white font-mono text-lg mb-4'>
-            Waiting for game...
+            Break Time...
           </div>
           <div className='flex items-center justify-center gap-2'>
             <div className='text-green-400 font-mono text-sm'>
