@@ -84,8 +84,10 @@ const getCurrentStatePoker = async () => {
       }
     }
 
+    console.log("[STATE] finished getting current state and returning null");
     return null;
   } catch (error) {
+    console.log("[STATE] error in getCurrentStatePoker", error);
     return null;
   }
 };
