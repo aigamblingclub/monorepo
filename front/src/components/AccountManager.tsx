@@ -411,7 +411,7 @@ export function AccountManager({
       </div>
 
       {/* Game Status Warning */}
-      {bettingAllowed && (
+      {!bettingAllowed && (
         <div className='mb-4 p-3 bg-black border border-orange-500 rounded'>
           <p className='text-orange-400 font-mono text-sm text-center'>
             Game in progress...
