@@ -17,6 +17,7 @@ interface PlayerProps {
   isCurrentPlayer?: boolean;
   totalContractBet?: number;
   userContractBet?: number;
+  tableStatus?: string;
 }
 
 const positionClasses: Record<PlayerPosition, string> = {
@@ -41,6 +42,7 @@ export const Player: React.FC<PlayerProps> = ({
   isCurrentPlayer = false,
   totalContractBet = 0,
   userContractBet = 0,
+  tableStatus,
 }) => {
   const statusColor = () => {
     switch (status) {
@@ -95,7 +97,7 @@ export const Player: React.FC<PlayerProps> = ({
         {/* Player Card Container */}
         <div className='bg-black border-2 border-white rounded-lg p-3 min-w-[160px] relative'>
           {/* Current Player Glow Effect */}
-          {isCurrentPlayer && (
+          {isCurrentPlayer && tableStatus !== 'GAME_OVER' && (
             <div className='absolute inset-0 border-2 border-green-400 rounded-lg animate-pulse'></div>
           )}
 
@@ -135,16 +137,19 @@ export const Player: React.FC<PlayerProps> = ({
               <div className='text-white font-mono text-xs font-bold truncate'>
                 {playerName}
               </div>
-              <div
-                className={`${statusColor()} font-mono text-[10px] flex items-center ${isCurrentPlayer && status === 'PLAYING' ? 'animate-pulse' : ''}`}
-              >
-                <span className='mr-1'>{getStatusIcon()}</span>
-                {status === 'PLAYING'
-                  ? isCurrentPlayer
-                    ? 'Thinking...'
-                    : 'Ready'
-                  : status}
-              </div>
+              {/* Only show status when game is not over */}
+              {tableStatus !== 'GAME_OVER' && (
+                <div
+                  className={`${statusColor()} font-mono text-[10px] flex items-center ${isCurrentPlayer && status === 'PLAYING' ? 'animate-pulse' : ''}`}
+                >
+                  <span className='mr-1'>{getStatusIcon()}</span>
+                  {status === 'PLAYING'
+                    ? isCurrentPlayer
+                      ? 'Thinking...'
+                      : 'Ready'
+                    : status }
+                </div>
+              )}
             </div>
           </div>
 

@@ -135,6 +135,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 playerBets.find(bet => bet.playerId === gameState.players[0].id)
                   ?.betAmount || 0
               }
+              tableStatus={gameState.tableStatus}
             />
           </div>
         )}
@@ -245,6 +246,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 playerBets.find(bet => bet.playerId === gameState.players[1].id)
                   ?.betAmount || 0
               }
+              tableStatus={gameState.tableStatus}
             />
           </div>
         )}
@@ -273,6 +275,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               isCurrentPlayer={index + 2 === gameState?.currentPlayerIndex}
               totalContractBet={playerBet.totalBet}
               userContractBet={playerBet.betAmount}
+              tableStatus={gameState.tableStatus}
             />
           );
         })}

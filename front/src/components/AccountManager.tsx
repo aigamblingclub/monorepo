@@ -393,7 +393,7 @@ export function AccountManager({
             Game in progress...
           </p>
           <p className='text-orange-400 font-mono text-sm text-center'>
-            Betting closed.
+            Betting Closed.
           </p>
         </div>
       )}
