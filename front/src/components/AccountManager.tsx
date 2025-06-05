@@ -423,7 +423,7 @@ export function AccountManager({
       )}
 
       {/* Available Players for Betting */}
-      {!bettingAllowed && availableForBetting.length > 0 && (
+      {bettingAllowed && availableForBetting.length > 0 && (
         <div className='space-y-3 mb-4'>
           {availableForBetting.map((player: PlayerState) => {
             const playerBet = playerBets.find(
