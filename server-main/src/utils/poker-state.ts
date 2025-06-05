@@ -36,7 +36,6 @@ export const updatePokerState = async (interval: number) => {
       }
       // Only update the state if the data is different
       console.log("[STATE] currentState", currentState);
-      console.log("[STATE] currentStatePoker", currentStatePoker);
       if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
         console.log("[STATE] updating state");
         currentStatePoker = currentState;
