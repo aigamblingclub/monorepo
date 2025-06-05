@@ -36,7 +36,7 @@ function PageLayout({ children }: { children: ReactNode }) {
                       {`╔═══════════════════════════════════╗
 ║ AI GAMBLING CLUB          [ALPHA] ║
 ║ ================          █████   ║
-║ PROMPT2WIN  v0.1                  ║
+║ PROMPT2EARN v0.1                  ║
 ╚═══════════════════════════════════╝`}
                     </pre>
                   </div>
