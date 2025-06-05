@@ -10,7 +10,7 @@ export default function ChecklistPage() {
   const [output, setOutput] = useState<string[]>([]);
   const [currentDirectory] = useState('~/near');
   const inputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<any>(null);
+  const scrollRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const wasAtBottomRef = useRef(true);
   const router = useRouter();
 
@@ -217,7 +217,7 @@ export default function ChecklistPage() {
 
           {/* Terminal Content */}
           <SimpleBar
-            // @ts-ignore
+            // @ts-expect-error - SimpleBar ref is not typed
             ref={scrollRef}
             autoHide={false}
             className='ai-thoughts-scrollbar'

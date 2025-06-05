@@ -84,13 +84,13 @@ export function AccountManager({
         setVirtualUsdcBalance(0);
       }
     }
-  }, [accountId, apiKey, getVirtualUsdcBalance, isAccountLocked, tableStatus]);
+  }, [accountId, apiKey, getVirtualUsdcBalance, isAccountLocked, tableStatus]); // eslint-disable-line react-hooks/exhaustive-deps
   
   useEffect(() => {
     if (tableStatus === 'GAME_OVER') {
       fetchRewardBalance();
     }
-  }, [accountId, apiKey, isAccountLocked, tableStatus]);
+  }, [accountId, apiKey, isAccountLocked, tableStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Memoized function to fetch balances - prevents infinite re-renders
