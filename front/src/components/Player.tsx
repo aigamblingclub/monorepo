@@ -158,7 +158,7 @@ export const Player: React.FC<PlayerProps> = ({
             <div className='text-white font-mono text-[10px]'>
               <span className='text-gray-400'>Chips:</span>
               <span className='text-green-400 ml-1 font-bold'>
-                ${formatChips(chips)}
+                {formatChips(chips)}
               </span>
             </div>
           </div>
@@ -170,7 +170,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className='text-white font-mono text-[10px]'>
                   <span className='text-gray-400'>Round Bet:</span>
                   <span className='text-yellow-400 ml-1'>
-                    ${formatChips(bet.amount)}
+                    {formatChips(bet.amount)}
                   </span>
                 </div>
               )}
@@ -178,7 +178,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className='text-white font-mono text-[10px]'>
                   <span className='text-gray-400'>Total Bet:</span>
                   <span className='text-yellow-400 ml-1'>
-                    ${formatChips(bet.volume)}
+                    {formatChips(bet.volume)}
                   </span>
                 </div>
               )}
@@ -192,7 +192,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className='text-white font-mono text-[10px]'>
                   <span className='text-gray-400'>Pool:</span>
                   <span className='text-blue-400 ml-1'>
-                    ${formatUSDCtoDisplay(totalContractBet)}
+                    {formatUSDCtoDisplay(totalContractBet)}
                   </span>
                 </div>
               )}
@@ -200,7 +200,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className='text-white font-mono text-[10px]'>
                   <span className='text-gray-400'>Your Bet:</span>
                   <span className='text-blue-400 ml-1'>
-                    ${formatUSDCtoDisplay(userContractBet)}
+                    {formatUSDCtoDisplay(userContractBet)}
                   </span>
                 </div>
               )}

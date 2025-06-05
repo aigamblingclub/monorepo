@@ -131,6 +131,9 @@ export const usePlayerBetting = () => {
         });
 
         if (!response.ok) {
+          if (isDev) {
+            console.error("[placeBet] Error:", response);
+          }
           throw new Error('Failed to place bet');
         }
 

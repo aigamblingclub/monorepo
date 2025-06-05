@@ -370,6 +370,7 @@ export async function generateText({
     stop,
     customSystemPrompt,
     customTemperature,
+    verbose = true,
 }: // verifiableInference = process.env.VERIFIABLE_INFERENCE_ENABLED === "true",
 // verifiableInferenceOptions,
 {
@@ -385,20 +386,21 @@ export async function generateText({
     // verifiableInference?: boolean;
     // verifiableInferenceAdapter?: IVerifiableInferenceAdapter;
     // verifiableInferenceOptions?: VerifiableInferenceOptions;
+    verbose?: boolean;
 }): Promise<string> {
     if (!context) {
         console.error("generateText context is empty");
         return "";
     }
 
-    elizaLogger.log("Generating text...");
+    if (verbose) elizaLogger.log("Generating text...");
 
-    elizaLogger.info("Generating text with options:", {
+    if (verbose) elizaLogger.info("Generating text with options:", {
         modelProvider: runtime.modelProvider,
         model: modelClass,
         // verifiableInference,
     });
-    elizaLogger.log("Using provider:", runtime.modelProvider);
+    if (verbose) elizaLogger.log("Using provider:", runtime.modelProvider);
     // If verifiable inference is requested and adapter is provided, use it
     // if (verifiableInference && runtime.verifiableInferenceAdapter) {
     //     elizaLogger.log(
@@ -428,7 +430,7 @@ export async function generateText({
     // }
 
     const provider = runtime.modelProvider;
-    elizaLogger.debug("Provider settings:", {
+    if (verbose) elizaLogger.debug("Provider settings:", {
         provider,
         hasRuntime: !!runtime,
         runtimeSettings: {
@@ -513,7 +515,7 @@ export async function generateText({
             break;
     }
 
-    elizaLogger.info("Selected model:", model);
+    if (verbose) elizaLogger.info("Selected model:", model);
 
     const modelConfiguration = runtime.character?.settings?.modelConfig;
     const temperature =
@@ -534,7 +536,7 @@ export async function generateText({
     const apiKey = runtime.token;
 
     try {
-        elizaLogger.debug(
+        if (verbose) elizaLogger.debug(
             `Trimming context to max length of ${max_context_length} tokens.`
         );
 
@@ -543,12 +545,12 @@ export async function generateText({
         let response: string;
 
         const _stop = stop || modelSettings.stop;
-        elizaLogger.debug(
+        if (verbose) elizaLogger.debug(
             `Using provider: ${provider}, model: ${model}, temperature: ${temperature}, max response length: ${max_response_length}`
         );
 
         // TODO: add to debug log
-        elizaLogger.debug(
+        if (verbose) elizaLogger.debug(
             "[Generation] sending request to model: ",
             JSON.stringify({
                 prompt: context,
@@ -593,27 +595,30 @@ export async function generateText({
                     baseURL,
                     fetch: runtime.fetch || undefined
                 });
+                try {
+                    const { text: openaiResponse } = await aiGenerateText({
+                        model: openai.languageModel(model),
+                        prompt: context,
+                        system:
+                            customSystemPrompt ??
+                            runtime.character.system ??
+                            settings.SYSTEM_PROMPT ??
+                            undefined,
+                        tools: tools,
+                        onStepFinish: onStepFinish,
+                        maxSteps: maxSteps,
+                        temperature: temperature,
+                        maxTokens: max_response_length,
+                        frequencyPenalty: frequency_penalty,
+                        presencePenalty: presence_penalty,
+                        experimental_telemetry: experimental_telemetry,
+                    });
+                    response = openaiResponse;
+                } catch (e) {
+                    elizaLogger.error(e);
+                    response = "error";
+                }
 
-                const { text: openaiResponse } = await aiGenerateText({
-                    model: openai.languageModel(model),
-                    prompt: context,
-                    system:
-                        customSystemPrompt ??
-                        runtime.character.system ??
-                        settings.SYSTEM_PROMPT ??
-                        undefined,
-                    tools: tools,
-                    onStepFinish: onStepFinish,
-                    maxSteps: maxSteps,
-                    temperature: temperature,
-                    maxTokens: max_response_length,
-                    frequencyPenalty: frequency_penalty,
-                    presencePenalty: presence_penalty,
-                    experimental_telemetry: experimental_telemetry,
-                });
-
-                response = openaiResponse;
-                console.log("Received response from OpenAI model.");
                 break;
             }
 
@@ -1350,7 +1355,7 @@ export async function generateText({
                 throw new Error(errorMessage);
             }
         }
-        elizaLogger.debug("[Generation] response: ", JSON.stringify({
+        if (verbose) elizaLogger.debug("[Generation] response: ", JSON.stringify({
             response: response,
         }));
         return response;
@@ -1394,6 +1399,7 @@ export async function generateShouldRespond({
                 runtime,
                 context,
                 modelClass,
+                verbose: false
             });
 
             elizaLogger.debug("Received response from generateText:", response);

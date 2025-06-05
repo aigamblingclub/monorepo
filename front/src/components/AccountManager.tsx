@@ -19,7 +19,7 @@ import { formatUsdcDisplay } from '@/utils/usdcBalance';
 import { Transactions } from './Transactions';
 import { LockOperations } from './LockOperations';
 import { PlayerBetting } from './PlayerBetting';
-import { PlayerState, PokerState } from '../types/poker';
+import { PlayerState } from '../types/poker';
 import { isDev } from '@/utils/env';
 
 export interface PlayerBet {
@@ -33,7 +33,6 @@ interface AccountManagerProps {
   playerBets?: PlayerBet[];
   onPlaceBet?: (playerId: string, amount: number) => void;
   tableStatus?: string;
-  gameState: PokerState;
   loading?: boolean; // Loading state for betting
 }
 
@@ -42,7 +41,6 @@ export function AccountManager({
   playerBets = [],
   onPlaceBet = () => {},
   tableStatus = 'WAITING',
-  gameState,
   loading = false,
 }: AccountManagerProps) {
   const { accountId, apiKey } = useAuth();
@@ -114,7 +112,7 @@ export function AccountManager({
           // Clear countdown if balance fetch succeeds
           setUnlockCountdown(null);
           setInitialCountdownSeconds(null);
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
           if (error.message === 'UNLOCK_DEADLINE_ERROR' && error.unlockSecondsLeft) {
             // Start countdown timer
             const seconds = error.unlockSecondsLeft;

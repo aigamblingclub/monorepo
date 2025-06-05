@@ -93,7 +93,7 @@ function HomeContent() {
           }
           return prevState;
         });
-
+        setError(null);
         setLoading(false);
       } catch (err) {
         if (isDev) {
@@ -200,7 +200,6 @@ function HomeContent() {
               playerBets={playerBets}
               onPlaceBet={placeBet}
               tableStatus={gameState?.tableStatus}
-              gameState={gameState}
               loading={bettingLoading}
             />
             {bettingError && (

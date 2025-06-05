@@ -27,8 +27,8 @@ export type Hand = {
 
 function fisherYatesShuffle<T>(array: T[]): T[] {
   const clone = [...array];
-  for (let i = 0; i < clone.length; ++i) {
-    const j = Math.floor(Math.random() * (clone.length - i));
+  for (let i = clone.length-1; i > 0; --i) {
+    const j = Math.floor(Math.random() * (i + 1));
     [clone[i], clone[j]] = [clone[j], clone[i]];
   }
   return clone;

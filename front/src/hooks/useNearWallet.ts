@@ -334,7 +334,7 @@ export function useNearWallet() {
           if (match && match[1]) {
             const seconds = parseInt(match[1], 10) + 5; // Add 5 seconds
             const customError = new Error('UNLOCK_DEADLINE_ERROR');
-            (customError as any).unlockSecondsLeft = seconds;
+            (customError as any).unlockSecondsLeft = seconds; // eslint-disable-line @typescript-eslint/no-explicit-any
             throw customError;
           }
         }
@@ -371,6 +371,6 @@ export function useNearWallet() {
       isConnected: walletState.accountId !== null,
       isConnecting: walletState.isConnecting,
     }),
-    [walletState, signIn, signOut, callMethod]
+    [walletState, signIn, signOut, callMethod, getNearBalance]
   );
 }

@@ -17,8 +17,8 @@
     "front-dev": "pnpm run front-poker-schema && pnpm run --cwd front dev -p 4000",
     "front-build": "bun run front-poker-schema && bun run --cwd front build",
     "agent-build": "cp packages/poker-state-machine/src/schemas.ts agent/packages/client-poker/src/schemas.ts && npx pnpm --dir agent install && YOUTUBE_DL_SKIP_PYTHON_CHECK=1 npx pnpm --dir agent build",
-    "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug",
-    "agent-start": "npx pnpm --dir agent start",
+    "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug --characters=\"characters/showman.json,characters/strategist.json\"",
+    "agent-start": "npx pnpm --dir agent start --characters=\"characters/showman.json,characters/strategist.json\"",
     "agent": "pnpm agent-build && pnpm --dir agent start",
     "build-all": "pnpm poker-build && pnpm server-build && pnpm agent-build && pnpm front-build",
     "install-all": "bun install && pnpm --dir server-main install && pnpm --dir agent install && pnpm --dir front install"

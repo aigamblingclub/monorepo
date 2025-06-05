@@ -27,6 +27,7 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Fetch all bets error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch all bets' },
       { status: 500 }

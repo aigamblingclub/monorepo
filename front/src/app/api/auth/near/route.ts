@@ -27,6 +27,8 @@ export async function GET(request: Request) {
     );
 
     if (!response.ok) {
+      console.error('Challenge fetch error:', response);
+      console.error('Challenge fetch error:', await response.json());
       return NextResponse.json(
         { error: 'Failed to get challenge' },
         { status: 500 }
@@ -36,6 +38,7 @@ export async function GET(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Challenge fetch error:', error);
     return NextResponse.json(
       { error: 'Failed to get challenge' },
       { status: 500 }
@@ -74,6 +77,8 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
+      console.error('Signature verification error:', response);
+      console.error('Signature verification error:', await response.json());
       return NextResponse.json(
         { error: 'Failed to verify signature' },
         { status: 500 }
@@ -83,6 +88,7 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Signature verification error:', error);
     return NextResponse.json(
       { error: 'Failed to verify signature' },
       { status: 500 }

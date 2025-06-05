@@ -44,6 +44,7 @@ export interface LockEvent {
 export interface UnlockEvent {
   account_id: string;
   timestamp: string;
+  transaction_hash: string;
 }
 
 /**
@@ -130,7 +131,7 @@ async function queryLastMethodCall(
   contractId: string,
   fromAccount: string,
   method: string,
-): Promise<NearBlocksReceipt | null> {
+): Promise<{ success: boolean, data: NearBlocksReceipt | null, error?: string }> {
   try {
     const url = `https://api.nearblocks.io/v2/account/${contractId}/receipts?from=${fromAccount}&method=${method}&per_page=10`;
     const response = await fetch(url);
@@ -143,23 +144,28 @@ async function queryLastMethodCall(
     const data = (await response.json()) as NearBlocksResponse;
 
     // Validation: Check if any transactions were found for the user
-    if (!data.txns || data.txns.length === 0) {
-      return null;
+    if (!data.txns) {
+      return { success: false, data: null, error: 'No transactions found' };
+    }
+
+    // If no transactions were found, return null
+    if (data.txns.length === 0) {
+      return { success: true, data: null };
     }
 
     // Look through the transactions to find the first (most recent) successful one
     // Validation: Examine transaction history for successful executions
     for (const receipt of data.txns) {
       if (receipt.outcome.status === true) {
-        return receipt;
+        return { success: true, data: receipt };
       }
     }
 
     // Validation: Detect potential exploitation through repeated failed transactions
     // If we get here, all transactions in the last 10 were failed
-    return null;
+    return { success: false, data: null, error: 'No successful transactions found' };
   } catch (error) {
-    return null;
+    return { success: false, data: null, error: `No successful transactions found: ${error}` };
   }
 }
 
@@ -192,21 +198,21 @@ export async function getLastLockEvent(accountId: string): Promise<LockEvent | n
     const receipt = await queryLastMethodCall(AGC_CONTRACT_ID, accountId, 'lockUsdcBalance');
 
     // Validation: Check if successful lock transaction was found
-    if (!receipt || !receipt.outcome.status) {
-      return null;
+    if (!receipt || !receipt.success || !receipt.data?.outcome.status) {
+      throw new Error('No lock event found');
     }
 
     // Create a LockEvent from the receipt data
     // We only have the timestamp of when the method was called
     const lockEvent: LockEvent = {
       account_id: accountId,
-      timestamp: receipt.block.block_timestamp,
-      transaction_hash: receipt.transaction_hash,
+      timestamp: receipt.data?.block.block_timestamp || '',
+      transaction_hash: receipt.data?.transaction_hash || '',
     };
 
     return lockEvent;
   } catch (error) {
-    return null;
+    throw new Error(`No lock event found: ${error}`);
   }
 }
 
@@ -239,20 +245,21 @@ export async function getLastUnlockEvent(accountId: string): Promise<UnlockEvent
     const receipt = await queryLastMethodCall(AGC_CONTRACT_ID, accountId, 'unlockUsdcBalance');
 
     // Validation: Check if successful unlock transaction was found
-    if (!receipt || !receipt.outcome.status) {
-      return null;
+    if (!receipt || !receipt.success || !receipt.data?.outcome.status) {
+      throw new Error('No unlock event found');
     }
 
     // Create an UnlockEvent from the receipt data
     // We only have the timestamp of when the method was called
     const unlockEvent: UnlockEvent = {
       account_id: accountId,
-      timestamp: receipt.block.block_timestamp,
+      timestamp: receipt.data?.block.block_timestamp || '',
+      transaction_hash: receipt.data?.transaction_hash || '',
     };
 
     return unlockEvent;
   } catch (error) {
-    return null;
+    throw new Error(`No unlock event found: ${error}`);
   }
 }
 

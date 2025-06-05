@@ -220,4 +220,48 @@ describe('All-in functionality', () => {
     expect(p3?.status).toBe('PLAYING');
     expect(p3?.bet.amount).toBe(50);
   });
+
+  test('calling a large all-in bet with fewer chips', () => {
+    // Player 1 has a lot of chips and goes all-in
+    const player1 = {
+      ...createPlayer('player1', 1500, { amount: 1550, volume: 1670 }),
+      status: 'ALL_IN' as const,
+      chips: 0
+    };
+    const player2 = createPlayer('player2', 210, { amount: 0, volume: 120 });
+    
+    const initialState = {
+      ...createTestState([player1, player2]),
+      phase: {
+        street: "FLOP" as const,
+        actionCount: 1,
+        volume: 1550,
+      },
+      round: {
+        roundNumber: 44,
+        volume: 1790,
+        currentBet: 1550,
+        foldedPlayers: [],
+        allInPlayers: [],
+      },
+      community: [
+        { rank: 3 as const, suit: "hearts" as const },
+        { rank: 8 as const, suit: "hearts" as const },
+        { rank: 6 as const, suit: "hearts" as const }
+      ] as const
+    };
+    
+    // Player 2 tries to call the all-in
+    const callState = playerBet(initialState, 'player2', 1550);
+    
+    // Verify the call was successful
+    expect(callState.round.volume).toBe(1790 + 210); // Previous volume + remaining chips
+    expect(callState.round.currentBet).toBe(1550);
+    
+    const callingPlayer = callState.players.find(p => p.id === 'player2');
+    expect(callingPlayer?.chips).toBe(0);
+    expect(callingPlayer?.status).toBe('ALL_IN');
+    expect(callingPlayer?.bet.amount).toBe(210); // Only the new chips in this phase
+    expect(callingPlayer?.bet.volume).toBe(330); // Previous 120 + remaining 210 (total for the round)
+  });
 }); 

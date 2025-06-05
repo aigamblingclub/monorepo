@@ -27,6 +27,7 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Bet fetch error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch bet' },
       { status: 500 }
@@ -63,15 +64,19 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
+      console.error("[placeBet] Error:", response);
+      const error = await response.json();
+      console.error("[placeBet] Error:", error);
       return NextResponse.json(
         { error: 'Failed to place bet' },
         { status: 500 }
       );
     }
     const data = await response.json();
-
+    console.log("[placeBet] Data:", data);
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Place bet error:', error);
     return NextResponse.json({ error: 'Failed to place bet' }, { status: 500 });
   }
 }

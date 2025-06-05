@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { formatChips } from '../utils/poker';
-import { formatUSDCtoDisplay, parseInputToAtomic, isValidUSDCInput } from '../utils/currency';
+import { parseInputToAtomic, isValidUSDCInput } from '../utils/currency';
 import { PlayerBet } from './AccountManager';
 
 interface PlayerBettingProps {
@@ -74,17 +74,17 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
         )}
 
         {/* Total USDC Pool */}
-        <div>
+        {/* <div>
           <label className='block text-white font-mono text-xs mb-1'>
             Total Pool:
           </label>
           <div className='bg-black border border-white rounded px-2 py-1 font-mono text-sm text-white'>
             {formatUSDCtoDisplay(totalBet)}
           </div>
-        </div>
+        </div> */}
 
         {/* User's Current Bet */}
-        {bet.betAmount > 0 && (
+        {/* {bet.betAmount > 0 && (
           <div>
             <label className='block text-white font-mono text-xs mb-1'>
               Your Bet:
@@ -93,7 +93,7 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
               {formatUSDCtoDisplay(bet.betAmount)}
             </div>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Betting Input */}
