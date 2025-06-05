@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { PlayerState, PokerState } from '../types/poker';
+import { formatUsdcDisplay } from '@/utils/usdcBalance';
+
+interface MoveHistoryEntry {
+  lastMove: PokerState['lastMove'];
+  phase: PokerState['phase'];
+  roundNumber: number;
+}
 
 interface MoveHistoryPanelProps {
   gameState: PokerState;
@@ -8,45 +15,67 @@ interface MoveHistoryPanelProps {
 export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({
   gameState,
 }) => {
-  const [moveHistory, setMoveHistory] = useState<PokerState['lastMove'][]>([]);
+  const [moveHistory, setMoveHistory] = useState<MoveHistoryEntry[]>([]);
 
   useEffect(() => {
     // Add new move to history if it exists and is different from the last one
     if (
       gameState &&
       gameState?.lastMove &&
+      gameState.lastMove.move && // Ensure the move object exists
+      gameState.lastMove.playerId && // Ensure playerId exists
       (!moveHistory.length ||
         JSON.stringify(gameState.lastMove) !==
-          JSON.stringify(moveHistory?.[moveHistory.length - 1]))
+          JSON.stringify(moveHistory?.[moveHistory.length - 1]?.lastMove))
     ) {
-      setMoveHistory(prev => [...prev, gameState?.lastMove]);
+      setMoveHistory(prev => [...prev, {
+        lastMove: gameState?.lastMove,
+        phase: gameState.phase,
+        roundNumber: gameState.round.roundNumber
+      }]);
     }
   }, [gameState, moveHistory]);
 
-  const getMoveDescription = (move: NonNullable<PokerState['lastMove']>) => {
+  const getMoveDescription = (entry: MoveHistoryEntry) => {
+    const { lastMove: move, phase, roundNumber } = entry;
+    if (!move) return 'There are no moves yet';
+    
     const { playerId, move: playerMove } = move;
     const playerName =
       gameState.players.find((p: PlayerState) => p.id === playerId)
         ?.playerName ?? playerId;
 
-    switch (playerMove.type) {
-      case 'fold':
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - folded`;
-      case 'call':
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - called`;
-      case 'all_in':
-        return `Round ${gameState.round.roundNumber} - Street ${gameState.phase.street} - ${playerName} - went all in`;
-      case 'raise':
-        return (
-          <>
-            Round {gameState.round.roundNumber} - Street{' '}
-            {gameState.phase.street} - {playerName} - raised to{' '}
-            <span className='text-green-400'>${playerMove.amount}</span>
-          </>
-        );
-      default:
-        return 'Unknown move';
-    }
+    const getActionText = () => {
+      switch (playerMove.type) {
+        case 'fold':
+          return 'folded';
+        case 'call':
+          return 'called';
+        case 'all_in':
+          return 'went all in';
+        case 'raise':
+          return (
+            <>
+              raised to <span className='text-green-400'>${formatUsdcDisplay(playerMove.amount)}</span>
+            </>
+          );
+        default:
+          return 'Chuck used Roundhouse Kick';
+      }
+    };
+
+    return (
+      <div className="space-y-1">
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-gray-300 uppercase tracking-wide">{phase.street}</span>
+          <span className="text-xs text-gray-300">Round {roundNumber}</span>
+        </div>
+        <div className="text-sm">
+          <span className="text-green-400 font-semibold">{playerName}</span>
+          <span className="text-white ml-2">{getActionText()}</span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -60,20 +89,19 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({
         ) : (
           <ul className='space-y-2'>
             {moveHistory.map(
-              (move: PokerState['lastMove'], index: number) =>
-                move && (
-                  <li
-                    key={index}
-                    className='text-white font-mono text-sm p-2 bg-black border border-white'
-                  >
-                    {getMoveDescription(move)}
-                    {/* {move.move.decisionContext?.explanation && (
-                      <p className="text-xs text-gray-400 mt-1 font-mono">
-                        {move.move.decisionContext.explanation}
-                      </p>
-                    )} */}
-                  </li>
-                )
+              (entry: MoveHistoryEntry, index: number) => (
+                <li
+                  key={index}
+                  className='text-white font-mono text-sm p-2 bg-black border border-white'
+                >
+                  {getMoveDescription(entry)}
+                  {/* {entry.lastMove?.move.decisionContext?.explanation && (
+                    <p className="text-xs text-gray-400 mt-1 font-mono">
+                      {entry.lastMove.move.decisionContext.explanation}
+                    </p>
+                  )} */}
+                </li>
+              )
             )}
           </ul>
         )}
