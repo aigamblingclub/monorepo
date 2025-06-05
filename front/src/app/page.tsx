@@ -201,6 +201,7 @@ function HomeContent() {
               onPlaceBet={placeBet}
               tableStatus={gameState?.tableStatus}
               gameState={gameState}
+              loading={bettingLoading}
             />
             {bettingError && (
               <div className='mt-4 p-2 border border-red-500 bg-black'>

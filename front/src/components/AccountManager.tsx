@@ -34,6 +34,7 @@ interface AccountManagerProps {
   onPlaceBet?: (playerId: string, amount: number) => void;
   tableStatus?: string;
   gameState: PokerState;
+  loading?: boolean; // Loading state for betting
 }
 
 export function AccountManager({
@@ -42,6 +43,7 @@ export function AccountManager({
   onPlaceBet = () => {},
   tableStatus = 'WAITING',
   gameState,
+  loading = false,
 }: AccountManagerProps) {
   const { accountId, apiKey } = useAuth();
   const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance, getAgcUsdcBalance } =
@@ -413,6 +415,7 @@ export function AccountManager({
                 totalBet={playerBet.totalBet}
                 bet={playerBet}
                 onPlaceBet={onPlaceBet}
+                loading={loading}
               />
             );
           })}
