@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
 import { PokerState, PlayerState } from '@/types/poker';
@@ -17,10 +17,22 @@ interface ChatProps {
 
 export const Chat: React.FC<ChatProps> = ({ gameState }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (containerRef.current) {
+      const scrollElement = containerRef.current.querySelector('.simplebar-content-wrapper');
+      if (scrollElement) {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }
+    }
+  };
 
   useEffect(() => {
     if (isDev) {
       setMessages(fakeData);
+      // Scroll to bottom after setting fake data
+      setTimeout(scrollToBottom, 100);
     }
   }, [gameState]);
 
@@ -39,7 +51,9 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
         playerName: playerName,
       };
 
-      setMessages(prevMessages => [roleplayMessage, ...prevMessages]);
+      setMessages(prevMessages => [...prevMessages, roleplayMessage]);
+      // Scroll to bottom after adding new message
+      setTimeout(scrollToBottom, 100);
     }
   }, [gameState]);
 
@@ -53,26 +67,28 @@ export const Chat: React.FC<ChatProps> = ({ gameState }) => {
       </div>
 
       {/* Thoughts container */}
-      <SimpleBar
-        autoHide={false}
-        className='ai-thoughts-scrollbar h-[200px] overflow-y-auto'
-      >
-        <div className='p-4 space-y-2'>
-          {messages.map((thought: ChatMessage) => (
-            <div key={thought.id} className='flex items-baseline space-x-2'>
-              <span className='text-green-400 font-mono font-bold'>
-                {thought.playerName}:
-              </span>
-              <span className='text-white font-mono'>{thought.text}</span>
-            </div>
-          ))}
-          {messages.length === 0 && (
-            <div className='text-gray-400 font-mono text-center'>
-              Waiting for AI agent&apos;s thoughts...
-            </div>
-          )}
-        </div>
-      </SimpleBar>
+      <div ref={containerRef}>
+        <SimpleBar
+          autoHide={false}
+          className='ai-thoughts-scrollbar h-[200px] overflow-y-auto'
+        >
+          <div className='p-4 space-y-2'>
+            {messages.map((thought: ChatMessage) => (
+              <div key={thought.id} className='flex items-baseline space-x-2'>
+                <span className='text-green-400 font-mono font-bold text-sm'>
+                  {thought.playerName}:
+                </span>
+                <span className='text-white font-mono text-sm'>{thought.text}</span>
+              </div>
+            ))}
+            {messages.length === 0 && (
+              <div className='text-gray-400 font-mono text-center text-sm'>
+                Waiting for AI agent&apos;s thoughts...
+              </div>
+            )}
+          </div>
+        </SimpleBar>
+      </div>
     </div>
   );
 };
@@ -102,4 +118,25 @@ const fakeData = [
       timestamp: new Date(),
       playerName: 'Jane Doe',
     },
+    {
+      id: '5',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    {
+      id: '6',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    {
+      id: '7',
+      text: 'I am fine, thank you!',
+      timestamp: new Date(),
+      playerName: 'Jane Doe',
+    },
+    
+    
+    
 ];
