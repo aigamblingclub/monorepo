@@ -387,16 +387,19 @@ export function AccountManager({
       </div>
 
       {/* Game Status Warning */}
-      {!bettingAllowed && (
+      {bettingAllowed && (
         <div className='mb-4 p-3 bg-black border border-orange-500 rounded'>
           <p className='text-orange-400 font-mono text-sm text-center'>
-            Game in progress - betting closed
+            Game in progress...
+          </p>
+          <p className='text-orange-400 font-mono text-sm text-center'>
+            Betting closed.
           </p>
         </div>
       )}
 
       {/* Available Players for Betting */}
-      {bettingAllowed && availableForBetting.length > 0 ? (
+      {!bettingAllowed && availableForBetting.length > 0 && (
         <div className='space-y-3 mb-4'>
           {availableForBetting.map((player: PlayerState) => {
             const playerBet = playerBets.find(
@@ -419,18 +422,6 @@ export function AccountManager({
               />
             );
           })}
-        </div>
-      ) : bettingAllowed ? (
-        <div className='mb-4 p-3 bg-black border border-white rounded text-center'>
-          <p className='text-white font-mono text-sm'>
-            No players available for next game
-          </p>
-        </div>
-      ) : (
-        <div className='mb-4 p-3 bg-black border border-white rounded text-center'>
-          <p className='text-white font-mono text-sm'>
-            Betting will open before next game starts
-          </p>
         </div>
       )}
 
