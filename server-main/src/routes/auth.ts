@@ -103,12 +103,14 @@ router.post('/near/verify', async (req, res) => {
     const { signature, accountId, publicKey } = req.body;
 
     if (!signature || !accountId || !publicKey) {
+      console.log("[AUTH] missing required fields");
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Get the stored challenge
     const storedChallenge = challenges.get(accountId);
     if (!storedChallenge) {
+      console.log("[AUTH] no challenge found");
       return res.status(400).json({ error: 'No challenge found. Please request a new challenge.' });
     }
 
@@ -126,6 +128,7 @@ router.post('/near/verify', async (req, res) => {
         nonce: storedChallenge.challenge,
       });
     } catch (error) {
+      console.log("[AUTH] error in verify", error);
       throw new Error(`[NEAR][VERIFY][AUTHENTICATE] Failed to authenticate with NEAR: ${error}`)
     }
 
@@ -151,6 +154,7 @@ router.post('/near/verify', async (req, res) => {
         },
       });
     } catch (error) {
+      console.log("[AUTH] error in verify", error);
       throw new Error(`[NEAR][VERIFY][DATABASE] Failed to upsert user: ${error}`)
     }
 
@@ -167,6 +171,7 @@ router.post('/near/verify', async (req, res) => {
         },
       });
     } catch (error) {
+      console.log("[AUTH] error in verify", error);
       throw new Error(`[NEAR][VERIFY][DATABASE] Failed to create api key: ${error}`)
     }
 
@@ -177,6 +182,7 @@ router.post('/near/verify', async (req, res) => {
       message: 'Authentication successful',
     });
   } catch (error) {
+    console.log("[AUTH] error in verify", error);
     return res.status(500).json({ error: `Internal server error: ${error}` });
   }
 });
