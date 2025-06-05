@@ -159,7 +159,6 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               <>
                 <div>Phase: {getPhaseLabel(gameState.phase.street)}</div>
                 <div>Round: {gameState.round.roundNumber}</div>
-                <div>Turn: {gameState.phase.actionCount}</div>
               </>
             )}
           </div>
