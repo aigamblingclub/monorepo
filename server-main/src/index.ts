@@ -22,7 +22,7 @@ const app = express();
 app.use(express.json());
 
 // Security Middleware
-app.use(securityMiddleware);
+// app.use(securityMiddleware);
 
 // Validate API_KEY_SERVER
 app.use(validateApiKeyServer);
@@ -34,17 +34,17 @@ app.use('/api/game', highFrequencyLimiter); // Apply high-frequency rate limitin
 app.use('/api/user', highFrequencyLimiter); // Apply high-frequency rate limiting to user routes
 app.use('/api/bet', highFrequencyLimiter); // Apply high-frequency rate limiting to bet routes
 
-// IP Check Middleware for /api-docs
-app.use('/api-docs', (req, res, next) => {
-  if (req.ip === '::1') {
-    next();
-  } else {
-    res.status(403).json({ error: 'Access denied' });
-  }
-});
+// // IP Check Middleware for /api-docs
+// app.use('/api-docs', (req, res, next) => {
+//   if (req.ip === '::1') {
+//     next();
+//   } else {
+//     res.status(403).json({ error: 'Access denied' });
+//   }
+// });
 
 // Swagger Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/auth', authRoutes);

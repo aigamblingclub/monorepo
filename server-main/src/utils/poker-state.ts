@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 export let currentStatePoker: PokerState | null = null;
 
 export const updatePokerState = async (interval: number) => {
+  console.log("[STATE] Updating Poker State");
   if (!currentStatePoker) {
     const raw = await prisma.rawState.findFirst({
       where: { status: 'active' },
@@ -17,21 +18,27 @@ export const updatePokerState = async (interval: number) => {
     });
     currentStatePoker = raw ? JSON.parse(raw.data as string) : null;
   }
-
+  console.log("[STATE] before node env, set interval");
   if (process.env.NODE_ENV !== 'test') {
     setInterval(async () => {
+      console.log("[STATE] in interval");
       if (!SERVER_POKER) {
+        console.log("[STATE] no server poker");
         return;
       }
       let currentState: any;
       if (isDev) {
+        console.log("[STATE] in dev");
         currentState = fakeData[0];
       } else if (isProd) {
+        console.log("[STATE] in prod");
         currentState = await getCurrentStatePoker();
       }
       // Only update the state if the data is different
-
+      console.log("[STATE] currentState", currentState);
+      console.log("[STATE] currentStatePoker", currentStatePoker);
       if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
+        console.log("[STATE] updating state");
         currentStatePoker = currentState;
         await saveCurrentStateToDatabase(currentState);
       }
@@ -40,6 +47,7 @@ export const updatePokerState = async (interval: number) => {
 };
 
 const getCurrentStatePoker = async () => {
+  console.log("[STATE] getting current state");
   try {
     const response = await fetch(`${SERVER_POKER}/api/`, {
       method: 'POST', // rpc is only supported for POST requests
@@ -57,13 +65,15 @@ const getCurrentStatePoker = async () => {
         headers: {},
       }),
     });
-
+    console.log("[STATE] response", response);
     if (!response.ok) {
+      console.log("[STATE] response not ok", response);
       return;
     }
 
+    console.log("[STATE] response ok, jsonfying");
     const data = await response.json();
-
+    console.log("[STATE] data", data);
     // Handle array response format
     if (Array.isArray(data) && data.length > 0) {
       const firstItem = data[0];
@@ -82,12 +92,15 @@ const getCurrentStatePoker = async () => {
 
 // save the current state to the database
 export const saveCurrentStateToDatabase = async (state: PokerState) => {
+  console.log("[STATE] saving current state to database", state);
   await prisma.$transaction(async tx => {
+    console.log("[STATE] creating raw state");
     await tx.rawState.create({
       data: { data: JSON.stringify(state), status: 'active', updatedAt: new Date() },
     });
-
+    console.log("[STATE] created raw state");
     // save to table
+    console.log("[STATE] saving to table");
     await tx.table.upsert({
       where: { tableId: state.tableId },
       update: {
@@ -106,7 +119,7 @@ export const saveCurrentStateToDatabase = async (state: PokerState) => {
         config: state.config,
       },
     });
-
+    console.log("[STATE] saved to table");
     // save to players
     for (const player of state.players) {
       await tx.player.upsert({

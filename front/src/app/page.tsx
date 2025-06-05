@@ -78,11 +78,15 @@ function HomeContent() {
           data = fakeData[1];
         } else {
           try {
+            console.log("[STATE] Fetching Game State")
             const state = await fetch('/api/current-state');
+            console.log("[STATE] We got a state response!");
+            console.log("[STATE] It's a girl!!", state);
             data = await state.json();
+            console.log('[PAGE]Fetching Game State')
           } catch (err) {
             data = { error: 'Failed to load game state' };
-            console.error("getState error:", err);
+            console.log("[STATE] error:", err);
             setError('Failed to load game state');
             setLoading(false);
           }
