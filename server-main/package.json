@@ -17,7 +17,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy --schema=./src/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=./src/prisma/schema.prisma",
     "prisma:reset": "prisma migrate reset --schema=./src/prisma/schema.prisma",
-    "build": "pnpm prisma:generate && tsc && tsc-alias && cp -r src/prisma/generated dist/prisma/"
+    "build": "prisma generate --schema=./src/prisma/schema.prisma && prisma generate --schema=./src/tests/prisma/schema.prisma && tsc && tsc-alias && cp -r src/prisma/generated dist/prisma/"
   },
   "engines": {
     "node": ">=18.0.0"
