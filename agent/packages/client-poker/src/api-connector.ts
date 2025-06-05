@@ -33,30 +33,32 @@ export class ApiConnector {
         this.apiKey = apiKey || null;
         this.playerName = playerName || null;
         elizaLogger.log(
-            "EffectApiConnector initialized with base URL:",
+            `[${this.playerName || 'Unknown'}] EffectApiConnector initialized with base URL:`,
             baseUrl
         );
         if (apiKey) {
-            elizaLogger.log("EffectApiConnector initialized with API key");
+            elizaLogger.log(`[${this.playerName || 'Unknown'}] EffectApiConnector initialized with API key`);
         }
     }
 
-    private getHeaders(): HeadersInit {
+    private getHeaders(verbose: boolean = false): HeadersInit {
         const headers: HeadersInit = {
             "Content-Type": "application/json",
         };
 
         if (this.apiKey) {
             headers["x-api-key"] = this.apiKey;
-            elizaLogger.debug("Adding API key to request headers");
+            if (verbose) elizaLogger.debug(`[${this.playerName || 'Unknown'}] Adding API key to request headers`);
         } else {
-            elizaLogger.warn("No API key available for request");
+            elizaLogger.warn(`[${this.playerName || 'Unknown'}] No API key available for request`);
         }
 
-        elizaLogger.debug("Request headers:", {
-            ...headers,
-            "x-api-key": this.apiKey ? "[REDACTED]" : "undefined",
-        });
+        if (verbose) {
+            elizaLogger.debug(`[${this.playerName || 'Unknown'}] Request headers:`, {
+                ...headers,
+                "x-api-key": this.apiKey ? "[REDACTED]" : "undefined",
+            });
+        }
         return headers;
     }
 
@@ -81,12 +83,12 @@ export class ApiConnector {
     }
 
     // WebSocket connection methods
-    connect(): Promise<void> {
-        elizaLogger.debug("Connecting to WebSocket");
+    connect(verbose: boolean = false): Promise<void> {
+        if (verbose) elizaLogger.debug(`[${this.playerName || 'Unknown'}] Connecting to WebSocket`);
         return new Promise((resolve, reject) => {
             if (this.ws) {
                 if (this.ws.readyState === WebSocket.OPEN) {
-                    elizaLogger.debug("WebSocket already connected");
+                    if (verbose) elizaLogger.debug(`[${this.playerName || 'Unknown'}] WebSocket already connected`);
                     resolve();
                     return;
                 }
@@ -94,37 +96,36 @@ export class ApiConnector {
             }
 
             const wsUrl = this.baseUrl.replace(/^http/, "ws") + "/rpc";
-            elizaLogger.log(`Connecting to WebSocket at ${wsUrl}`);
+            elizaLogger.log(`[${this.playerName || 'Unknown'}] Connecting to WebSocket at ${wsUrl}`);
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
-                elizaLogger.log("WebSocket connection established");
+                elizaLogger.log(`[${this.playerName || 'Unknown'}] WebSocket connection established`);
                 this.connected = true;
                 this.reconnectAttempts = 0;
                 resolve();
             };
 
             this.ws.onmessage = (event) => {
-                elizaLogger.debug("Received WebSocket message:", event.data);
                 try {
                     const data = JSON.parse(event.data);
                     this.handleWebSocketMessage(data);
                 } catch (error) {
                     elizaLogger.error(
-                        "Error parsing WebSocket message:",
+                        `[${this.playerName || 'Unknown'}] Error parsing WebSocket message:`,
                         error
                     );
                 }
             };
 
             this.ws.onclose = () => {
-                elizaLogger.log("WebSocket connection closed");
+                elizaLogger.log(`[${this.playerName || 'Unknown'}] WebSocket connection closed`);
                 this.connected = false;
                 this.attemptReconnect();
             };
 
             this.ws.onerror = (error) => {
-                elizaLogger.error("WebSocket error:", error);
+                elizaLogger.error(`[${this.playerName || 'Unknown'}] WebSocket error:`, error);
                 reject(error);
             };
         });
@@ -132,7 +133,7 @@ export class ApiConnector {
 
     private attemptReconnect(): void {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            elizaLogger.error("Max reconnection attempts reached");
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] Max reconnection attempts reached`);
             return;
         }
 
@@ -141,7 +142,7 @@ export class ApiConnector {
             30000
         );
         elizaLogger.log(
-            `Attempting to reconnect in ${backoffTime}ms (attempt ${
+            `[${this.playerName || 'Unknown'}] Attempting to reconnect in ${backoffTime}ms (attempt ${
                 this.reconnectAttempts + 1
             }/${this.maxReconnectAttempts})`
         );
@@ -153,7 +154,7 @@ export class ApiConnector {
         this.reconnectTimeout = setTimeout(() => {
             this.reconnectAttempts++;
             this.connect().catch((error) => {
-                elizaLogger.error("Reconnection attempt failed:", error);
+                elizaLogger.error(`[${this.playerName || 'Unknown'}] Reconnection attempt failed:`, error);
             });
         }, backoffTime);
     }
@@ -189,7 +190,7 @@ export class ApiConnector {
             return;
         }
 
-        elizaLogger.warn("Unhandled message type:", data);
+        elizaLogger.warn(`[${this.playerName || 'Unknown'}] Unhandled message type:`, data);
     }
 
     private sendWebSocketMessage(method: string, payload: any): Promise<any> {
@@ -213,7 +214,7 @@ export class ApiConnector {
 
             // Set up callback for this specific message, receive on onmessage > handleWebSocketMessage
             this.messageCallbacks.set(id, (response) => {
-                elizaLogger.debug("Response for message", id, ":", response);
+                // elizaLogger.debug("Response for message", id, ":", response);
                 if (response._tag === "Exit") {
                     if (response.exit._tag === "Success") {
                         resolve(response.exit.value);
@@ -229,7 +230,7 @@ export class ApiConnector {
                 }
             });
 
-            elizaLogger.debug("Sending WebSocket message:", message);
+            elizaLogger.debug(`[${this.playerName || 'Unknown'}] Sending WebSocket message:`, message);
             this.ws.send(JSON.stringify(message));
         });
     }
@@ -257,7 +258,7 @@ export class ApiConnector {
                 playersNeeded: game.playersNeeded
             }));
         } catch (error) {
-            elizaLogger.error("Error fetching available games:", error);
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] Error fetching available games:`, error);
             throw error;
         }
     }
@@ -275,7 +276,10 @@ export class ApiConnector {
         gameId?: string;
         playerName: string;
     }): Promise<string> {
-        await this.connect();
+        await this.connect().catch((error) => {
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] [joinGame] Error connecting to WebSocket:`, error);
+            throw error;
+        });
 
         const playerId = stringToUuid(playerName);
         this.setPlayerId(playerId);
@@ -381,12 +385,18 @@ export class ApiConnector {
 
     // Effect-specific methods
     async getCurrentState(): Promise<PokerState> {
-        await this.connect();
+        await this.connect().catch((error) => {
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] [getCurrentState] Error connecting to WebSocket:`, error);
+            throw error;
+        });
         return this.sendWebSocketMessage("currentState", {});
     }
 
     async processEvent(event: GameEvent): Promise<PokerState> {
-        await this.connect();
+        await this.connect().catch((error) => {
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] [processEvent] Error connecting to WebSocket:`, error);
+            throw error;
+        });
         return this.sendWebSocketMessage("processEvent", { event });
     }
 
@@ -410,32 +420,37 @@ export class ApiConnector {
 
     private async startListeningToStateUpdates(): Promise<void> {
         try {
-            await this.connect();
+            await this.connect().catch((error) => {
+                elizaLogger.error(`[${this.playerName || 'Unknown'}] [startListeningToStateUpdates] Error connecting to WebSocket:`, error);
+                throw error;
+            });
 
             // Send a message to subscribe to state updates
             this.sendWebSocketMessage("stateUpdates", {})
                 .then((response) => {
-                    // This is a stream, so we'll receive updates over time
-                    elizaLogger.log("Subscribed to state updates");
+                    elizaLogger.log(`[${this.playerName || 'Unknown'}] Subscribed to state updates`);
                 })
                 .catch((error) => {
                     elizaLogger.error(
-                        "Error subscribing to state updates:",
+                        `[${this.playerName || 'Unknown'}] Error subscribing to state updates:`,
                         error
                     );
                 });
         } catch (error) {
-            elizaLogger.error("Error starting state updates listener:", error);
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] Error starting state updates listener:`, error);
         }
     }
 
     private async startListeningToPlayerView(): Promise<void> {
         try {
-            await this.connect();
+            await this.connect().catch((error) => {
+                elizaLogger.error(`[${this.playerName || 'Unknown'}] [startListeningToPlayerView] Error connecting to WebSocket:`, error);
+                throw error;
+            });
 
             if (!this.playerId) {
                 elizaLogger.error(
-                    "Cannot subscribe to player view without a player ID"
+                    `[${this.playerName || 'Unknown'}] Cannot subscribe to player view without a player ID`
                 );
                 return;
             }
@@ -443,17 +458,16 @@ export class ApiConnector {
             // Send a message to subscribe to player view updates
             this.sendWebSocketMessage("playerView", { playerId: this.playerId })
                 .then((response) => {
-                    // This is a stream, so we'll receive updates over time
-                    elizaLogger.log("Subscribed to player view updates");
+                    elizaLogger.log(`[${this.playerName || 'Unknown'}] Subscribed to player view updates`);
                 })
                 .catch((error) => {
                     elizaLogger.error(
-                        "Error subscribing to player view updates:",
+                        `[${this.playerName || 'Unknown'}] Error subscribing to player view updates:`,
                         error
                     );
                 });
         } catch (error) {
-            elizaLogger.error("Error starting player view listener:", error);
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] Error starting player view listener:`, error);
         }
     }
 
@@ -489,16 +503,29 @@ export class ApiConnector {
     private convertDecisionToMove(decision: PokerDecision): Move {
         switch (decision.action) {
             case PlayerAction.FOLD:
-                return { type: "fold", decisionContext: decision.decisionContext };
+                return {
+                    type: "fold",
+                    decisionContext: decision.decisionContext || null
+                };
             case PlayerAction.CALL:
-                return { type: "call", decisionContext: decision.decisionContext };
+                return {
+                    type: "call",
+                    decisionContext: decision.decisionContext || null
+                };
             case PlayerAction.ALL_IN:
-                return { type: "all_in", decisionContext: decision.decisionContext };
+                return {
+                    type: "all_in",
+                    decisionContext: decision.decisionContext || null
+                };
             case PlayerAction.RAISE:
                 if (!decision.amount) {
                     throw new Error("Raise action requires an amount");
                 }
-                return { type: "raise", amount: decision.amount, decisionContext: decision.decisionContext };
+                return {
+                    type: "raise",
+                    amount: decision.amount,
+                    decisionContext: decision.decisionContext || null
+                };
             default:
                 throw new Error(`Unsupported action: ${decision.action}`);
         }
@@ -506,15 +533,18 @@ export class ApiConnector {
 
     async getPlayerView(playerId: string): Promise<PlayerView | null> {
         try {
-            await this.connect();
+            await this.connect().catch((error) => {
+                elizaLogger.error(`[${this.playerName || 'Unknown'}] [getPlayerView] Error connecting to WebSocket:`, error);
+                throw error;
+            });
 
             // Send a message to request player view
-            elizaLogger.debug(`Requesting player view for player ${playerId}`);
+            elizaLogger.debug(`[${this.playerName || 'Unknown'}] Requesting player view for player ${playerId}`);
             const response = await this.sendWebSocketMessage("playerView", { playerId });
-            elizaLogger.debug(`Response player view ${JSON.stringify(response)}`);
+            // elizaLogger.debug(`Response player view ${JSON.stringify(response)}`);
             return response;
         } catch (error) {
-            elizaLogger.error("Error requesting player view:", error);
+            elizaLogger.error(`[${this.playerName || 'Unknown'}] Error requesting player view:`, error);
             throw error;
         }
     }

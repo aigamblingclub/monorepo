@@ -115,15 +115,15 @@ export async function validateUserCanBet(
 
     // Step 2: Get user's current betting status and pending unlock deadline (in parallel)
     if (verbose) console.info(`[Security] Step 2: Getting user betting status and unlock deadline`);
-    let userCanBet: boolean;
+    let userNonce: string;
     let pendingUnlockDeadline: string | null;
 
     try {
-      [userCanBet, pendingUnlockDeadline] = await Promise.all([
-        getUserCanBet(user.id),
+      [userNonce, pendingUnlockDeadline] = await Promise.all([
+        getNonce(user.id),
         getPendingUnlockDeadline(user.id),
       ]);
-      if (verbose) console.info(`[Security] User can bet: ${userCanBet}, Pending unlock deadline: ${pendingUnlockDeadline || 'none'}`);
+      if (verbose) console.info(`[Security] User nonce: ${userNonce}, Pending unlock deadline: ${pendingUnlockDeadline || 'none'}`);
     } catch (error) {
       errors.push(`Failed to get user status: ${(error as Error).message}`);
       if (verbose) console.info(`[Security] Failed to get user status: ${(error as Error).message}`);
@@ -161,16 +161,19 @@ export async function validateUserCanBet(
       return { success: false, canBet: false, errors };
     }
 
+    const noTransactionHistory = !lastLockEvent && !lastUnlockEvent 
+    const noTransactionHistoryTimestamp = !lastLockEvent?.timestamp && !lastUnlockEvent?.timestamp
+    const noTransactionHistoryHash = !lastLockEvent?.transaction_hash && !lastUnlockEvent?.transaction_hash
     // Step 5: Check if user has any transaction history
     // Validation: Handle new users with no blockchain transaction history
-    if (!lastLockEvent && !lastUnlockEvent) {
+    if (!userNonce && userNonce !== '' && noTransactionHistory && noTransactionHistoryTimestamp && noTransactionHistoryHash) {
       if (verbose) console.info(`[Security] Step 5: New user with no transaction history, allowing betting`);
       // New user with no history - allow betting
       canBet = true;
       // First create the balance record for the user
       await updateBalanceOnDB(user.id, user.nearNamedAddress);
       // Then set the userCanBet status to true
-      await setUserCanBet(user.id, true);
+      // await setUserCanBet(user.id, true); // TODO: remove this?
       if (verbose) console.info(`[Security] New user setup completed, betting enabled`);
       return {
         success: true,
@@ -189,7 +192,7 @@ export async function validateUserCanBet(
     if (verbose) console.info(`[Security] Step 6: Lock is more recent than unlock: ${lockIsMoreRecent}`);
 
     // Step 7: Main validation logic
-    if (verbose) console.info(`[Security] Step 7: Main validation logic - userCanBet: ${userCanBet}`);
+    if (verbose) console.info(`[Security] Step 7: Main validation logic - userNonce: ${userNonce}`);
 
     // Step 7.1: Check if account is unlocked, and if it is, we can't bet
     const accountIsLocked = await isAccountLocked(user.nearNamedAddress);

@@ -135,6 +135,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 playerBets.find(bet => bet.playerId === gameState.players[0].id)
                   ?.betAmount || 0
               }
+              tableStatus={gameState.tableStatus}
+              position={gameState.players[0].position}
             />
           </div>
         )}
@@ -159,7 +161,6 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               <>
                 <div>Phase: {getPhaseLabel(gameState.phase.street)}</div>
                 <div>Round: {gameState.round.roundNumber}</div>
-                <div>Turn: {gameState.phase.actionCount}</div>
               </>
             )}
           </div>
@@ -199,14 +200,14 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 <div>
                   POT:{' '}
                   <span className='text-green-400'>
-                    ${formatChips(gameState?.round?.volume || 0)}
+                    {formatChips(gameState?.round?.volume || 0)}
                   </span>
                 </div>
                 {gameState.round?.currentBet > 0 && (
                   <div className='current-bet'>
                     Current Bet:{' '}
                     <span className='text-yellow-400'>
-                      ${formatChips(gameState?.round?.currentBet || 0)}
+                      {formatChips(gameState?.round?.currentBet || 0)}
                     </span>
                   </div>
                 )}
@@ -246,6 +247,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 playerBets.find(bet => bet.playerId === gameState.players[1].id)
                   ?.betAmount || 0
               }
+              tableStatus={gameState.tableStatus}
+              position={gameState.players[1].position}
             />
           </div>
         )}
@@ -274,6 +277,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               isCurrentPlayer={index + 2 === gameState?.currentPlayerIndex}
               totalContractBet={playerBet.totalBet}
               userContractBet={playerBet.betAmount}
+              tableStatus={gameState.tableStatus}
             />
           );
         })}

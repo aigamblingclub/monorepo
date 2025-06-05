@@ -547,7 +547,7 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
                 currentBet: 0,
                 volume: 0,
             },
-            lastMove: null,
+            // lastMove: null,
             winner: winner.id,
             players: state.players.map((p) => ({
                 ...p,
@@ -563,15 +563,18 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
     }
 
     // Players who are still active (not folded or all-in)
-    const playingPlayers = inPlayers.filter(p => p.status === 'PLAYING' || p.status === 'ALL_IN')
+    const playingPlayers = inPlayers.filter(p => p.status === 'PLAYING')
     
-    // Validate state: all active players should have the same bet
-    const playingPotBets = getPotBets(playingPlayers)
-    if (playingPotBets.length !== 1) {
-        return Effect.fail({
-            type: 'inconsistent_state',
-            message: "Inconsistent State Error: there's more than one pot for non all-in players."
-        })
+    // Validate state: all non-all-in players should have matched the current bet
+    if (playingPlayers.length > 0) {
+        const currentBet = state.round.currentBet
+        const unmatchedPlayers = playingPlayers.filter(p => p.bet.amount !== currentBet)
+        if (unmatchedPlayers.length > 0) {
+            return Effect.fail({
+                type: 'inconsistent_state',
+                message: "Inconsistent State Error: some active players haven't matched the current bet."
+            })
+        }
     }
     
     const potBets = getPotBets(allPlayers);
@@ -634,7 +637,7 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
             allInPlayers: [],
             currentBet: 0
         },
-        lastMove: null,
+        // lastMove: null,
         winner: state.players.find((p) => (rewards.get(p.id) ?? 0) > 0)?.id ?? null,
         players: state.players.map((p) => ({
             ...p,
@@ -684,7 +687,7 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
         ...state,
         tableStatus: 'PLAYING',
         players: resetPlayers,
-        lastMove: null,
+        // lastMove: null,
         dealerId: nextDealer.id,
         currentPlayerIndex: -1,
         deck: [],  // Will be set by startRound

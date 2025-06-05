@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNearWallet } from './useNearWallet';
 import { AuthState } from '@/types/auth';
 
@@ -67,7 +67,7 @@ export function useNearAuth() {
     if (isConnected && accountId && !authState.isAuthenticated) {
       authenticateWithBackend();
     }
-  }, [isConnected, accountId]);
+  }, [isConnected, accountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Authenticates user with backend using NEAR wallet signature
@@ -85,7 +85,7 @@ export function useNearAuth() {
    * @throws {Error} When challenge request fails
    * @throws {Error} When signature verification fails
    */
-  const authenticateWithBackend = async () => {
+  const authenticateWithBackend = useCallback(async () => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
@@ -162,7 +162,7 @@ export function useNearAuth() {
       }));
       return false;
     }
-  };
+  }, [accountId, selector]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Initiates user login process

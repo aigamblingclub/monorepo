@@ -19,7 +19,7 @@ import { formatUsdcDisplay } from '@/utils/usdcBalance';
 import { Transactions } from './Transactions';
 import { LockOperations } from './LockOperations';
 import { PlayerBetting } from './PlayerBetting';
-import { PlayerState, PokerState } from '../types/poker';
+import { PlayerState } from '../types/poker';
 import { isDev } from '@/utils/env';
 
 export interface PlayerBet {
@@ -33,7 +33,7 @@ interface AccountManagerProps {
   playerBets?: PlayerBet[];
   onPlaceBet?: (playerId: string, amount: number) => void;
   tableStatus?: string;
-  gameState: PokerState;
+  loading?: boolean; // Loading state for betting
 }
 
 export function AccountManager({
@@ -41,7 +41,7 @@ export function AccountManager({
   playerBets = [],
   onPlaceBet = () => {},
   tableStatus = 'WAITING',
-  gameState,
+  loading = false,
 }: AccountManagerProps) {
   const { accountId, apiKey } = useAuth();
   const { getUsdcWalletBalance, getIsUsdcLocked, getVirtualUsdcBalance, getAgcUsdcBalance } =
@@ -68,6 +68,30 @@ export function AccountManager({
   // When game is in progress, no betting is allowed regardless of player status
   const availableForBetting = bettingAllowed ? players : [];
 
+  const fetchRewardBalance = useCallback(async () => {
+    if (!accountId) return;
+    if (!apiKey) return;
+
+    setIsLoadingBalances(true);
+    if(isAccountLocked && tableStatus === 'GAME_OVER') {
+      try {
+        const seconds = 30;
+        setUnlockCountdown(seconds);
+        setInitialCountdownSeconds(seconds);
+        setVirtualUsdcBalance(0); // Set to 0 during countdown
+      } catch (error) {
+        if (isDev) console.error("Fetch reward balance error:", error);
+        setVirtualUsdcBalance(0);
+      }
+    }
+  }, [accountId, apiKey, getVirtualUsdcBalance, isAccountLocked, tableStatus]);
+  
+  useEffect(() => {
+    if (tableStatus === 'GAME_OVER') {
+      fetchRewardBalance();
+    }
+  }, [accountId, apiKey, isAccountLocked, tableStatus]);
+
   /**
    * Memoized function to fetch balances - prevents infinite re-renders
    */
@@ -88,7 +112,7 @@ export function AccountManager({
           // Clear countdown if balance fetch succeeds
           setUnlockCountdown(null);
           setInitialCountdownSeconds(null);
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
           if (error.message === 'UNLOCK_DEADLINE_ERROR' && error.unlockSecondsLeft) {
             // Start countdown timer
             const seconds = error.unlockSecondsLeft;
@@ -136,14 +160,14 @@ export function AccountManager({
   }, [accountId, getIsUsdcLocked]);
 
   /**
-   * Fetch balances when accountId changes or gameState updates
+   * Fetch balances when accountId changes
    */
   useEffect(() => {
     if (accountId) {
       fetchBalances();
       fetchIsUsdcLocked();
     }
-  }, [accountId, apiKey, gameState, isAccountLocked]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, apiKey, isAccountLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Countdown timer effect
@@ -163,7 +187,7 @@ export function AccountManager({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [unlockCountdown, fetchBalances]);
+  }, [unlockCountdown, fetchBalances, fetchRewardBalance]);
 
   /**
    * Start spinner only (visual feedback)
@@ -388,13 +412,16 @@ export function AccountManager({
       {!bettingAllowed && (
         <div className='mb-4 p-3 bg-black border border-orange-500 rounded'>
           <p className='text-orange-400 font-mono text-sm text-center'>
-            Game in progress - betting closed
+            Game in progress...
+          </p>
+          <p className='text-orange-400 font-mono text-sm text-center'>
+            Betting Closed.
           </p>
         </div>
       )}
 
       {/* Available Players for Betting */}
-      {bettingAllowed && availableForBetting.length > 0 ? (
+      {bettingAllowed && availableForBetting.length > 0 && (
         <div className='space-y-3 mb-4'>
           {availableForBetting.map((player: PlayerState) => {
             const playerBet = playerBets.find(
@@ -413,21 +440,10 @@ export function AccountManager({
                 totalBet={playerBet.totalBet}
                 bet={playerBet}
                 onPlaceBet={onPlaceBet}
+                loading={loading}
               />
             );
           })}
-        </div>
-      ) : bettingAllowed ? (
-        <div className='mb-4 p-3 bg-black border border-white rounded text-center'>
-          <p className='text-white font-mono text-sm'>
-            No players available for next game
-          </p>
-        </div>
-      ) : (
-        <div className='mb-4 p-3 bg-black border border-white rounded text-center'>
-          <p className='text-white font-mono text-sm'>
-            Betting will open before next game starts
-          </p>
         </div>
       )}
 

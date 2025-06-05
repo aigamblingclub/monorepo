@@ -122,20 +122,11 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
       });
     }
 
-    // Check if user can bet on chain
-    const validationResult = await validateUserCanBet(user.nearNamedAddress, true);
-    if (!validationResult.success || !validationResult.canBet) {
-      return res.status(400).json({
-        success: false,
-        error: validationResult.errors[0] || 'User cannot bet on chain',
-      });
-    }
-
-    // Get current active table
+    // Get current active table // TODO: we are getting the last created table, idk if this is the best approach
     const currentTable = await prisma.table.findFirst({
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     // There is an active game, so we can't bet
@@ -148,10 +139,10 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
 
     // Check if player exists at table
     const playerTable = await prisma.player_Table.findFirst({
-      where: { 
+      where: {
         playerId,
         tableId: currentTable.tableId,
-        status: 'active'
+        status: 'active',
       },
     });
 
@@ -162,16 +153,19 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
       });
     }
 
+    // Get user's virtual balance and check if they have enough (within transaction)
+    const virtualBalance = await getUserVirtualBalanceAndSync(userId, true);
+
+    if (amount > virtualBalance) {
+      return res.status(400).json({
+        success: false,
+        error: 'Insufficient virtual balance',
+      });
+    }
+
     // Start a transaction to ensure atomicity
     try {
-      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {        
-        // Get user's virtual balance and check if they have enough (within transaction)
-        const virtualBalance = await getUserVirtualBalanceAndSync(userId, true);
-
-        if (amount > virtualBalance) {
-          throw new Error('Insufficient virtual balance');
-        }
-
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Check if user can bet
         const gameStatus = await checkUserCanBet(userId);
         if (!gameStatus.canBet) {
@@ -180,7 +174,10 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
 
         // Check if user has pending unlock
         const pendingUnlockDeadline = await getPendingUnlockDeadline(userId);
-        if(pendingUnlockDeadline && BigInt(pendingUnlockDeadline) > BigInt(Date.now() * 1_000_000)) {
+        if (
+          pendingUnlockDeadline &&
+          BigInt(pendingUnlockDeadline) > BigInt(Date.now() * 1_000_000)
+        ) {
           throw new Error('Pending unlock deadline');
         }
 
@@ -194,7 +191,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
           },
         });
 
-        // Update user's virtual balance
+        // Update user's virtual balance to deduct the bet amount
         const updatedBalance = await tx.userBalance.update({
           where: { userId },
           data: {
@@ -202,10 +199,9 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
           },
         });
 
-        
         return bet;
       });
-      
+
       const response: CreateBetResponse = {
         success: true,
         bet: {
@@ -216,7 +212,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
       };
 
       return res.status(200).json(response);
-    } catch (error) {      
+    } catch (error) {
       if (error instanceof Error) {
         return res.status(400).json({
           success: false,

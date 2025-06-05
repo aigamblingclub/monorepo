@@ -48,7 +48,7 @@ export async function checkUserCanBet(
       return { canBet: false };
     }
 
-    return { canBet: false };
+    return { canBet: true };
   } catch (error) {
     throw new Error('Error checking user game status');
   }

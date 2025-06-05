@@ -77,6 +77,10 @@ function computeNextState(
       }
     }
     case "move": {
+      // sleep for 1 second
+      // const sleep = setTimeout(() => {
+      //   console.log("sleeping");
+      // }, 5000);
       const current = currentPlayer(state);
       if (!current) {
         return Effect.fail<ProcessEventError>({ type: "not_your_turn" });

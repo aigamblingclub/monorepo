@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { formatChips } from '../utils/poker';
-import { formatUSDCtoDisplay, parseInputToAtomic, isValidUSDCInput } from '../utils/currency';
+import { parseInputToAtomic, isValidUSDCInput } from '../utils/currency';
 import { PlayerBet } from './AccountManager';
 
 interface PlayerBettingProps {
@@ -10,6 +10,7 @@ interface PlayerBettingProps {
   chipAmount?: number;   // Player's chips in the game
   bet: PlayerBet;        // Current user's bet on this player (in atomic units)
   onPlaceBet: (playerId: string, amount: number) => void;
+  loading?: boolean;     // Loading state for betting
 }
 
 export const PlayerBetting: React.FC<PlayerBettingProps> = ({
@@ -19,6 +20,7 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
   bet,
   playerId,
   onPlaceBet,
+  loading = false,
 }) => {
   const [betAmount, setBetAmount] = useState<string>('');
 
@@ -30,8 +32,28 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
     }
   }, [playerId, betAmount, onPlaceBet]);
 
+  /**
+   * Breathing Spinner Component for betting loading
+   */
+  const BreathingSpinner = () => {
+    if (!loading) return null;
+
+    return (
+      <div className='absolute top-4 right-4'>
+        <div
+          className='w-3 h-3 border border-white bg-black animate-spin'
+          style={{
+            animationDuration: '2s',
+            animationTimingFunction: 'linear',
+          }}
+        />
+      </div>
+    );
+  };
+
   return (
     <div className='bg-black border border-white rounded p-3 transition-all duration-300 ease-in-out hover:border-gray-400'>
+      <BreathingSpinner />
       {/* Player Name */}
       <div className='border-b border-white pb-2 mb-3'>
         <h4 className='text-white font-mono font-semibold'>{playerName}</h4>
@@ -52,17 +74,17 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
         )}
 
         {/* Total USDC Pool */}
-        <div>
+        {/* <div>
           <label className='block text-white font-mono text-xs mb-1'>
             Total Pool:
           </label>
           <div className='bg-black border border-white rounded px-2 py-1 font-mono text-sm text-white'>
             {formatUSDCtoDisplay(totalBet)}
           </div>
-        </div>
+        </div> */}
 
         {/* User's Current Bet */}
-        {bet.betAmount > 0 && (
+        {/* {bet.betAmount > 0 && (
           <div>
             <label className='block text-white font-mono text-xs mb-1'>
               Your Bet:
@@ -71,7 +93,7 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
               {formatUSDCtoDisplay(bet.betAmount)}
             </div>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Betting Input */}
@@ -90,11 +112,12 @@ export const PlayerBetting: React.FC<PlayerBettingProps> = ({
               placeholder='Enter amount'
               min="0"
               step="0.01"
-              className='flex-1 bg-black border border-white rounded px-2 py-1 font-mono text-sm text-white placeholder-gray-400 focus:border-gray-400 focus:outline-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]'
+              disabled={loading}
+              className='flex-1 bg-black border border-white rounded px-2 py-1 font-mono text-sm text-white placeholder-gray-400 focus:border-gray-400 focus:outline-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] disabled:opacity-50 disabled:cursor-not-allowed'
             />
             <button
               onClick={handleBet}
-              disabled={!betAmount || !isValidUSDCInput(betAmount) || parseFloat(betAmount) <= 0}
+              disabled={!betAmount || !isValidUSDCInput(betAmount) || parseFloat(betAmount) <= 0 || loading}
               className='px-3 py-1 bg-black border border-white rounded font-mono text-sm text-white hover:bg-white hover:text-black transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black disabled:hover:text-white'
             >
               Bet

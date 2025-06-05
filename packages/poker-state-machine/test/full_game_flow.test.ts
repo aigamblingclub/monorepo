@@ -2252,4 +2252,99 @@ describe("Poker game flow tests", () => {
     expect(state.phase.actionCount).toBe(0); // Should reset on phase change
   });
 
-}); 
+   test('Players should receive new hands between rounds', async () => {
+    const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
+    
+    // Setup: Two players join
+    await Effect.runPromise(
+      pokerRoom.processEvent({
+        type: 'table',
+        action: 'join',
+        playerId: PLAYER_IDS[0],
+        playerName: PLAYER_IDS[0]
+      })
+    );
+    
+    await Effect.runPromise(
+      pokerRoom.processEvent({
+        type: 'table',
+        action: 'join',
+        playerId: PLAYER_IDS[1],
+        playerName: PLAYER_IDS[1]
+      })
+    );
+    
+    // Get initial state and wait for PRE_FLOP phase
+    let state = await Effect.runPromise(pokerRoom.currentState());
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    // Wait until we're in PRE_FLOP and have a valid current player
+    while (attempts < maxAttempts) {
+        state = await Effect.runPromise(pokerRoom.currentState());
+        const current = currentPlayer(state);
+        
+        if (state.phase.street === "PRE_FLOP" && current && current.id) {
+            break;
+        }
+        
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    // Store initial hands
+    const firstRoundHands = {
+      player1: [...state.players[0].hand],
+      player2: [...state.players[1].hand]
+    };
+
+    // Verify initial hands are valid
+    expect(firstRoundHands.player1.length).toBe(2);
+    expect(firstRoundHands.player2.length).toBe(2);
+
+    // Play through first round quickly with a fold
+    await Effect.runPromise(
+      pokerRoom.processEvent({
+        type: "move",
+        playerId: PLAYER_IDS[0],
+        move: { type: "fold", decisionContext: null }
+      })
+    );
+
+    // Wait for the next round to start
+    attempts = 0;
+    while (attempts < maxAttempts) {
+      state = await Effect.runPromise(pokerRoom.currentState());
+      if (state.round.roundNumber > 1 && state.phase.street === "PRE_FLOP") {
+        break;
+      }
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    // Store second round hands
+    const secondRoundHands = {
+      player1: state.players[0].hand,
+      player2: state.players[1].hand
+    };
+
+    console.log('firstRoundHands', firstRoundHands);
+    console.log('secondRoundHands', secondRoundHands);
+    // Verify hands are different between rounds
+    const player1HandsAreDifferent = 
+      firstRoundHands.player1[0]?.rank !== secondRoundHands.player1[0]?.rank ||
+      firstRoundHands.player1[0]?.suit !== secondRoundHands.player1[0]?.suit ||
+      firstRoundHands.player1[1]?.rank !== secondRoundHands.player1[1]?.rank ||
+      firstRoundHands.player1[1]?.suit !== secondRoundHands.player1[1]?.suit;
+
+    const player2HandsAreDifferent = 
+      firstRoundHands.player2[0]?.rank !== secondRoundHands.player2[0]?.rank ||
+      firstRoundHands.player2[0]?.suit !== secondRoundHands.player2[0]?.suit ||
+      firstRoundHands.player2[1]?.rank !== secondRoundHands.player2[1]?.rank ||
+      firstRoundHands.player2[1]?.suit !== secondRoundHands.player2[1]?.suit;
+
+    expect(player1HandsAreDifferent).toBe(true);
+    expect(player2HandsAreDifferent).toBe(true);
+  });
+
+});

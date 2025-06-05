@@ -10,7 +10,7 @@ export enum PlayerAction {
 export interface PokerDecision {
     action: PlayerAction;
     amount?: number;
-    decisionContext?: DecisionContext;
+    decisionContext: DecisionContext | null;
 }
 
 export type RoundPhase = "PRE_FLOP" | "FLOP" | "TURN" | "RIVER" | "SHOWDOWN";
