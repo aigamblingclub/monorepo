@@ -122,16 +122,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
       });
     }
 
-    // Check if user can bet on chain
-    const validationResult = await validateUserCanBet(user.nearNamedAddress, true);
-    if (!validationResult.success || !validationResult.canBet) {
-      return res.status(400).json({
-        success: false,
-        error: validationResult.errors[0] || 'User cannot bet on chain',
-      });
-    }
-
-    // Get current active table
+    // Get current active table // TODO: we are getting the last created table, idk if this is the best approach
     const currentTable = await prisma.table.findFirst({
       orderBy: {
         createdAt: 'desc'
@@ -194,7 +185,7 @@ router.post('/', validateApiKey, async (req: ExtendedAuthenticatedRequest, res) 
           },
         });
 
-        // Update user's virtual balance
+        // Update user's virtual balance to deduct the bet amount
         const updatedBalance = await tx.userBalance.update({
           where: { userId },
           data: {

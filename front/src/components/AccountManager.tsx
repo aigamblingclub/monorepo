@@ -70,6 +70,30 @@ export function AccountManager({
   // When game is in progress, no betting is allowed regardless of player status
   const availableForBetting = bettingAllowed ? players : [];
 
+  const fetchRewardBalance = useCallback(async () => {
+    if (!accountId) return;
+    if (!apiKey) return;
+
+    setIsLoadingBalances(true);
+    if(isAccountLocked && tableStatus === 'GAME_OVER') {
+      try {
+        const seconds = 30;
+        setUnlockCountdown(seconds);
+        setInitialCountdownSeconds(seconds);
+        setVirtualUsdcBalance(0); // Set to 0 during countdown
+      } catch (error) {
+        if (isDev) console.error("Fetch reward balance error:", error);
+        setVirtualUsdcBalance(0);
+      }
+    }
+  }, [accountId, apiKey, getVirtualUsdcBalance, isAccountLocked, tableStatus]);
+  
+  useEffect(() => {
+    if (tableStatus === 'GAME_OVER') {
+      fetchRewardBalance();
+    }
+  }, [accountId, apiKey, isAccountLocked, tableStatus]);
+
   /**
    * Memoized function to fetch balances - prevents infinite re-renders
    */
@@ -138,14 +162,14 @@ export function AccountManager({
   }, [accountId, getIsUsdcLocked]);
 
   /**
-   * Fetch balances when accountId changes or gameState updates
+   * Fetch balances when accountId changes
    */
   useEffect(() => {
     if (accountId) {
       fetchBalances();
       fetchIsUsdcLocked();
     }
-  }, [accountId, apiKey, gameState, isAccountLocked]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, apiKey, isAccountLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Countdown timer effect
@@ -165,7 +189,7 @@ export function AccountManager({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [unlockCountdown, fetchBalances]);
+  }, [unlockCountdown, fetchBalances, fetchRewardBalance]);
 
   /**
    * Start spinner only (visual feedback)
