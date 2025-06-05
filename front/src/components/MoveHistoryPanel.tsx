@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PlayerState, PokerState } from '../types/poker';
-import { formatUsdcDisplay } from '@/utils/usdcBalance';
 import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
+import { formatChips } from '@/utils/poker';
 
 interface MoveHistoryEntry {
   lastMove: PokerState['lastMove'];
@@ -19,38 +19,39 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({
 }) => {
   const [moveHistory, setMoveHistory] = useState<MoveHistoryEntry[]>([]);
 
-  const addRandomMove = () => {
-    const moveTypes = ['fold', 'call', 'all_in', 'raise'] as const;
-    const streets = ['PRE_FLOP', 'FLOP', 'TURN', 'RIVER'] as const;
-    const playerNames = ['The Showman', 'Chuck Norris', 'Poker Face', 'Ace Hunter', 'Bluff Master'];
+  /// @dev Use this to mock moves
+  // const addRandomMove = () => {
+  //   const moveTypes = ['fold', 'call', 'all_in', 'raise'] as const;
+  //   const streets = ['PRE_FLOP', 'FLOP', 'TURN', 'RIVER'] as const;
+  //   const playerNames = ['The Showman', 'Chuck Norris', 'Poker Face', 'Ace Hunter', 'Bluff Master'];
     
-    const randomMoveType = moveTypes[Math.floor(Math.random() * moveTypes.length)];
-    const randomStreet = streets[Math.floor(Math.random() * streets.length)];
-    const randomPlayerName = playerNames[Math.floor(Math.random() * playerNames.length)];
-    const randomAmount = Math.floor(Math.random() * 1000) + 100;
+  //   const randomMoveType = moveTypes[Math.floor(Math.random() * moveTypes.length)];
+  //   const randomStreet = streets[Math.floor(Math.random() * streets.length)];
+  //   const randomPlayerName = playerNames[Math.floor(Math.random() * playerNames.length)];
+  //   const randomAmount = Math.floor(Math.random() * 1000) + 100;
 
-    setMoveHistory(prev => {
-      const nextRound = prev.length + 1;
+  //   setMoveHistory(prev => {
+  //     const nextRound = prev.length + 1;
       
-      const mockMove: MoveHistoryEntry = {
-        lastMove: {
-          type: 'move',
-          playerId: `player_${Math.random()}`,
-          move: randomMoveType === 'raise' 
-            ? { type: 'raise', amount: randomAmount, decisionContext: null }
-            : { type: randomMoveType, decisionContext: null }
-        },
-        phase: {
-          street: randomStreet,
-          actionCount: 0,
-          volume: 0
-        },
-        roundNumber: nextRound
-      };
+  //     const mockMove: MoveHistoryEntry = {
+  //       lastMove: {
+  //         type: 'move',
+  //         playerId: `player_${Math.random()}`,
+  //         move: randomMoveType === 'raise' 
+  //           ? { type: 'raise', amount: randomAmount, decisionContext: null }
+  //           : { type: randomMoveType, decisionContext: null }
+  //       },
+  //       phase: {
+  //         street: randomStreet,
+  //         actionCount: 0,
+  //         volume: 0
+  //       },
+  //       roundNumber: nextRound
+  //     };
 
-      return [...prev, mockMove];
-    });
-  };
+  //     return [...prev, mockMove];
+  //   });
+  // };
 
   useEffect(() => {
     // Add new move to history if it exists and is different from the last one
@@ -95,7 +96,7 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({
         case 'raise':
           return (
             <>
-              raised to <span className='text-green-400'>{formatUsdcDisplay(playerMove.amount)}</span>
+              raised to <span className='text-green-400'>{formatChips(playerMove.amount)}</span>
             </>
           );
         default:
@@ -123,12 +124,12 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({
         <h3 className='text-white font-mono font-bold text-lg'>
           Move History
         </h3>
-        <button
+        {/* <button
           onClick={addRandomMove}
           className="text-xs bg-green-600 hover:bg-green-700 text-white font-mono px-2 py-1 border border-white"
-        >
-          Add Random Move
-        </button>
+        > */}
+          {/* Add Random Move */}
+        {/* </button> */}
       </div>
       <SimpleBar
         autoHide={false}
@@ -141,11 +142,11 @@ export const MoveHistoryPanel: React.FC<MoveHistoryPanelProps> = ({
               <p className='text-white font-mono text-sm'>No moves yet</p>
             ) : (
               <ul className='space-y-2'>
-                {moveHistory.map(
+                {moveHistory.slice().reverse().map(
                   (entry: MoveHistoryEntry, index: number) => (
                     <li
-                    key={index}
-                    className='text-white font-mono text-sm p-2 bg-black border border-white'
+                      key={moveHistory.length - 1 - index}
+                      className='text-white font-mono text-sm p-2 bg-black border border-white'
                     >
                       {getMoveDescription(entry)}
                     </li>
