@@ -28,8 +28,8 @@ app.use(securityMiddleware);
 app.use(validateApiKeyServer);
 
 // Apply rate limiting
-app.use('/api', apiLimiter); // Apply general API rate limiting
-app.use('/api/auth', authLimiter); // Apply stricter rate limiting to auth routes
+// app.use('/api', apiLimiter); // Apply general API rate limiting
+// app.use('/api/auth', authLimiter); // Apply stricter rate limiting to auth routes
 app.use('/api/game', highFrequencyLimiter); // Apply high-frequency rate limiting to game routes
 app.use('/api/user', highFrequencyLimiter); // Apply high-frequency rate limiting to user routes
 app.use('/api/bet', highFrequencyLimiter); // Apply high-frequency rate limiting to bet routes

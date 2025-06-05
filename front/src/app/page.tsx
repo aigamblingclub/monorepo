@@ -77,8 +77,15 @@ function HomeContent() {
         if (isDev) {
           data = fakeData[1];
         } else {
-          const state = await fetch('/api/current-state');
-          data = await state.json();
+          try {
+            const state = await fetch('/api/current-state');
+            data = await state.json();
+          } catch (err) {
+            data = { error: 'Failed to load game state' };
+            console.error("getState error:", err);
+            setError('Failed to load game state');
+            setLoading(false);
+          }
         }
 
         // Only update the state if the data is different
