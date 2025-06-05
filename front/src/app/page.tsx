@@ -75,7 +75,7 @@ function HomeContent() {
       try {
         let data;
         if (isDev) {
-          data = fakeData[0];
+          data = fakeData[1];
         } else {
           const state = await fetch('/api/current-state');
           data = await state.json();
@@ -318,5 +318,122 @@ const fakeData: PokerState[] = [
       smallBlind: 10,
       bigBlind: 20,
     },
+  },
+  {
+    "tableId": "1c25b2e3-d466-4925-9782-fa4e7da94e97",
+    "tableStatus": "PLAYING",
+    "players": [
+      {
+        "id": "472a3913-2ead-05b5-9ee2-1693304f5862",
+        "playerName": "The Showman",
+        "status": "ALL_IN",
+        "playedThisPhase": true,
+        "position": "SB",
+        "hand": [
+          { "rank": 13, "suit": "hearts" },
+          { "rank": 12, "suit": "hearts" }
+        ],
+        "chips": 0,
+        "bet": { "amount": 960, "volume": 1030 }
+      },
+      {
+        "id": "058cf225-7d2c-075f-8bf6-b7cad54aa4b7",
+        "playerName": "The Strategist",
+        "status": "PLAYING",
+        "playedThisPhase": true,
+        "position": "BB",
+        "hand": [
+          { "rank": 9, "suit": "hearts" },
+          { "rank": 1, "suit": "clubs" }
+        ],
+        "chips": 690,
+        "bet": { "amount": 210, "volume": 280 }
+      }
+    ],
+    "lastMove": {
+      "type": "move",
+      "playerId": "472a3913-2ead-05b5-9ee2-1693304f5862",
+      "move": {
+        "type": "all_in",
+        "decisionContext": {
+          "thinking": "With a Royal Flush on the flop, this is the perfect opportunity to go all-in and maximize value against The Strategist.",
+          "explanation": "Holding the absolute best hand possible in poker, a Royal Flush, I want to extract the maximum value by going all-in. The Strategist may interpret this as a bluff or a strong hand, but either way, I'm in a position to win a significant pot.",
+          "analysis": "The pot is 350 and The Strategist has already bet 280, indicating some level of commitment. My all-in move could either scare them off or make them call with a strong hand, but I hold the unbeatable nuts.",
+          "reasoning": "With the strongest possible hand and a sizable pot, the best move is to go all-in to take advantage of The Strategist's potential commitment to the pot.",
+          "strategy": "Given my aggressive image and the unbeatable hand, going all-in here maximizes pressure and potential profit.",
+          "logic": "A Royal Flush is unbeatable, so the optimal play is to extract as much value as possible. The opponent's previous bet suggests they might call, offering a substantial pot.",
+          "roleplay": "A Royal Flush! Let's see if The Strategist can handle the heat. I'm all-in, baby!"
+        }
+      }
+    },
+    "currentPlayerIndex": 1,
+    "deck": [
+      { "rank": 3, "suit": "hearts" },
+      { "rank": 7, "suit": "hearts" },
+      { "rank": 4, "suit": "hearts" },
+      { "rank": 13, "suit": "clubs" },
+      { "rank": 10, "suit": "spades" },
+      { "rank": 1, "suit": "diamonds" },
+      { "rank": 6, "suit": "spades" },
+      { "rank": 11, "suit": "diamonds" },
+      { "rank": 12, "suit": "clubs" },
+      { "rank": 3, "suit": "spades" },
+      { "rank": 7, "suit": "clubs" },
+      { "rank": 8, "suit": "clubs" },
+      { "rank": 7, "suit": "spades" },
+      { "rank": 6, "suit": "diamonds" },
+      { "rank": 1, "suit": "spades" },
+      { "rank": 9, "suit": "diamonds" },
+      { "rank": 2, "suit": "diamonds" },
+      { "rank": 5, "suit": "diamonds" },
+      { "rank": 13, "suit": "diamonds" },
+      { "rank": 3, "suit": "clubs" },
+      { "rank": 8, "suit": "spades" },
+      { "rank": 11, "suit": "spades" },
+      { "rank": 12, "suit": "diamonds" },
+      { "rank": 9, "suit": "spades" },
+      { "rank": 2, "suit": "clubs" },
+      { "rank": 4, "suit": "clubs" },
+      { "rank": 10, "suit": "diamonds" },
+      { "rank": 13, "suit": "spades" },
+      { "rank": 3, "suit": "diamonds" },
+      { "rank": 4, "suit": "spades" },
+      { "rank": 8, "suit": "diamonds" },
+      { "rank": 6, "suit": "clubs" },
+      { "rank": 12, "suit": "spades" },
+      { "rank": 10, "suit": "clubs" },
+      { "rank": 1, "suit": "hearts" },
+      { "rank": 5, "suit": "spades" },
+      { "rank": 5, "suit": "clubs" },
+      { "rank": 9, "suit": "clubs" },
+      { "rank": 2, "suit": "spades" },
+      { "rank": 7, "suit": "diamonds" },
+      { "rank": 11, "suit": "clubs" },
+      { "rank": 4, "suit": "diamonds" },
+      { "rank": 6, "suit": "hearts" },
+      { "rank": 2, "suit": "hearts" },
+      { "rank": 8, "suit": "hearts" }
+    ],
+    "community": [
+      { "rank": 5, "suit": "hearts" },
+      { "rank": 10, "suit": "hearts" },
+      { "rank": 11, "suit": "hearts" }
+    ],
+    "phase": { "street": "FLOP", "actionCount": 2, "volume": 1170 },
+    "round": {
+      "roundNumber": 3,
+      "volume": 1310,
+      "currentBet": 960,
+      "foldedPlayers": [],
+      "allInPlayers": []
+    },
+    "dealerId": "472a3913-2ead-05b5-9ee2-1693304f5862",
+    "winner": null,
+    "config": {
+      "maxRounds": null,
+      "startingChips": 1000,
+      "smallBlind": 10,
+      "bigBlind": 20
+    }
   },
 ];
