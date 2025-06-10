@@ -116,6 +116,15 @@ router.post('/near/verify', async (req, res) => {
     challenges.delete(accountId);
 
     let isValid = false;
+    console.log('authenticate', {
+      accountId,
+      publicKey,
+      signature,
+      message: AUTH_MESSAGE,
+      recipient: FRONTEND_URL!,
+      nonce: storedChallenge.challenge,
+    });
+    console.log('storedChallenge', storedChallenge);
     try {
       isValid = await authenticate({
       accountId,
