@@ -249,7 +249,7 @@ export function useNearWallet() {
       wallet: wallet
     });
     
-
+    try {
     const result = await wallet.signAndSendTransaction({
       receiverId,
       actions: [
@@ -264,8 +264,12 @@ export function useNearWallet() {
         },
       ],
     });
-    console.log('result', result);
-    return result;
+      console.log('result', result);
+      return result;
+    } catch (error) {
+      console.error('Error signing and sending transaction:', error);
+      throw error;
+    }
   };
 
   const getNearBalance = async () => {
