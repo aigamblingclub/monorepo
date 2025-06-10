@@ -233,9 +233,24 @@ export function useNearWallet() {
     const { selector } = walletState;
 
     if (!selector) throw new Error('Wallet not initialized');
-    const wallet = await selector.wallet();
+    
+    // Add additional checks
+    if (!walletState.accountId) {
+      throw new Error('No account connected');
+    }
 
-    return wallet.signAndSendTransaction({
+    const wallet = await selector.wallet();
+    
+    // Add logging to help diagnose the issue
+    
+    console.log('Wallet state:', {
+      accountId: walletState.accountId,
+      accounts: walletState.accounts,
+      wallet: wallet
+    });
+    
+
+    const result = await wallet.signAndSendTransaction({
       receiverId,
       actions: [
         {
@@ -249,6 +264,8 @@ export function useNearWallet() {
         },
       ],
     });
+    console.log('result', result);
+    return result;
   };
 
   const getNearBalance = async () => {
