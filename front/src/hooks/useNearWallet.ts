@@ -248,22 +248,34 @@ export function useNearWallet() {
       accounts: walletState.accounts,
       wallet: wallet
     });
+
+    // Ensure receiverId is set
+    // const finalReceiverId = receiverId || NEXT_PUBLIC_CONTRACT_ID;
     
-    try {
-    const result = await wallet.signAndSendTransaction({
-      receiverId,
-      actions: [
-        {
-          type: 'FunctionCall',
-          params: {
-            methodName,
-            args,
-            gas: '300000000000000',
-            deposit,
-          },
-        },
-      ],
+    console.log('Transaction details:', {
+      methodName,
+      args,
+      deposit,
+      receiverId: receiverId,
+      signerId: walletState.accountId
     });
+
+    try {
+      const result = await wallet.signAndSendTransaction({
+        receiverId: receiverId,
+        signerId: walletState.accountId, // Explicitly set the signerId
+        actions: [
+          {
+            type: 'FunctionCall',
+            params: {
+              methodName,
+              args,
+              gas: '300000000000000',
+              deposit,
+            },
+          },
+        ],
+      });
       console.log('result', result);
       return result;
     } catch (error) {
