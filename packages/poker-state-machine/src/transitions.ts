@@ -249,6 +249,19 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
             nextState = playerBet(nextState, playerId, player.chips)
             break;
         }
+
+        case "check": {
+            // A check is only allowed if the player does not need to call any chips
+            if (state.round.currentBet !== player.bet.amount) {
+                // Not allowed to check if you owe chips to the pot
+                return Effect.fail({
+                    type: "inconsistent_state",
+                    message: "Cannot check when you have chips to call."
+                });
+            }
+            // No changes to bets or chips, just mark the player as having acted
+            break;
+        }
     }
 
     const nState = {
@@ -362,9 +375,10 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
         }
 
         // Se ainda há alguém para agir, encontra o próximo
-        const nextToAct = state.players.find((p, i) => 
-            p.status === 'PLAYING' && 
-            (!p.playedThisPhase || p.bet.amount < state.round.currentBet)
+        const nextToAct = state.players.find((p) =>
+            p.status === 'PLAYING' && (
+                !p.playedThisPhase || p.bet.amount < state.round.currentBet
+            )
         )
 
         if (nextToAct) {
@@ -385,9 +399,10 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
     }
 
     // Se ainda há alguém para agir, encontra o próximo
-    const nextToAct = state.players.find((p, i) => 
-        p.status === 'PLAYING' && 
-        p.bet.amount < state.round.currentBet
+    const nextToAct = state.players.find((p) =>
+        p.status === 'PLAYING' && (
+            !p.playedThisPhase || p.bet.amount < state.round.currentBet
+        )
     )
 
     if (nextToAct) {
@@ -487,18 +502,23 @@ const getPotBets = (players: PlayerState[]) => pipe(
     Iterable.reduce<number[], number>([], (ps, p) => [...ps, p])
 )
 
-// precondition: potBets is sorted
-// returns the amount each player has at stake on each pot
+// --- Side-pot calculation ----------------------------------------------------
+// For each distinct bet level (ascending) calculate how many chips compõem o
+// pote daquele nível.  Fórmula: (level – prevLevel) * playersThatReachedLevel
+// Ex.: bets [10, 30]   players volumes 10/30/30 →
+//   level 10 : (10-0)  * 3 players  = 30
+//   level 30 : (30-10) * 2 players  = 40  ==> pot total 70.
 const calculatePots = (potBets: number[], players: PlayerState[]): Map<number, number> => {
     const pots = new Map<number, number>()
-    for (const player of players) {
-        let remaining = player.bet.volume;
-        for (const potBet of potBets) {
-            const amount = Math.min(remaining, potBet)
-            remaining -= amount
-            const pot = pots.get(potBet) ?? 0
-            pots.set(potBet, pot + amount)
-        }
+    let previous = 0
+    for (const level of potBets) {
+        // players who contributed at least this level
+        const contributors = players.filter(p => p.bet.volume >= level).length
+        if (contributors === 0) continue
+        const amountPerPlayer = level - previous
+        const potTotal = amountPerPlayer * contributors
+        pots.set(level, potTotal)
+        previous = level
     }
     return pots
 }
@@ -622,6 +642,16 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
             rewards.set(winnerId, current + 1)
         }
     }
+
+    // --- consistency check ---------------------------------------------------
+    const distributed = [...rewards.values()].reduce((s, v) => s + v, 0)
+    if (distributed !== state.round.volume) {
+        return Effect.fail({
+            type: 'inconsistent_state',
+            message: `Pot distribution mismatch: expected ${state.round.volume}, distributed ${distributed}`
+        })
+    }
+
     return Effect.succeed<PokerState>({
         ...state,
         tableStatus: "ROUND_OVER",

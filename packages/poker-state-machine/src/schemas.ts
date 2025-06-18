@@ -139,6 +139,10 @@ export const MoveSchema = Schema.Union(
     decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
   }),
   Schema.Struct({
+    type: Schema.Literal("check"),
+    decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
+  }),
+  Schema.Struct({
     type: Schema.Literal("all_in"),
     decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
   }),

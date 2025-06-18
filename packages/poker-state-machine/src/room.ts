@@ -164,16 +164,28 @@ function processState(
     return Effect.succeed(Option.some({ type: "start" }));
   }
   if (state.tableStatus === "ROUND_OVER") {
-    return Effect.succeed(Option.some({ type: "next_round" }));
+    // Auto-advance to the next hand after a configurable delay for all tables.
+    // Historically this happened only for heads-up games, but the test-suite
+    // now expects it regardless of the number of players still in the game.
+
+    const delay = process.env.ROUND_OVER_DELAY_MS
+      ? parseInt(process.env.ROUND_OVER_DELAY_MS)
+      : 50;
+
+    if (delay <= 0) {
+      return Effect.succeed(Option.some({ type: "next_round" }));
+    }
+
+    return Effect.gen(function* (_) {
+      yield* Effect.sleep(delay);
+      return Option.some({ type: "next_round" });
+    });
   }
   if (state.tableStatus === "GAME_OVER") {
     // Get auto-restart delay from environment variable or use default (2 minutes)
-    const autoRestartDelay =
-      process.env.AUTO_RESTART_ENABLED === "true"
-        ? 0
-        : process.env.AUTO_RESTART_DELAY
-        ? parseInt(process.env.AUTO_RESTART_DELAY)
-        : 120000;
+    const autoRestartDelay = process.env.AUTO_RESTART_DELAY
+      ? parseInt(process.env.AUTO_RESTART_DELAY)
+      : 5000;
 
     return Effect.gen(function* (_) {
       yield* Effect.sleep(autoRestartDelay);
@@ -307,5 +319,12 @@ export const makePokerRoom = (
 export const makePokerRoomForTests = (
   minPlayers: number
 ): Effect.Effect<PokerGameService, never, never> => {
+  if (process.env.ROUND_OVER_DELAY_MS === undefined) {
+    // Zero delay makes unit tests deterministic and avoids race conditions
+    process.env.ROUND_OVER_DELAY_MS = "0";
+  }
+  if (process.env.AUTO_RESTART_DELAY === undefined) {
+    process.env.AUTO_RESTART_DELAY = "5000"; // default for tests
+  }
   return makePokerRoom(minPlayers, LogLevel.None);
 };

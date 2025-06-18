@@ -164,8 +164,14 @@ export function getBestHand(community: RiverCommunity, hole: HoleCards): Hand {
         cards,
     }))
 
-    // TODO: just get max instead (somehow)
-    return hands.toSorted(compareHands)[0]
+    // Sort hands so that the best hand (highest ranking) comes first and
+    // return that hand.  `compareHands` returns `-1` when the first hand is
+    // WORSE than the second one, therefore sorting with it ascending places
+    // the WORST hand first.  We want the BEST hand, so we either sort in the
+    // opposite direction or simply pick the **last** element from the sorted
+    // array.  Picking the last element keeps the implementation simple and
+    // avoids allocating another array.
+    return hands.toSorted(compareHands)[hands.length - 1]
 }
 
 // gets player ids and hole cards, together with community (assuming river as it is showdown) and

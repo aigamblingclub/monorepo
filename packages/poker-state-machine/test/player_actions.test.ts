@@ -218,4 +218,26 @@ describe('Player Actions', () => {
     // Check that current bet is updated to player's all-in amount
     expect(result.round.currentBet).toBe(40);
   });
+
+  test('player check action should not change chips or bet when currentBet is 0', async () => {
+    // Setup with three players, no bets yet (currentBet is 0)
+    const player1 = createPlayer('player1', 100);
+    const player2 = createPlayer('player2', 100);
+    const player3 = createPlayer('player3', 100);
+
+    const initialState = createTestState([player1, player2, player3], 0);
+
+    // Player 1 checks
+    const check: Move = { type: 'check', decisionContext: null };
+    const result = await Effect.runPromise(processPlayerMove(initialState, check));
+
+    // Check that player chips and bet are unchanged
+    const checkedPlayer = result.players.find(p => p.id === 'player1');
+    expect(checkedPlayer?.chips).toBe(100);
+    expect(checkedPlayer?.bet.amount).toBe(0);
+    expect(checkedPlayer?.bet.volume).toBe(0);
+
+    // Check that currentPlayerIndex moves to next player
+    expect(result.currentPlayerIndex).not.toBe(0);
+  });
 }); 
