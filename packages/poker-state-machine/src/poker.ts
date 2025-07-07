@@ -35,6 +35,7 @@ function fisherYatesShuffle<T>(array: T[]): T[] {
 }
 
 export function getShuffledDeck(): Deck {
+  // Create a completely fresh deck every time
   const deck: Deck = SUITS.flatMap((suit) =>
     Array.from({ length: 13 }).map((_, index) => ({
       suit,
@@ -42,7 +43,255 @@ export function getShuffledDeck(): Deck {
     })),
   );
 
-  return fisherYatesShuffle(deck);
+  // Apply multiple shuffles to ensure true randomness
+  let shuffled = fisherYatesShuffle(deck);
+  shuffled = fisherYatesShuffle(shuffled);
+  shuffled = fisherYatesShuffle(shuffled);
+  
+  // Debug: Log the first few cards to verify randomness
+  console.log(`🎲 Fresh shuffled deck first 6 cards:`, shuffled.slice(0, 6));
+  console.log(`🎲 Shuffle timestamp: ${Date.now()}`);
+  
+  return shuffled;
+}
+
+// Test scenarios for deterministic card dealing
+export const TEST_SCENARIOS = {
+  // Player 1 wins with pair of Aces, Player 2 loses with high card
+  PLAYER1_WINS: {
+    playerCards: [
+      [{ rank: 1, suit: "hearts" }, { rank: 1, suit: "spades" }], // Player 1: Pair of Aces
+      [{ rank: 7, suit: "clubs" }, { rank: 9, suit: "diamonds" }], // Player 2: 7-9 offsuit
+    ],
+    community: [
+      { rank: 2, suit: "hearts" },
+      { rank: 5, suit: "clubs" },
+      { rank: 10, suit: "spades" },
+      { rank: 3, suit: "diamonds" },
+      { rank: 8, suit: "hearts" },
+    ],
+  },
+  // Player 2 wins with pair of Kings, Player 1 loses with high card
+  PLAYER2_WINS: {
+    playerCards: [
+      [{ rank: 4, suit: "hearts" }, { rank: 6, suit: "spades" }], // Player 1: 4-6 offsuit
+      [{ rank: 13, suit: "clubs" }, { rank: 13, suit: "diamonds" }], // Player 2: Pair of Kings
+    ],
+    community: [
+      { rank: 2, suit: "hearts" },   // 2, 4, 6, 9, 11, 12 - no straights possible
+      { rank: 9, suit: "clubs" },    
+      { rank: 11, suit: "spades" },  // Jack
+      { rank: 12, suit: "diamonds" }, // Queen  
+      { rank: 1, suit: "hearts" },   // Ace (but no straight: A,2,4,6,9)
+    ],
+  },
+  // Multiple winners - both get same pair
+  TIE_SCENARIO: {
+    playerCards: [
+      [{ rank: 8, suit: "hearts" }, { rank: 8, suit: "spades" }], // Player 1: Pair of 8s
+      [{ rank: 8, suit: "clubs" }, { rank: 8, suit: "diamonds" }], // Player 2: Pair of 8s
+    ],
+    community: [
+      { rank: 2, suit: "hearts" },
+      { rank: 5, suit: "clubs" },
+      { rank: 10, suit: "spades" },
+      { rank: 3, suit: "diamonds" },
+      { rank: 7, suit: "hearts" },
+    ],
+  },
+  // Player 1 consistently wins - for testing game over scenarios
+  PLAYER1_DOMINANT: {
+    playerCards: [
+      [{ rank: 13, suit: "hearts" }, { rank: 13, suit: "spades" }], // Player 1: Pair of Kings
+      [{ rank: 2, suit: "clubs" }, { rank: 3, suit: "diamonds" }], // Player 2: 2-3 offsuit (very weak)
+    ],
+    community: [
+      { rank: 4, suit: "hearts" },   // Community cannot help Player 2
+      { rank: 7, suit: "clubs" },    // No straights, no pairs possible
+      { rank: 10, suit: "spades" },  // Player 1 wins with pair of Kings
+      { rank: 11, suit: "diamonds" }, 
+      { rank: 9, suit: "hearts" },   // vs Player 2's high card
+    ],
+  },
+  // All-in scenario - both players get decent hands but should auto-progress
+  ALL_IN_SCENARIO: {
+    playerCards: [
+      [{ rank: 12, suit: "hearts" }, { rank: 12, suit: "spades" }], // Player 1: Pair of Queens
+      [{ rank: 11, suit: "clubs" }, { rank: 11, suit: "diamonds" }], // Player 2: Pair of Jacks
+    ],
+    community: [
+      { rank: 2, suit: "hearts" },
+      { rank: 5, suit: "clubs" },
+      { rank: 8, suit: "spades" },
+      { rank: 9, suit: "diamonds" },
+      { rank: 13, suit: "hearts" },
+    ],
+  },
+  // Elimination scenario - Player 1 completely dominates for quick elimination
+  ELIMINATION: {
+    playerCards: [
+      [{ rank: 1, suit: "hearts" }, { rank: 1, suit: "spades" }], // Player 1: Pocket Aces (AA) - strongest pocket hand
+      [{ rank: 2, suit: "clubs" }, { rank: 3, suit: "diamonds" }], // Player 2: 2-3 offsuit - weakest possible hand
+    ],
+    community: [
+      { rank: 4, suit: "hearts" },   // Community: 4, 7, 9, 10, 6 
+      { rank: 7, suit: "clubs" },    // Player 1: AA + community = Pair of Aces (very strong)
+      { rank: 9, suit: "spades" },   // Player 2: 23 + community = High card 9 (very weak)
+      { rank: 10, suit: "diamonds" }, // No straights or flushes possible
+      { rank: 6, suit: "hearts" },   // Player 1 wins with 100% certainty
+    ],
+  },
+  // Super weak vs strong - Player 2 guaranteed to lose chips fast  
+  PLAYER2_LOSES_FAST: {
+    playerCards: [
+      [{ rank: 1, suit: "hearts" }, { rank: 13, suit: "spades" }], // Player 1: Ace-King suited (premium hand)
+      [{ rank: 2, suit: "clubs" }, { rank: 4, suit: "diamonds" }], // Player 2: 2-4 offsuit (trash hand)
+    ],
+    community: [
+      { rank: 1, suit: "spades" },   // Flop gives Player 1 pair of Aces
+      { rank: 5, suit: "clubs" },    // Player 2 gets nothing useful
+      { rank: 8, suit: "hearts" },   // Turn and River don't help Player 2
+      { rank: 10, suit: "diamonds" },
+      { rank: 7, suit: "spades" },   // Player 1 dominates with pair of Aces
+    ],
+  },
+  // Phase transition testing - known community cards for predictable phase tests
+  PHASES: {
+    playerCards: [
+      [{ rank: 10, suit: "spades" }, { rank: 9, suit: "spades" }], // Player 1: 10-9 suited
+      [{ rank: 8, suit: "clubs" }, { rank: 7, suit: "diamonds" }], // Player 2: 8-7 offsuit
+      [{ rank: 6, suit: "hearts" }, { rank: 5, suit: "clubs" }], // Player 3: 6-5 offsuit
+    ],
+    community: [
+      { rank: 2, suit: "hearts" },   // Flop cards for phase transition tests
+      { rank: 3, suit: "hearts" },   
+      { rank: 4, suit: "hearts" },   
+      { rank: 5, suit: "hearts" },   // Turn card
+      { rank: 6, suit: "hearts" },   // River card
+    ],
+  },
+} as const;
+
+// Track test state for consistent deck handling
+let testDeckIndex = 0;
+let currentTestDeck: Deck | null = null;
+
+// REFACTORED: Aggressive reset to prevent test pollution
+export function resetTestDeck(): void {
+  testDeckIndex = 0;
+  currentTestDeck = null;
+  
+  // CRITICAL: Aggressively clear ALL deterministic state
+  console.log(`🧹 resetTestDeck: Aggressively clearing all deterministic state`);
+  
+  // Force clear environment variables
+  process.env.POKER_DETERMINISTIC_CARDS = "false";
+  delete process.env.POKER_TEST_SCENARIO;
+  
+  // Force garbage collection of any cached objects
+  if (typeof global !== 'undefined' && global.gc) {
+    global.gc();
+  }
+}
+
+// Get deterministic deck for testing
+export function getTestDeck(scenario: keyof typeof TEST_SCENARIOS): Deck {
+  const testScenario = TEST_SCENARIOS[scenario];
+  const usedCards = new Set<string>();
+  
+  // Collect all used cards
+  testScenario.playerCards.forEach(hand => {
+    hand.forEach(card => {
+      usedCards.add(`${card.rank}-${card.suit}`);
+    });
+  });
+  testScenario.community.forEach(card => {
+    usedCards.add(`${card.rank}-${card.suit}`);
+  });
+  
+  // Create full deck and remove used cards
+  const fullDeck: Deck = SUITS.flatMap((suit) =>
+    Array.from({ length: 13 }).map((_, index) => ({
+      suit,
+      rank: (index + 1) as CardValue,
+    })),
+  );
+  
+  const remainingCards = fullDeck.filter(card => 
+    !usedCards.has(`${card.rank}-${card.suit}`)
+  );
+  
+  // FIXED: Shuffle remaining cards to prevent repetitive patterns between rounds
+  const shuffledRemaining = fisherYatesShuffle(remainingCards);
+  
+  // Build deck in dealing order: player cards first, then community cards at positions where they'll be drawn
+  const testDeck: Deck = [];
+  
+  // Add player hole cards in correct dealing order
+  // For 2 players: [P1_Card1, P1_Card2, P2_Card1, P2_Card2]
+  for (let playerIndex = 0; playerIndex < testScenario.playerCards.length; playerIndex++) {
+    testDeck.push(testScenario.playerCards[playerIndex][0]); // First card
+    testDeck.push(testScenario.playerCards[playerIndex][1]); // Second card
+  }
+  
+  // Add shuffled remaining cards to pad the deck (prevents repetitive dealing patterns)
+  const paddingCards = shuffledRemaining.slice(0, 10);
+  testDeck.push(...paddingCards);
+  
+  // Add community cards at the end (nextPhase draws from end)
+  testDeck.push(...testScenario.community);
+  
+  console.log(`🎯 Created test deck for scenario "${scenario}":`, {
+    totalCards: testDeck.length,
+    holeCards: testDeck.slice(0, testScenario.playerCards.length * 2),
+    communityCards: testDeck.slice(-5),
+  });
+  
+  return testDeck;
+}
+
+// REFACTORED: Robust deck function with better validation
+export function getDeck(): Deck {
+  const deterministicMode = process.env.POKER_DETERMINISTIC_CARDS === 'true';
+  const testScenario = process.env.POKER_TEST_SCENARIO as keyof typeof TEST_SCENARIOS;
+  
+  console.log(`🎯 getDeck() called with deterministic=${deterministicMode}, scenario=${testScenario}`);
+  
+  // STRICT VALIDATION: Only use deterministic decks when explicitly and correctly configured
+  if (deterministicMode && testScenario && TEST_SCENARIOS[testScenario]) {
+    console.log(`🎯 Using deterministic test scenario: ${testScenario}`);
+    
+    // Create fresh test deck each time to avoid pollution between rounds
+    // This prevents infinite loops while still providing deterministic cards
+    const testDeck = getTestDeck(testScenario);
+    
+    // VALIDATION: Ensure test deck is valid
+    if (!testDeck || testDeck.length < 10) {
+      console.log(`❌ Invalid test deck, falling back to random deck`);
+      return getShuffledDeck();
+    }
+    
+    console.log(`✅ Created fresh test deck for "${testScenario}" (${testDeck.length} cards)`);
+    return testDeck;
+  }
+  
+  // DEFAULT: Create fresh shuffled deck
+  const shuffledDeck = getShuffledDeck();
+  
+  // VALIDATION: Ensure shuffled deck is valid
+  if (!shuffledDeck || shuffledDeck.length !== 52) {
+    console.log(`❌ Invalid shuffled deck (length: ${shuffledDeck?.length}), creating emergency deck`);
+    // Emergency deck creation
+    return SUITS.flatMap((suit) =>
+      Array.from({ length: 13 }).map((_, index) => ({
+        suit,
+        rank: (index + 1) as CardValue,
+      })),
+    );
+  }
+  
+  console.log(`🔀 Using fresh random deck (${shuffledDeck.length} cards)`);
+  return shuffledDeck;
 }
 
 // is there a neater way to implement this?
@@ -164,8 +413,14 @@ export function getBestHand(community: RiverCommunity, hole: HoleCards): Hand {
         cards,
     }))
 
-    // TODO: just get max instead (somehow)
-    return hands.toSorted(compareHands)[0]
+    // Sort hands so that the best hand (highest ranking) comes first and
+    // return that hand.  `compareHands` returns `-1` when the first hand is
+    // WORSE than the second one, therefore sorting with it ascending places
+    // the WORST hand first.  We want the BEST hand, so we either sort in the
+    // opposite direction or simply pick the **last** element from the sorted
+    // array.  Picking the last element keeps the implementation simple and
+    // avoids allocating another array.
+    return hands.toSorted(compareHands)[hands.length - 1]
 }
 
 // gets player ids and hole cards, together with community (assuming river as it is showdown) and

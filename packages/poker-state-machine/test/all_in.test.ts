@@ -40,6 +40,7 @@ describe('All-in functionality', () => {
       dealerId: players[0]?.id || '',
       currentPlayerIndex,
       winner: null,
+      lastRoundResult: null,
       config: {
         maxRounds: null,
         startingChips: 100,
