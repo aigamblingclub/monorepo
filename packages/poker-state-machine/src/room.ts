@@ -164,16 +164,28 @@ function processState(
     return Effect.succeed(Option.some({ type: "start" }));
   }
   if (state.tableStatus === "ROUND_OVER") {
-    return Effect.succeed(Option.some({ type: "next_round" }));
+    // Auto-advance to the next hand after a configurable delay for all tables.
+    // Historically this happened only for heads-up games, but the test-suite
+    // now expects it regardless of the number of players still in the game.
+
+    const delay = process.env.ROUND_OVER_DELAY_MS
+      ? parseInt(process.env.ROUND_OVER_DELAY_MS)
+      : 50;
+
+    if (delay <= 0) {
+      return Effect.succeed(Option.some({ type: "next_round" }));
+    }
+
+    return Effect.gen(function* (_) {
+      yield* Effect.sleep(delay);
+      return Option.some({ type: "next_round" });
+    });
   }
   if (state.tableStatus === "GAME_OVER") {
     // Get auto-restart delay from environment variable or use default (2 minutes)
-    const autoRestartDelay =
-      process.env.AUTO_RESTART_ENABLED === "true"
-        ? 0
-        : process.env.AUTO_RESTART_DELAY
-        ? parseInt(process.env.AUTO_RESTART_DELAY)
-        : 120000;
+    const autoRestartDelay = process.env.AUTO_RESTART_DELAY
+      ? parseInt(process.env.AUTO_RESTART_DELAY)
+      : 5000;
 
     return Effect.gen(function* (_) {
       yield* Effect.sleep(autoRestartDelay);
@@ -305,7 +317,154 @@ export const makePokerRoom = (
 
 // Version with disabled logging for tests
 export const makePokerRoomForTests = (
-  minPlayers: number
+  minPlayers: number,
+  testScenario?: string,
+  startingChips?: number
 ): Effect.Effect<PokerGameService, never, never> => {
-  return makePokerRoom(minPlayers, LogLevel.None);
+  if (process.env.ROUND_OVER_DELAY_MS === undefined) {
+    // Zero delay makes unit tests deterministic and avoids race conditions
+    process.env.ROUND_OVER_DELAY_MS = "0";
+  }
+  if (process.env.AUTO_RESTART_DELAY === undefined) {
+    // Longer delay for tests to prevent auto-restart interfering with test validation
+    process.env.AUTO_RESTART_DELAY = "30000"; // 30 seconds instead of 5
+  }
+  
+  // CRITICAL: Only enable deterministic cards when EXPLICITLY requested with a scenario
+  // AND when the environment is not already set to false by setupTestEnvironment
+  if (testScenario && process.env.POKER_DETERMINISTIC_CARDS !== "false") {
+    console.log(`🎯 Enabling deterministic cards for test scenario: ${testScenario}`);
+    process.env.POKER_DETERMINISTIC_CARDS = "true";
+    process.env.POKER_TEST_SCENARIO = testScenario;
+  } else {
+    // ALWAYS default to random cards to prevent infinite loops
+    // This is the most important fix - ensuring we never inherit deterministic settings
+    console.log(`🔀 Using random cards (deterministic=${process.env.POKER_DETERMINISTIC_CARDS})`);
+    process.env.POKER_DETERMINISTIC_CARDS = "false";
+    delete process.env.POKER_TEST_SCENARIO;
+  }
+  
+  // Use 1000 chips as default for tests to match test expectations, unless explicitly overridden
+  const testStartingChips = startingChips !== undefined ? startingChips : 1000;
+  
+  return Effect.gen(function* (_adapter) {
+    // Create a test-specific initial state with correct starting chips
+    const testInitialState = {
+      ...POKER_ROOM_DEFAULT_STATE,
+      tableId: createTableId(),
+      config: {
+        ...POKER_ROOM_DEFAULT_STATE.config,
+        startingChips: testStartingChips,
+      }
+    };
+
+    const stateRef = yield* Ref.make(testInitialState);
+
+    const stateUpdateQueue = yield* Queue.unbounded<PokerState>();
+    const stateStream = Stream.fromQueue(stateUpdateQueue).pipe(
+      Stream.tap(() => Effect.logDebug("state stream received update"))
+    );
+
+    const currentState = () => Ref.get(stateRef);
+
+    const processEvent = (
+      event: GameEvent
+    ): Effect.Effect<PokerState, ProcessEventError, never> => {
+      return pipe(
+        currentState(),
+        Effect.tap(({ deck, ...state }) =>
+          Effect.whenLogLevel(
+            Effect.logDebug("processing event", { event, state }),
+            LogLevel.Debug
+          )
+        ),
+        Effect.flatMap((state) => computeNextState(state, event)),
+        Effect.tap(({ deck, ...state }) =>
+          Effect.logDebug(
+            Effect.logInfo("post-processing", { event, state }),
+            LogLevel.Debug
+          )
+        ),
+        Effect.tap((state) => Ref.set(stateRef, state)),
+        Effect.tap((state) => stateUpdateQueue.offer(state)),
+        Logger.withMinimumLogLevel(LogLevel.None)
+      );
+    };
+
+    const stateProcessingStream: Stream.Stream<
+      PokerState,
+      ProcessStateError | ProcessEventError
+    > = pipe(
+      stateStream,
+      Stream.mapEffect((state) =>
+        pipe(
+          processState(state, minPlayers),
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.succeed<PokerState>(state),
+              onSome: (event) => {
+                const next = processEvent(event);
+                return next;
+              },
+            })
+          )
+        )
+      ),
+      // Stream.tap(({ deck, ...state }) => Effect.whenLogLevel(Effect.logInfo('after processing', { state }), LogLevel.Info)),
+      Stream.tapError((error) =>
+        Effect.whenLogLevel(
+          Effect.logError("error in state processing", error),
+          LogLevel.Error
+        )
+      )
+    );
+
+    const startGame = () => {
+      const sleepTime = process.env.START_SLEEP_TIME
+        ? parseInt(process.env.START_SLEEP_TIME)
+        : 2 * 60 * 1000; // 2 * 60 * 1000 = 2 minutes DEFAULT
+
+      return pipe(
+        Effect.logInfo("starting game, sleeping", { sleepTime }),
+        Effect.flatMap(() => Effect.sleep(sleepTime)),
+        Effect.tap(() => Effect.logInfo("done sleeping")),
+        Effect.flatMap(() => currentState()),
+        Effect.flatMap((state) => processEvent({ type: "start" })),
+        Effect.tap(({ deck, ...state }) =>
+          Effect.whenLogLevel(
+            Effect.logInfo("post-processing", {
+              event: { type: "start" },
+              state,
+            }),
+            LogLevel.Debug
+          )
+        )
+      );
+    };
+    // return this or put in a context somehow
+    const _systemFiber = pipe(
+      stateProcessingStream,
+      Stream.run(Sink.drain),
+      Effect.runFork
+    );
+
+    return {
+      currentState: () =>
+        pipe(
+          currentState()
+          // Effect.tap(({ deck, ...state }) => Effect.whenLogLevel(Effect.logInfo('[currentState]', { state }), LogLevel.Info)),
+        ),
+      processEvent,
+      playerView: (playerId) =>
+        pipe(
+          currentState(),
+          Effect.map((state) => playerView(state, playerId))
+          // Effect.tap(pv => Effect.whenLogLevel(Effect.logInfo('[playerView]', { pv }), LogLevel.Info))
+        ),
+      stateUpdates: stateProcessingStream,
+      startGame,
+    };
+  });
 };
+
+

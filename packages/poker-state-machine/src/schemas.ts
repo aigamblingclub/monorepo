@@ -20,7 +20,8 @@ export type Card = typeof CardSchema.Type;
 export const PlayerStatusSchema = Schema.Union(
   Schema.Literal("PLAYING"),
   Schema.Literal("FOLDED"),
-  Schema.Literal("ALL_IN")
+  Schema.Literal("ALL_IN"),
+  Schema.Literal("ELIMINATED")
 );
 export type PlayerStatus = typeof PlayerStatusSchema.Type;
 
@@ -81,6 +82,13 @@ export const GameConfigSchema = Schema.Struct({
 });
 export type GameConfig = typeof GameConfigSchema.Type;
 
+export const RoundResultSchema = Schema.Struct({
+    roundNumber: Schema.Number,
+    winnerIds: Schema.Array(Schema.String),
+    pot: Schema.Number
+})
+export type RoundResult = typeof RoundResultSchema.Type;
+
 export const TableStatusSchema = Schema.Union(
   Schema.Literal("WAITING"),
   Schema.Literal("PLAYING"),
@@ -139,6 +147,10 @@ export const MoveSchema = Schema.Union(
     decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
   }),
   Schema.Struct({
+    type: Schema.Literal("check"),
+    decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
+  }),
+  Schema.Struct({
     type: Schema.Literal("all_in"),
     decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
   }),
@@ -176,6 +188,7 @@ export const PokerStateSchema = Schema.Struct({
   dealerId: Schema.String,
   winner: Schema.Union(Schema.String, Schema.Null),
   config: GameConfigSchema,
+  lastRoundResult: Schema.Union(RoundResultSchema, Schema.Null),
 });
 export type PokerState = typeof PokerStateSchema.Type;
 

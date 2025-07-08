@@ -1,0 +1,586 @@
+# Poker State Machine - Comprehensive Technical Documentation
+
+## Overview
+
+This poker state machine implements a complete Texas Hold'em poker game using Effect-TS for functional programming patterns. The system manages game states, player actions, betting rounds, automated transitions, and AI decision context tracking. It supports 2-6 players with robust heads-up and multi-player logic.
+
+## Recent Major Updates (Post-Original Documentation)
+
+### 🎯 Enhanced AI Decision Context
+- Added `DecisionContext` schema for tracking AI reasoning
+- Includes fields: `thinking`, `explanation`, `analysis`, `reasoning`, `strategy`, `logic`, `roleplay`
+- All player moves now include optional decision context for AI agents
+
+### 🚮 **NEW: Player Elimination System** 
+- **ELIMINATED Status**: New `PlayerStatus.ELIMINATED` for players with 0 chips
+- **Persistent Player Array**: Eliminated players remain in `players[]` for history/results
+- **No Cards for Eliminated**: `dealCards()` skips eliminated players entirely
+- **Inactive in Game Logic**: Eliminated players excluded from betting, position assignment, and turns
+- **Distinct from FOLDED**: `FOLDED` = temporarily out of round, `ELIMINATED` = permanently out of game
+
+### 🧪 Comprehensive Test Suite 
+- Consolidated test files with `complete_poker_tests.test.ts` and `player_elimination.test.ts`
+- **Player Elimination Tests**: Verify eliminated players stay in array but inactive
+- **Full Game Scenarios**: 2-6 player games with realistic elimination conditions
+- **Deterministic Testing**: Controlled card scenarios for consistent results
+
+### 🔄 Improved State Transitions
+- Better heads-up vs multi-player logic separation
+- Enhanced position assignment and blind rotation
+- Robust auto-advance through game phases
+- Improved all-in scenario handling
+
+### 🎲 Enhanced Deck Management
+- Multiple test scenarios: `PLAYER1_WINS`, `ELIMINATION`, `ALL_IN_SCENARIO`, etc.
+- Aggressive test deck reset to prevent infinite loops
+- Better random deck generation with multiple shuffles
+
+### 🏗️ Room Management Improvements
+- Auto-restart functionality for continuous games
+- Configurable delays and timeouts
+- Better state streaming with Effect-TS
+
+## Architecture
+
+### Core Components
+
+1. **Schemas** (`schemas.ts`) - Type definitions using Effect Schema with AI context
+2. **State Machine** (`state_machine.ts`) - Default states and core structure  
+3. **Poker Logic** (`poker.ts`) - Card handling, hand evaluation, test scenarios
+4. **Transitions** (`transitions.ts`) - State transition functions with robust logic
+5. **Queries** (`queries.ts`) - State inspection and helper functions
+6. **Room Management** (`room.ts`) - Game service interface and event processing
+7. **Test Helpers** (`test-helpers.ts`) - Comprehensive testing utilities
+
+## Data Types and State Structure
+
+### Core State: PokerState
+
+```typescript
+interface PokerState {
+  tableId: string;
+  tableStatus: "WAITING" | "PLAYING" | "ROUND_OVER" | "GAME_OVER";
+  players: PlayerState[];
+  lastMove: MoveEvent | null;  // NEW: Tracks last move with decision context
+  currentPlayerIndex: number;
+  deck: Card[];
+  community: Card[];
+  phase: Phase;
+  round: RoundState;
+  dealerId: string;
+  winner: string | null;
+  config: GameConfig;
+  lastRoundResult: RoundResult | null;  // NEW: Tracks round winners
+}
+```
+
+### Player State (Enhanced)
+
+```typescript
+interface PlayerState {
+  id: string;
+  playerName: string;
+  status: "PLAYING" | "FOLDED" | "ALL_IN" | "ELIMINATED";
+  playedThisPhase: boolean;
+  position: "BB" | "SB" | "BTN" | "EP" | "MP" | "CO";  // Enhanced position system
+  hand: Card[] | [Card, Card];
+  chips: number;
+  bet: { amount: number; volume: number };
+}
+```
+
+### AI Decision Context (NEW)
+
+```typescript
+interface DecisionContext {
+  thinking: string | null;      // AI's thought process
+  explanation: string | null;   // Explanation of decision
+  analysis: string | null;      // Situation analysis  
+  reasoning: string | null;     // Logical reasoning
+  strategy: string | null;      // Strategic considerations
+  logic: string | null;         // Game logic reasoning
+  roleplay: string | null;      // Character roleplay context
+}
+```
+
+### Enhanced Move System
+
+```typescript
+interface Move {
+  type: "fold" | "call" | "check" | "all_in" | "raise";
+  amount?: number;  // For raises
+  decisionContext: DecisionContext | null;  // NEW: AI reasoning context
+}
+```
+
+## Critical Game Flow
+
+### 1. Game Initialization
+
+```typescript
+// Standard random game
+const pokerRoom = await Effect.runPromise(makePokerRoomForTests(2));
+
+// Deterministic test game  
+const { pokerRoom, state, cleanup } = await setupDeterministicTwoPlayerGame("ELIMINATION");
+```
+
+**Auto-start**: When minimum players join and `AUTO_RESTART_ENABLED=true`
+
+### 2. Enhanced Round Initialization
+
+```typescript
+startRound() -> rotateBlinds() -> dealCards() -> collectBlinds()
+```
+
+**Key Improvements**:
+- `rotateBlinds()` handles 2-6 player position assignment correctly
+- `assignPositions()` sets proper positions based on dealer rotation
+- `firstPlayerIndex()` correctly handles heads-up vs multi-player action order
+- Blind collection doesn't mark `playedThisPhase=true` for blind posts
+
+### 3. Betting Rounds with Decision Context
+
+**Phase Flow**: PRE_FLOP → FLOP → TURN → RIVER → SHOWDOWN
+
+**Enhanced Player Actions**:
+```typescript
+// Basic move
+{ type: "call", decisionContext: null }
+
+// AI move with context
+{ 
+  type: "raise", 
+  amount: 40,
+  decisionContext: {
+    thinking: "Opponent seems weak, good spot to bluff",
+    strategy: "Semi-bluff with drawing hand",
+    analysis: "Pot odds favor aggressive play"
+  }
+}
+```
+
+### 4. Robust Turn Management
+
+**Enhanced `firstPlayerIndex()` Function**:
+
+**Heads-up (2 players)**:
+- **Pre-flop**: Small Blind (dealer) acts first
+- **Post-flop**: Big Blind (non-dealer) acts first
+
+**Multi-player (3-6 players)**:
+- **Pre-flop**: Under The Gun (UTG = dealer + 3) acts first  
+- **Post-flop**: Small Blind (or first active player after SB) acts first
+
+```typescript
+export function firstPlayerIndex(state: PokerState): number {
+  const numPlayers = state.players.length;
+  const isPreflop = state.community.length === 0;
+  const dealerIndex = findDealerIndex(state);
+  
+  if (numPlayers === 2) {
+    return isPreflop ? dealerIndex : (dealerIndex + 1) % 2;
+  }
+  
+  if (isPreflop) {
+    return (dealerIndex + 3) % numPlayers; // UTG
+  } else {
+    // Find first active player starting from SB
+    const sbIndex = (dealerIndex + 1) % numPlayers;
+    for (let i = 0; i < numPlayers; i++) {
+      const candidateIndex = (sbIndex + i) % numPlayers;
+      if (state.players[candidateIndex].status === "PLAYING") {
+        return candidateIndex;
+      }
+    }
+    return sbIndex;
+  }
+}
+```
+
+### 5. Auto-Transitions and Phase Management
+
+**Enhanced auto-advancement**:
+- All players except one folded → Skip to showdown
+- All active players all-in → Auto-advance through remaining phases  
+- Betting round complete → Next phase with proper volume tracking
+- Round over → Auto-advance after configurable delay
+- Game over → Auto-restart after configurable delay
+
+## Enhanced Deck Management and Testing
+
+### Test Scenarios (Expanded)
+
+**Environment Variables**:
+```bash
+POKER_DETERMINISTIC_CARDS="true"     # Use test scenarios
+POKER_TEST_SCENARIO="ELIMINATION"    # Specific scenario
+AUTO_RESTART_ENABLED="true"          # Auto-start games
+AUTO_RESTART_DELAY="30000"           # Restart delay (ms)
+ROUND_OVER_DELAY_MS="50"            # Round transition delay
+```
+
+**Available Test Scenarios**:
+- `PLAYER1_WINS` - Player 1 gets pair of Aces
+- `PLAYER2_WINS` - Player 2 gets pair of Kings
+- `TIE_SCENARIO` - Both players get same pair
+- `ELIMINATION` - Player 1 dominates for quick elimination
+- `ALL_IN_SCENARIO` - Both players get decent hands
+- `PLAYER1_DOMINANT` - Consistent Player 1 wins
+- `PLAYER2_LOSES_FAST` - Player 2 elimination scenario
+
+### CRITICAL: Enhanced Loop Prevention
+
+**Robust Test Cleanup**:
+```typescript
+export function resetTestDeck(): void {
+  testDeckIndex = 0;
+  currentTestDeck = null;
+  
+  // AGGRESSIVE CLEANUP
+  process.env.POKER_DETERMINISTIC_CARDS = "false";
+  delete process.env.POKER_TEST_SCENARIO;
+  
+  // Force garbage collection if available
+  if (typeof global !== 'undefined' && global.gc) {
+    global.gc();
+  }
+}
+```
+
+## Enhanced Test Configuration
+
+### Comprehensive Test Helpers
+
+```typescript
+// Ultra-robust environment setup
+export function setupTestEnvironment() {
+  // Aggressive cleanup of poker environment variables
+  const pokerEnvVars = [
+    'POKER_TEST_SCENARIO', 'POKER_DETERMINISTIC_CARDS',
+    'AUTO_RESTART_ENABLED', 'AUTO_RESTART_DELAY',
+    'START_SLEEP_TIME', 'ROUND_OVER_DELAY_MS'
+  ];
+  
+  pokerEnvVars.forEach(envVar => delete process.env[envVar]);
+  
+  // Set safe defaults
+  process.env.POKER_DETERMINISTIC_CARDS = "false";
+  process.env.AUTO_RESTART_ENABLED = "true";
+  process.env.AUTO_RESTART_DELAY = "30000";
+  process.env.ROUND_OVER_DELAY_MS = "50";
+  
+  resetTestDeck();
+}
+
+// Deterministic testing with cleanup
+export function setupDeterministicTest(scenario: keyof typeof TEST_SCENARIOS) {
+  setupTestEnvironment();
+  process.env.POKER_DETERMINISTIC_CARDS = "true";
+  process.env.POKER_TEST_SCENARIO = scenario;
+  
+  return function cleanupDeterministicTest() {
+    process.env.POKER_DETERMINISTIC_CARDS = "false";
+    delete process.env.POKER_TEST_SCENARIO;
+    resetTestDeck();
+  };
+}
+
+// Game setup without auto-restart (for GAME_OVER testing)
+export function setupTestEnvironmentWithoutAutoRestart() {
+  setupTestEnvironment();
+  process.env.AUTO_RESTART_ENABLED = "false";
+}
+```
+
+### Advanced Test Utilities
+
+```typescript
+// Flexible state comparison
+export function compareStates(actual: PokerState, expected: ExpectedState): void {
+  // Handles partial state matching for robust testing
+}
+
+// Async state waiting
+export async function waitForGameState(
+  pokerRoom: any,
+  condition: (state: PokerState) => boolean,
+  maxAttempts: number = 20
+): Promise<PokerState> {
+  // Waits for specific state conditions
+}
+
+// Game progression helpers
+export async function advanceToPhase(pokerRoom: any, targetPhase: string): Promise<PokerState>
+export async function playUntilElimination(pokerRoom: any, maxRounds: number = 15): Promise<GameResult>
+```
+
+## Position Assignment System (Enhanced)
+
+### Heads-up (2 Players)
+- **Player 1**: Small Blind (SB) / Dealer
+- **Player 2**: Big Blind (BB)
+
+### Multi-player (3-6 Players)
+- **Dealer (BTN)**: Acts last post-flop
+- **Small Blind (SB)**: Dealer + 1, acts first post-flop
+- **Big Blind (BB)**: Dealer + 2, second to act post-flop
+- **Early Position (EP)**: Dealer + 3, acts first pre-flop (UTG)
+- **Middle Position (MP)**: Dealer + 4
+- **Cut-off (CO)**: Dealer + 5, acts before dealer
+
+```typescript
+export function assignPositions(state: PokerState): PokerState {
+  const numPlayers = state.players.length;
+  const dealerIndex = findDealerIndex(state);
+  
+  // Position assignments for different player counts
+  const positionMaps = {
+    2: ["SB", "BB"],
+    3: ["BTN", "SB", "BB"], 
+    4: ["BTN", "SB", "BB", "EP"],
+    5: ["BTN", "SB", "BB", "EP", "MP"],
+    6: ["BTN", "SB", "BB", "EP", "MP", "CO"]
+  };
+  
+  const positions = positionMaps[numPlayers] || positionMaps[6];
+  
+  return {
+    ...state,
+    players: state.players.map((player, index) => {
+      const positionIndex = (index - dealerIndex + numPlayers) % numPlayers;
+      return { ...player, position: positions[positionIndex] };
+    })
+  };
+}
+```
+
+## Enhanced Error Handling
+
+### Process Event Errors
+```typescript
+type ProcessEventError = 
+  | { type: "not_your_turn" }
+  | { type: "table_locked" }
+  | { type: "insufficient_players" }
+  | { type: "inconsistent_state"; message: string }
+```
+
+### State Machine Errors
+```typescript
+type StateMachineError =
+  | { type: "invalid_move"; message: string }
+  | { type: "insufficient_chips"; message: string }
+  | { type: "invalid_bet_amount"; message: string }
+```
+
+## Game Configuration
+
+### Environment Variables (Complete List)
+
+```bash
+# Deck Behavior
+POKER_DETERMINISTIC_CARDS="false"    # Use random vs test decks
+POKER_TEST_SCENARIO="ELIMINATION"    # Test scenario when deterministic
+
+# Auto-restart Configuration
+AUTO_RESTART_ENABLED="true"          # Auto-start games when min players reached
+AUTO_RESTART_DELAY="30000"          # Delay before restarting game (ms)
+START_SLEEP_TIME="0"                # Initial delay before starting (ms)
+
+# Game Timing
+ROUND_OVER_DELAY_MS="50"            # Delay between rounds (ms)
+```
+
+### Game Config Schema
+```typescript
+interface GameConfig {
+  maxRounds: number | null;           // Max rounds before forced end
+  startingChips: number;              // Default: 200
+  smallBlind: number;                 // Default: 10  
+  bigBlind: number;                   // Default: 20
+}
+```
+
+## Testing Patterns and Best Practices
+
+### 1. Basic Game Setup
+```typescript
+describe("Game Tests", () => {
+  setupTestEnvironment(); // Clean environment for all tests
+  
+  test("should setup two player game", async () => {
+    const { pokerRoom, state } = await setupTwoPlayerGame();
+    expect(state.players.length).toBe(2);
+    expect(state.tableStatus).toBe("PLAYING");
+  });
+});
+```
+
+### 2. Deterministic Testing
+```typescript
+test("should handle elimination scenario", async () => {
+  const cleanup = setupDeterministicTest("ELIMINATION");
+  
+  try {
+    const { pokerRoom } = await setupTwoPlayerGame();
+    const { finalState } = await playUntilElimination(pokerRoom);
+    expect(finalState.tableStatus).toBe("GAME_OVER");
+  } finally {
+    cleanup(); // CRITICAL: Always clean up
+  }
+});
+```
+
+### 3. Multi-Phase Testing
+```typescript
+test("should progress through all phases", async () => {
+  const { pokerRoom } = await setupTwoPlayerGame();
+  
+  const flopState = await advanceToPhase(pokerRoom, "FLOP");
+  expect(flopState.community.length).toBe(3);
+  
+  const turnState = await advanceToPhase(pokerRoom, "TURN");
+  expect(turnState.community.length).toBe(4);
+  
+  const riverState = await advanceToPhase(pokerRoom, "RIVER");
+  expect(riverState.community.length).toBe(5);
+});
+```
+
+### 4. AI Decision Context Testing
+```typescript
+test("should track AI decision context", async () => {
+  const { pokerRoom } = await setupTwoPlayerGame();
+  
+  await Effect.runPromise(
+    pokerRoom.processEvent({
+      type: "move",
+      playerId: "player1",
+      move: { 
+        type: "raise", 
+        amount: 40,
+        decisionContext: {
+          thinking: "Strong hand, good position",
+          strategy: "Value betting",
+          analysis: "Opponent likely has weak range"
+        }
+      },
+    })
+  );
+  
+  const state = await Effect.runPromise(pokerRoom.currentState());
+  expect(state.lastMove?.move.decisionContext?.thinking).toBe("Strong hand, good position");
+});
+```
+
+## Performance Optimizations
+
+### 1. Deck Management
+- Triple shuffling for true randomness
+- Deterministic decks cached for test consistency
+- Aggressive cleanup to prevent memory leaks
+
+### 2. State Transitions
+- Immutable state updates with spread operators
+- Effect-TS for efficient error handling
+- Minimal object cloning where possible
+
+### 3. Test Performance
+- Fast test delays (50ms) vs production delays (30s)
+- Parallel test execution safe with proper cleanup
+- Environment variable isolation between tests
+
+## Common Issues and Solutions
+
+### 1. Test Isolation Problems
+**Symptoms**: Tests affecting each other, inconsistent results
+**Solution**: Use `setupTestEnvironment()` in every test file
+
+### 2. Infinite Loop in Deterministic Tests
+**Symptoms**: Tests hang, same hands dealt repeatedly
+**Solution**: Always call cleanup functions, verify environment reset
+
+### 3. Turn Management Edge Cases
+**Symptoms**: "not_your_turn" errors, players can't act
+**Solution**: Use enhanced `firstPlayerIndex()` logic, validate player status
+
+### 4. Betting Volume Inconsistencies
+**Symptoms**: Phase volume ≠ Round volume, incorrect pot calculations
+**Solution**: Verify volume tracking in all bet functions, check all-in handling
+
+### 5. Auto-Restart Interference
+**Symptoms**: Tests fail due to unexpected state changes
+**Solution**: Use `setupTestEnvironmentWithoutAutoRestart()` for GAME_OVER tests
+
+## Development Workflow
+
+### Running Tests
+```bash
+cd packages/poker-state-machine
+bun test                           # Run all tests
+bun test complete_poker_tests      # Run comprehensive test suite
+bun test six_players              # Run multi-player tests
+```
+
+### Debugging State Issues
+```typescript
+console.log(`🎮 State: ${state.tableStatus}, Phase: ${state.phase.street}`);
+console.log(`👤 Current player: ${currentPlayer(state)?.id}`);
+console.log(`💰 Pot: ${state.round.volume}, Bet: ${state.round.currentBet}`);
+console.log(`🎯 Positions:`, state.players.map(p => `${p.id}:${p.position}`));
+```
+
+### Adding New Test Scenarios
+1. Add scenario to `TEST_SCENARIOS` in `poker.ts`
+2. Define specific card distributions
+3. Test with `setupDeterministicTest("NEW_SCENARIO")`
+4. Always include cleanup function
+
+## Effect-TS Integration
+
+The codebase extensively uses Effect-TS for:
+
+### Error Handling
+```typescript
+export function processPlayerMove(
+  state: PokerState, 
+  move: Move
+): Effect.Effect<PokerState, StateMachineError> {
+  return Effect.gen(function* () {
+    const validated = yield* validateMove(state, move);
+    const updated = yield* updateState(validated);
+    return yield* transition(updated);
+  });
+}
+```
+
+### State Streaming
+```typescript
+readonly stateUpdates: Stream.Stream<PokerState, ProcessEventError, never>
+```
+
+### Async Operations
+```typescript
+const processState = (state: PokerState): Effect.Effect<Option.Option<SystemEvent>, ProcessStateError> => {
+  if (state.tableStatus === "ROUND_OVER") {
+    const delay = parseInt(process.env.ROUND_OVER_DELAY_MS || "50");
+    return Effect.gen(function* () {
+      yield* Effect.sleep(delay);
+      return Option.some({ type: "next_round" });
+    });
+  }
+  return Effect.succeed(Option.none());
+}
+```
+
+## Architecture Principles
+
+1. **Immutability**: All state updates return new objects
+2. **Type Safety**: Comprehensive Effect Schema validation
+3. **Functional**: Pure functions for all state transitions
+4. **Testability**: Deterministic test modes with cleanup
+5. **Observability**: Stream-based state updates
+6. **Extensibility**: AI decision context for future enhancements
+
+This updated documentation reflects the current state of the poker state machine with all recent enhancements, comprehensive testing infrastructure, and robust production-ready features. 

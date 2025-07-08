@@ -4,7 +4,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun --minify --sourcemap"
+    "build": "bun build src/index.ts --outdir dist --target bun --minify --sourcemap",
+    "test": "bun test test/"
   },
   "dependencies": {
     "effect": "^3.13.10"
