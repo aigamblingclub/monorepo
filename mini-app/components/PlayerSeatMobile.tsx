@@ -1,6 +1,7 @@
 'use client';
 
-import { PlayerState, formatChips } from '@/types/poker';
+import { PlayerState } from '@/types/poker';
+import { formatChips } from '@/utils/poker';
 import Card from './Card';
 
 interface PlayerSeatMobileProps {

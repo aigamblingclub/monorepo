@@ -1,6 +1,7 @@
 'use client';
 
-import { Card as CardType, getCardLabel, getCardSuitSymbol } from '@/types/poker';
+import { Card as CardType } from '@/types/poker';
+import { getCardLabel, getCardSuitSymbol } from '@/utils/poker';
 
 interface CardProps {
   card?: CardType;

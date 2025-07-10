@@ -20,21 +20,29 @@ export default function FarcasterWallet({ onWalletChange }: FarcasterWalletProps
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkWalletConnection();
+    const timer = setTimeout(() => {
+      checkWalletConnection();
+    }, 100); // Delay to allow SDK to initialize
+
+    return () => clearTimeout(timer);
   }, []);
 
   const checkWalletConnection = async () => {
     try {
-      // Check if wallet is already connected using ethProvider
-      const accounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
-      if (accounts && accounts.length > 0) {
-        const walletInfo: WalletInfo = {
-          address: accounts[0],
-          isConnected: true,
-          network: 'Ethereum',
-        };
-        setWallet(walletInfo);
-        onWalletChange?.(walletInfo);
+      if (sdk.wallet && sdk.wallet.ethProvider) {
+        // Check if wallet is already connected using ethProvider
+        const accounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
+        if (accounts && accounts.length > 0) {
+          const walletInfo: WalletInfo = {
+            address: accounts[0],
+            isConnected: true,
+            network: 'Ethereum',
+          };
+          setWallet(walletInfo);
+          onWalletChange?.(walletInfo);
+        }
+      } else {
+        console.log('Farcaster ethProvider not available yet, skipping auto-connect.');
       }
     } catch (error) {
       console.error('Failed to check wallet connection:', error);
@@ -42,8 +50,8 @@ export default function FarcasterWallet({ onWalletChange }: FarcasterWalletProps
   };
 
   const connectWallet = async () => {
-    if (!sdk) {
-      setError('Farcaster SDK not available. Please open in Farcaster app.');
+    if (!sdk || !sdk.wallet || !sdk.wallet.ethProvider) {
+      setError('Farcaster wallet provider not available. Are you in a Farcaster client?');
       return;
     }
 

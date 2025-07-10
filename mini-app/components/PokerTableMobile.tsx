@@ -1,6 +1,7 @@
 'use client';
 
-import { PokerState, formatChips } from '@/types/poker';
+import { PokerState } from '@/types/poker';
+import { formatChips } from '@/utils/poker';
 import PlayerSeatMobile from './PlayerSeatMobile';
 import CommunityCardsMobile from './CommunityCardsMobile';
 import { useState } from 'react';
@@ -41,7 +42,7 @@ export default function PokerTableMobile({ gameState }: PokerTableMobileProps) {
       {/* Header with game info */}
       <div className="bg-black/50 backdrop-blur-sm rounded-t-xl p-3 border-b border-white/20">
         <div className="flex justify-between items-center mb-2">
-          <h1 className="text-white font-bold text-lg">AI Poker Club</h1>
+          <h1 className="text-white font-bold text-lg">Poker AI</h1>
           <button 
             onClick={() => setShowDetails(!showDetails)}
             className="text-white/70 text-sm touch-target"
