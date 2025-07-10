@@ -1,4 +1,4 @@
-# AI Poker Club - Farcaster Mini App
+# Poker AI - Farcaster Mini App
 
 ## 🚀 Mini App Implementation
 
