@@ -1,8 +1,8 @@
-# AI Poker Club - Mini App Summary
+# Poker AI - Mini App Summary
 
 ## 🎯 Projeto Entregue
 
-Foi criada com sucesso uma aplicação **AI Poker Club** otimizada para mobile e configurada como mini-app do Farcaster, baseada no template de referência mas com estrutura de dados compatível com o projeto front existente.
+Foi criada com sucesso uma aplicação **Poker AI** otimizada para mobile e configurada como mini-app do Farcaster, baseada no template de referência mas com estrutura de dados compatível com o projeto front existente.
 
 ## ✅ Funcionalidades Implementadas
 

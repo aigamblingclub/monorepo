@@ -1,4 +1,4 @@
-# AI Poker Club - Farcaster Mini App
+# Poker AI - Farcaster Mini App
 
 Uma aplicação mobile-first para assistir agentes de IA jogando poker Texas Hold'em, desenvolvida como **Mini App completo** para Farcaster usando o SDK oficial `@farcaster/miniapp-sdk`.
 

@@ -1,4 +1,3 @@
-// Types adaptados do projeto front para o mini-app
 import { Schema } from "effect";
 
 export const CardValueSchema = Schema.Union(
@@ -26,6 +25,27 @@ export const PlayerStatusSchema = Schema.Union(
 );
 export type PlayerStatus = typeof PlayerStatusSchema.Type;
 
+export const HoleCardsSchema = Schema.Tuple(CardSchema, CardSchema);
+export type HoleCards = typeof HoleCardsSchema.Type;
+
+/**
+ * # Position in the table
+ * 
+ * ## Heads-up Game Structure (2 Players)
+ *  - Big Blind (BB): Second forced bet, twice the small blind
+ *  - Small Blind (SB): First forced bet, left of button
+ *  - Action moves clockwise
+ * 
+ * ## Regular Game Structure (3+ Players)
+ *  - Small Blind (SB): First forced bet, left of button
+ *  - Big Blind (BB): Second forced bet, twice the small blind
+ *  - Button (BTN): Dealer position, acts last post-flop
+ *  - Early Position (EP): First positions after blinds
+ *  - Middle Position (MP): Middle positions
+ *  - Cut-off (CO): Position before button
+ *  - Action moves clockwise
+ * 
+ */
 export const PositionSchema = Schema.Union(
   Schema.Literal("BB"), // Big Blind
   Schema.Literal("SB"), // Small Blind
@@ -48,11 +68,26 @@ export const PlayerStateSchema = Schema.Struct({
   status: PlayerStatusSchema,
   playedThisPhase: Schema.Boolean,
   position: PositionSchema,
-  hand: Schema.Array(CardSchema),
+  hand: Schema.Union(Schema.Tuple(), HoleCardsSchema),
   chips: Schema.Number,
   bet: BetSchema,
 });
 export type PlayerState = typeof PlayerStateSchema.Type;
+
+export const GameConfigSchema = Schema.Struct({
+  maxRounds: Schema.Union(Schema.Number, Schema.Null),
+  startingChips: Schema.Number,
+  smallBlind: Schema.Number,
+  bigBlind: Schema.Number,
+});
+export type GameConfig = typeof GameConfigSchema.Type;
+
+export const RoundResultSchema = Schema.Struct({
+    roundNumber: Schema.Number,
+    winnerIds: Schema.Array(Schema.String),
+    pot: Schema.Number
+})
+export type RoundResult = typeof RoundResultSchema.Type;
 
 export const TableStatusSchema = Schema.Union(
   Schema.Literal("WAITING"),
@@ -79,18 +114,72 @@ export const PhaseSchema = Schema.Struct({
 export type Phase = typeof PhaseSchema.Type;
 
 export const RoundStateSchema = Schema.Struct({
+  // Round Number in the game (1, 2, 3, ...)
   roundNumber: Schema.Number,
+  // Round Volume (pot)
   volume: Schema.Number,
+  // Round Bet (current bet)
   currentBet: Schema.Number,
+  // Players who have folded this round
   foldedPlayers: Schema.Array(Schema.String),
+  // Players who are all-in this round
   allInPlayers: Schema.Array(Schema.String),
 });
 export type RoundState = typeof RoundStateSchema.Type;
+export const DecisionContextSchema = Schema.Struct({
+  thinking: Schema.Union(Schema.String, Schema.Null),
+  explanation: Schema.Union(Schema.String, Schema.Null),
+  analysis: Schema.Union(Schema.String, Schema.Null),
+  reasoning: Schema.Union(Schema.String, Schema.Null),
+  strategy: Schema.Union(Schema.String, Schema.Null),
+  logic: Schema.Union(Schema.String, Schema.Null),
+  roleplay: Schema.Union(Schema.String, Schema.Null),
+});
+export type DecisionContext = typeof DecisionContextSchema.Type;
 
+export const MoveSchema = Schema.Union(
+  Schema.Struct({
+    type: Schema.Literal("fold"),
+    decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("call"),
+    decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("check"),
+    decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("all_in"),
+    decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("raise"),
+    amount: Schema.Number,
+    decisionContext: Schema.Union(Schema.Null, DecisionContextSchema),
+  })
+);
+export type Move = typeof MoveSchema.Type;
+export const MoveEventSchema = Schema.Struct({
+  type: Schema.Literal("move"),
+  playerId: Schema.String,
+  move: MoveSchema,
+});
+export type MoveEvent = typeof MoveEventSchema.Type;
+
+/**
+ * # Poker State
+ * 
+ * One Game (table) has multiple rounds.
+ * One round has multiple phases/streets.
+ * One phase/street has multiple actions.
+ */
 export const PokerStateSchema = Schema.Struct({
   tableId: Schema.String,
   tableStatus: TableStatusSchema,
   players: Schema.Array(PlayerStateSchema),
+  lastMove: Schema.Union(MoveEventSchema, Schema.Null),
   currentPlayerIndex: Schema.Number,
   deck: Schema.Array(CardSchema),
   community: Schema.Array(CardSchema),
@@ -98,56 +187,105 @@ export const PokerStateSchema = Schema.Struct({
   round: RoundStateSchema,
   dealerId: Schema.String,
   winner: Schema.Union(Schema.String, Schema.Null),
-  config: Schema.Struct({
-    maxRounds: Schema.Union(Schema.Number, Schema.Null),
-    startingChips: Schema.Number,
-    smallBlind: Schema.Number,
-    bigBlind: Schema.Number,
-  }),
+  config: GameConfigSchema,
+  lastRoundResult: Schema.Union(RoundResultSchema, Schema.Null),
 });
 export type PokerState = typeof PokerStateSchema.Type;
 
-// Utility functions
-export const getCardLabel = (rank: CardValue): string => {
-  if (rank === 1) return 'A';
-  if (rank === 11) return 'J';
-  if (rank === 12) return 'Q';
-  if (rank === 13) return 'K';
-  return String(rank);
-};
+export const TableActionSchema = Schema.Union(
+  Schema.Literal("join"),
+  Schema.Literal("leave")
+);
+export type TableAction = typeof TableActionSchema.Type;
 
-export const getCardSuitSymbol = (suit: Suite): string => {
-  switch (suit) {
-    case 'hearts':
-      return '❤';
-    case 'diamonds':
-      return '♦';
-    case 'clubs':
-      return '♣';
-    case 'spades':
-      return '♠';
-    default:
-      return '';
-  }
-};
 
-export const getPhaseLabel = (phase: Street): string => {
-  switch (phase) {
-    case 'PRE_FLOP':
-      return 'Pre-Flop';
-    case 'FLOP':
-      return 'Flop';
-    case 'TURN':
-      return 'Turn';
-    case 'RIVER':
-      return 'River';
-    case 'SHOWDOWN':
-      return 'Showdown';
-    default:
-      return 'Unknown';
-  }
-};
+export const TableEventSchema = Schema.Struct({
+  type: Schema.Literal("table"),
+  playerId: Schema.String,
+  playerName: Schema.String,
+  action: TableActionSchema,
+});
+export type TableEvent = typeof TableEventSchema.Type;
 
-export const formatChips = (amount: number): string => {
-  return new Intl.NumberFormat('en-US').format(amount);
-}; 
+export const PlayerEventSchema = Schema.Union(
+  MoveEventSchema,
+  TableEventSchema
+);
+export type PlayerEvent = typeof PlayerEventSchema.Type;
+
+export const SystemEventSchema = Schema.Union(
+  Schema.Struct({ type: Schema.Literal("start") }),
+  Schema.Struct({ type: Schema.Literal("transition_phase") }),
+  Schema.Struct({ type: Schema.Literal("next_round") }),
+  Schema.Struct({ type: Schema.Literal("end_game") }),
+  Schema.Struct({ type: Schema.Literal("auto_restart") })
+);
+export type SystemEvent = typeof SystemEventSchema.Type;
+
+export const GameEventSchema = Schema.Union(
+  PlayerEventSchema,
+  SystemEventSchema
+);
+export type GameEvent = typeof GameEventSchema.Type;
+
+export const StateMachineErrorSchema = Schema.Union(
+  Schema.Struct({
+    type: Schema.Literal("inconsistent_state"),
+    message: Schema.String,
+  })
+);
+export type StateMachineError = typeof StateMachineErrorSchema.Type;
+
+export const ProcessEventErrorSchema = Schema.Union(
+  StateMachineErrorSchema,
+  Schema.Struct({ type: Schema.Literal("not_your_turn") }),
+  Schema.Struct({ type: Schema.Literal("table_locked") }),
+  Schema.Struct({ type: Schema.Literal("game_already_started") }),
+  Schema.Struct({ type: Schema.Literal("insufficient_players") }),
+  Schema.Struct({ type: Schema.Literal("game_not_over") })
+);
+export type ProcessEventError = typeof ProcessEventErrorSchema.Type;
+
+export const ProcessStateErrorSchema = Schema.Union(
+  Schema.Struct({
+    type: Schema.Literal("inconsistent_state"),
+    state: PokerStateSchema,
+    message: Schema.String,
+  })
+);
+export type ProcessStateError = typeof ProcessStateErrorSchema.Type;
+
+export const ProcessingStateStreamErrorsSchema = Schema.Union(
+  ProcessEventErrorSchema,
+  ProcessStateErrorSchema
+);
+
+export const PlayerViewSchema = Schema.Struct({
+  hand: Schema.Array(CardSchema),
+  tableStatus: TableStatusSchema,
+  currentPlayerId: Schema.Option(Schema.String),
+  dealerId: Schema.String,
+  bigBlindId: Schema.Option(Schema.String),
+  smallBlindId: Schema.Option(Schema.String),
+  community: Schema.Array(CardSchema),
+  phase: PhaseSchema,
+  round: RoundStateSchema,
+  player: PlayerStateSchema,
+  opponents: Schema.Array(
+    Schema.Struct({
+      status: PlayerStatusSchema,
+      chips: Schema.Number,
+      bet: BetSchema,
+      hand: Schema.Array(CardSchema),
+    })
+  ),
+});
+export type PlayerView = typeof PlayerViewSchema.Type;
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  timestamp: Date;
+  playerName: string;
+  isAI: boolean;
+}

@@ -30,8 +30,8 @@ async function getCurrentGameState() {
 function generateFrameContent(gameState: any, action?: string) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://poker-ai-flax.vercel.app';
   
-  let title = 'AI Poker Club';
-  let description = 'Join the AI Poker Club and play against AI opponents!';
+  let title = 'Poker AI';
+  let description = 'Join the Poker AI and play against AI opponents!';
   let button1Text = '🎮 Join Game';
   let button2Text = '📊 View Stats';
   let imageAction = action || 'default';
@@ -42,20 +42,20 @@ function generateFrameContent(gameState: any, action?: string) {
     const activePlayers = players?.filter((p: any) => p.status === 'PLAYING')?.length || 0;
     
     if (tableStatus === 'WAITING') {
-      title = `AI Poker Club - Waiting (${activePlayers}/6)`;
+      title = `Poker AI - Waiting (${activePlayers}/6)`;
       description = `${activePlayers} players ready. Waiting for more players to start.`;
       button1Text = '🎮 Join Game';
       button2Text = '👥 View Players';
       imageAction = 'waiting';
     } else if (tableStatus === 'PLAYING') {
-      title = `AI Poker Club - Round ${round?.roundNumber || 1}`;
+      title = `Poker AI - Round ${round?.roundNumber || 1}`;
       description = `${activePlayers} players in ${phase || 'unknown'} phase. Current pot: ${round?.volume || 0} chips.`;
       button1Text = '👀 Watch Live';
       button2Text = '📊 Game Stats';
       imageAction = 'playing';
     } else if (tableStatus === 'FINISHED') {
       const winner = gameState.winner;
-      title = `AI Poker Club - Game Finished`;
+      title = `Poker AI - Game Finished`;
       description = winner ? `Winner: ${winner}! New game starting soon.` : 'Game finished! New game starting soon.';
       button1Text = '🎮 Join Next';
       button2Text = '🏆 Results';
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     <title>${content.title}</title>
   </head>
   <body>
-    <p>You're now watching the AI Poker Club! 🎉</p>
+    <p>You're now watching the Poker AI! 🎉</p>
   </body>
 </html>`,
         {
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     <title>${content.title}</title>
   </head>
   <body>
-    <p>AI Poker Club Statistics</p>
+    <p>Poker AI Statistics</p>
   </body>
 </html>`,
         {
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
     <title>${content.title}</title>
   </head>
   <body>
-    <p>Welcome to AI Poker Club!</p>
+    <p>Welcome to Poker AI!</p>
   </body>
 </html>`,
       {
@@ -206,7 +206,7 @@ export async function GET() {
     <title>${content.title}</title>
   </head>
   <body>
-    <p>Welcome to AI Poker Club!</p>
+    <p>Welcome to Poker AI!</p>
   </body>
 </html>`,
     {

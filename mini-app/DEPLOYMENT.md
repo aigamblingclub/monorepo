@@ -1,4 +1,4 @@
-# Deployment Guide - AI Poker Club Mini App
+# Deployment Guide - Poker AI Mini App
 
 ## 📋 Pré-requisitos
 

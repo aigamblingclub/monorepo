@@ -112,3 +112,92 @@
   -ms-user-select: none;
   user-select: none;
 } 
+
+/* Custom SimpleBar styles for a sleek, dark theme */
+.simplebar-track.simplebar-vertical,
+.simplebar-track.simplebar-horizontal {
+  background: #1f2937; /* gray-900 */
+  border-radius: 3px;
+}
+
+.simplebar-track.simplebar-vertical {
+  width: 8px;
+}
+.simplebar-track.simplebar-horizontal {
+  height: 8px;
+}
+
+.simplebar-scrollbar:before {
+  background-color: #3b82f6; /* Use theme's accent color (blue-500) */
+  border-radius: 4px;
+}
+
+.simplebar-track.simplebar-vertical .simplebar-scrollbar:before {
+  /* Inset the thumb from the track edges */
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  right: 2px;
+}
+
+.simplebar-track.simplebar-horizontal .simplebar-scrollbar:before {
+  /* Inset the thumb from the track edges */
+  left: 2px;
+  right: 2px;
+  top: 2px;
+  bottom: 2px;
+}
+
+.simplebar-scrollbar.simplebar-visible:before {
+  opacity: 1;
+  transition: opacity 0.2s ease-out;
+} 
+
+/* Hide default scrollbars on textareas since SimpleBar handles it */
+textarea, .simplebar-content-wrapper {
+  scrollbar-width: none; /* For Firefox */
+  -ms-overflow-style: none; /* For Internet Explorer and Edge */
+}
+textarea::-webkit-scrollbar, .simplebar-content-wrapper::-webkit-scrollbar {
+  display: none; /* For Chrome, Safari, and Opera */
+} 
+
+/* Custom scrollbar class for forms */
+.form-scrollbar {
+  height: 100%;
+}
+
+.form-scrollbar .simplebar-track.simplebar-vertical {
+  background-color: #1f2937; /* A dark track for contrast */
+  width: 8px;
+  right: 2px;
+  border-radius: 4px;
+}
+
+.form-scrollbar .simplebar-scrollbar:before {
+  background-color: #3b82f6; /* Blue accent for the thumb */
+  border-radius: 4px;
+  opacity: 0.8;
+}
+
+.form-scrollbar .simplebar-track.simplebar-vertical .simplebar-scrollbar:before {
+  top: 2px;
+  bottom: 2px;
+  width: 8px;
+  right: 0;
+  left: 0;
+}
+
+.form-scrollbar .simplebar-content {
+  margin-right: 4px;
+}
+
+/* Hide default SimpleBar scrollbar */
+.form-scrollbar .simplebar-content-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.form-scrollbar .simplebar-content-wrapper {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+} 

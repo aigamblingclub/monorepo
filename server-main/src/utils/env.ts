@@ -90,6 +90,27 @@ if (isProd && !process.env.SERVER_POKER) {
 export const SERVER_POKER = process.env.SERVER_POKER || process.env.SERVER_POKER_LOCAL;
 
 /**
+ * Eliza Agent API URL configuration with environment-specific validation
+ * - In production: requires ELIZA_AGENT_API_URL
+ * - In development: requires ELIZA_AGENT_API_URL_LOCAL
+ * @throws {Error} When required Eliza agent API URL environment variable is not set
+ */
+if (isProd && !process.env.ELIZA_AGENT_API_URL) {
+  throw new Error('ELIZA_AGENT_API_URL is not set');
+} else if (isDev && !process.env.ELIZA_AGENT_API_URL_LOCAL) {
+  throw new Error('ELIZA_AGENT_API_URL_LOCAL is not set');
+}
+
+/**
+ * The Eliza agent management API URL.
+ * - Uses ELIZA_AGENT_API_URL in production
+ * - Uses ELIZA_AGENT_API_URL_LOCAL in development
+ * @type {string}
+ */
+export const ELIZA_AGENT_API_URL =
+  process.env.ELIZA_AGENT_API_URL || process.env.ELIZA_AGENT_API_URL_LOCAL;
+
+/**
  * Backend private key validation
  * @throws {Error} When BACKEND_PRIVATE_KEY is not set
  */

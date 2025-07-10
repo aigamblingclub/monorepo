@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { useState, useEffect, useRef } from 'react';
 import PokerTableMobile from '@/components/PokerTableMobile';
-import FarcasterAuth from '@/components/FarcasterAuth';
-import FarcasterWallet from '@/components/FarcasterWallet';
-import FarcasterNotifications from '@/components/FarcasterNotifications';
-import { PokerState } from '@/types/poker';
-import { useRouter } from 'next/navigation';
+import { PokerState, ChatMessage } from '@/types/poker';
+import { BottomNav, MenuItemLabel } from '@/components/BottomNav';
+import { AppDrawer } from '@/components/AppDrawer';
+import { toast } from 'sonner';
+import SimpleBar from 'simplebar-react';
+import 'simplebar-react/dist/simplebar.min.css';
+import { cn } from '@/utils/cn';
+import { AgentManager } from '@/components/AgentManager';
+import { mockAIChatMessages, mockHumanChatMessages } from '@/utils/mocks';
+// We won't use getAgentColor anymore, so we can remove the import if it's not used elsewhere.
+// import { getAgentColor } from '@/utils/colors';
 
 // Environment check
 const isDev = process.env.NODE_ENV === 'development';
@@ -114,6 +119,8 @@ const mockGameState: PokerState = {
   },
   dealerId: "player-6",
   winner: null,
+  lastMove: null,
+  lastRoundResult: null,
   config: {
     maxRounds: null,
     startingChips: 1000,
@@ -122,50 +129,170 @@ const mockGameState: PokerState = {
   }
 };
 
+const agentColorMap: { [key: string]: { bg: string; text: string } } = {
+  "The Showman": { bg: 'bg-rose-500', text: 'text-rose-400' },
+  "The Strategist": { bg: 'bg-sky-500', text: 'text-sky-400' },
+  "The Grinder": { bg: 'bg-emerald-500', text: 'text-emerald-400' },
+  "The Veteran": { bg: 'bg-amber-500', text: 'text-amber-400' },
+  "The Wildcard": { bg: 'bg-violet-500', text: 'text-violet-400' },
+  "The Trickster": { bg: 'bg-pink-500', text: 'text-pink-400' },
+  "You": { bg: 'bg-gray-500', text: 'text-gray-300' },
+};
+
+const defaultColors = { bg: 'bg-blue-600', text: 'text-blue-400' };
+
+const getAgentColor = (agentName: string) => {
+  return agentColorMap[agentName] || defaultColors;
+};
+
+const ChatContent: React.FC<{
+  messages: ChatMessage[];
+  activeTab: 'ai' | 'human';
+  setActiveTab: (tab: 'ai' | 'human') => void;
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+}> = ({ messages, activeTab, setActiveTab, setMessages }) => {
+  const simpleBarRef = useRef<any>(null);
+
+  const scrollToBottom = () => {
+    if (simpleBarRef.current) {
+      const scrollElement = simpleBarRef.current.getScrollElement();
+      scrollElement.scrollTop = scrollElement.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    if (messages.length) {
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [messages]);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Tabs */}
+      <div className="flex p-1 mt-4 bg-gray-900/50">
+        <button
+          onClick={() => setActiveTab('ai')}
+          className={cn(
+            'w-1/2 py-2 text-sm font-medium rounded-md',
+            activeTab === 'ai'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:bg-gray-700'
+          )}
+        >
+          AI Chat
+        </button>
+        <button
+          onClick={() => setActiveTab('human')}
+          className={cn(
+            'w-1/2 py-2 text-sm font-medium rounded-md',
+            activeTab === 'human'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:bg-gray-700'
+          )}
+        >
+          Human Chat
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-grow p-4 overflow-y-auto">
+        {(activeTab === 'ai' || activeTab === 'human') && (
+          <SimpleBar ref={simpleBarRef} className="h-full form-scrollbar">
+            <div className="space-y-4 pr-2">
+              {messages.map((msg) => {
+                const { bg, text } = getAgentColor(msg.playerName);
+                
+                return (
+                  <div key={msg.id} className="flex items-center space-x-3">
+                    <div
+                      className={cn(
+                        'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-sm',
+                        bg
+                      )}
+                    >
+                      {msg.playerName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className={cn('font-bold', text)}>
+                          {msg.playerName}
+                        </span>
+                        <span className="ml-2 text-gray-300">{msg.text}</span>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </SimpleBar>
+        )}
+      </div>
+
+      {/* Input */}
+      {activeTab === 'human' && (
+        <div className="p-2 border-t border-slate-700">
+          <input
+            type="text"
+            placeholder="Type your message..."
+            className="w-full bg-slate-900 text-white p-2 rounded-md border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                // For MVP, we'll just add the message to the state
+                const new_message: ChatMessage = {
+                  id: Date.now().toString(),
+                  text: e.currentTarget.value,
+                  timestamp: new Date(),
+                  playerName: "You",
+                  isAI: false
+                };
+                setMessages((prev) => [...prev, new_message]);
+                e.currentTarget.value = '';
+              }
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 export default function Home() {
   const [gameState, setGameState] = useState<PokerState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isInFarcaster, setIsInFarcaster] = useState(false);
-  const [farcasterUser, setFarcasterUser] = useState<any>(null);
-  const [walletInfo, setWalletInfo] = useState<any>(null);
+  const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [activeMenuItem, setActiveMenuItem] = useState<MenuItemLabel>('Chat');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeChatTab, setActiveChatTab] = useState<'ai' | 'human'>('ai');
 
-  // Initialize Farcaster Mini App
   useEffect(() => {
-    const initializeMiniApp = async () => {
-      try {
-        // Check if we're in Farcaster
-        const context = await sdk.context;
-        setIsInFarcaster(!!context);
-        
-        if (context) {
-          console.log('✅ Running in Farcaster Mini App');
-          console.log('Context:', context);
-          
-          // Auto-authenticate when inside Farcaster
-          const autoAuthUser = {
-            isAuthenticated: true,
-            fid: context.user?.fid,
-            username: context.user?.username || 'Farcaster User',
-            displayName: context.user?.displayName,
-          };
-          setFarcasterUser(autoAuthUser);
-          
-          // Signal that the app is ready to display
-          await sdk.actions.ready();
-          console.log('🎮 App is ready to display');
-        } else {
-          console.log('🌐 Running in regular browser');
-        }
-        
-      } catch (error) {
-        console.error('Failed to initialize Mini App:', error);
-        // Continue anyway for non-Farcaster environments
-      }
-    };
+    // Set initial messages based on active tab
+    setMessages(activeChatTab === 'ai' ? mockAIChatMessages : mockHumanChatMessages);
+  }, [activeChatTab]);
 
-    initializeMiniApp();
-  }, []);
+  useEffect(() => {
+    const roleplay = gameState?.lastMove?.move?.decisionContext?.roleplay;
+    if (roleplay) {
+      const { lastMove } = gameState;
+      if (lastMove) {
+        const player = gameState.players.find(
+          (p) => p.id === lastMove.playerId
+        );
+        if (player && lastMove.move.decisionContext) {
+          const playerName = player.playerName || player.id;
+          const new_message: ChatMessage = {
+            id: `${player.id}-${Date.now()}`,
+            text: lastMove.move.decisionContext.roleplay || '',
+            timestamp: new Date(),
+            playerName: playerName,
+            isAI: false
+          };
+          setMessages((prev) => [...prev, new_message]);
+        }
+      }
+    }
+  }, [gameState?.lastMove]);
 
   useEffect(() => {
     const getState = async () => {
@@ -202,185 +329,112 @@ export default function Home() {
           }
           return prevState;
         });
+
         setError(null);
-        setLoading(false);
       } catch (err) {
         if (isDev) {
           console.error("getState error:", err);
         }
         setError('Failed to load game state');
         setLoading(false);
+      } finally {
+        setLoading(false);
       }
     };
 
-    // HTTP polling every 1 second (same as front project)
-    const interval = setInterval(getState, 1000);
+    getState();
+    const interval = setInterval(getState, 5000); // Poll every 5 seconds
+
     return () => clearInterval(interval);
-  }, []);
+  }, [isDev]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-black border-2 border-green-400 rounded-lg p-8">
-          <div className="text-green-400 font-mono text-xl mb-4 text-center">
-            {isInFarcaster ? '🚀 Loading Mini App...' : 'Loading Game...'}
-          </div>
-          <div className="flex items-center justify-center">
-            <div className="animate-pulse w-4 h-4 bg-green-400 rounded-full mr-2"></div>
-            <div 
-              className="animate-pulse w-4 h-4 bg-green-400 rounded-full mr-2"
-              style={{ animationDelay: '0.2s' }}
-            ></div>
-            <div 
-              className="animate-pulse w-4 h-4 bg-green-400 rounded-full"
-              style={{ animationDelay: '0.4s' }}
-            ></div>
-          </div>
-          {isInFarcaster && (
-            <div className="text-green-300 text-sm mt-4 text-center">
-              Connected to Farcaster
+  const handleMenuItemClick = (item: MenuItemLabel) => {
+    if (isDrawerOpen && activeMenuItem === item) {
+      setDrawerOpen(false);
+    } else {
+      setActiveMenuItem(item);
+      setDrawerOpen(true);
+    }
+  };
+
+  const renderDrawerContent = () => {
+    switch (activeMenuItem) {
+      case 'Chat':
+        return <ChatContent messages={messages} activeTab={activeChatTab} setActiveTab={setActiveChatTab} setMessages={setMessages} />;
+      case 'Agents':
+        return gameState ? (
+          <AgentManager players={[...gameState.players]} />
+        ) : (
+          <div className="p-4">Loading player data...</div>
+        );
+      case 'Mint':
+      case 'Bet':
+      case 'More':
+        return (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-gray-400">
+              <h3 className="text-lg font-semibold">Coming Soon</h3>
+              <p className="text-sm">
+                This feature will be available shortly.
+              </p>
             </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="bg-red-900/50 border-2 border-red-400 rounded-lg p-8 max-w-md w-full">
-          <div className="text-red-100 font-mono text-xl mb-4 text-center">
-            ⚠️ Error
           </div>
-          <p className="text-red-200 text-center mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!gameState) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="bg-yellow-900/50 border-2 border-yellow-400 rounded-lg p-8 max-w-md w-full">
-          <div className="text-yellow-100 font-mono text-xl mb-4 text-center">
-            🎲 No Game Active
-          </div>
-          <p className="text-yellow-200 text-center">
-            No poker game is currently active. Check back later!
-          </p>
-        </div>
-      </div>
-    );
-  }
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="min-h-screen">
-      {/* Compact Header */}
-      <header className="bg-black/50 border-b border-gray-800 p-2 mb-4">
+    <main className="flex flex-col min-h-screen bg-gray-900 text-white">
+      <header className="bg-black/50 border-b border-gray-800 p-3 w-full sticky top-0 z-10 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">
-            🃏 AI Poker Club
-          </h1>
-          
-          {/* Auth Controls */}
+          <h1 className="text-xl font-bold text-white">🃏 Poker AI</h1>
           <div className="flex items-center space-x-2">
-            {/* Show Connect Farcaster button ONLY when in browser (not in Farcaster app) */}
-            {!isInFarcaster && !farcasterUser?.isAuthenticated && (
-              <button
-                onClick={() => {
-                  const authComponent = document.getElementById('farcaster-auth');
-                  authComponent?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
-              >
-                🔗 Connect Farcaster
-              </button>
-            )}
             
-            {/* Show Connect Wallet button when Farcaster is connected but wallet is not */}
-            {farcasterUser?.isAuthenticated && !walletInfo?.isConnected && (
-              <button
-                onClick={() => {
-                  const walletComponent = document.getElementById('wallet-connect');
-                  walletComponent?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
-              >
-                💳 Connect Wallet
-              </button>
-            )}
-
-            {/* Show wallet info and notifications when both are connected */}
-            {farcasterUser?.isAuthenticated && walletInfo?.isConnected && (
-              <div className="flex items-center space-x-2">
-                <div className="px-3 py-1 bg-green-900/30 border border-green-400 rounded text-sm">
-                  <span className="text-green-200">
-                    {walletInfo.address && `${walletInfo.address.slice(0, 4)}...${walletInfo.address.slice(-4)}`}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    const notifComponent = document.getElementById('notifications');
-                    notifComponent?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="p-1 text-gray-400 hover:text-white transition-colors"
-                >
-                  🔔
-                </button>
-              </div>
-            )}
-            
-            {/* Status indicator for Farcaster users without wallet */}
-            {isInFarcaster && farcasterUser?.isAuthenticated && !walletInfo?.isConnected && (
-              <div className="px-2 py-1 bg-purple-900/30 border border-purple-400 rounded text-xs">
-                <span className="text-purple-200">
-                  {farcasterUser.username || 'Farcaster User'}
-                </span>
-              </div>
-            )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4">
-        {/* Game Table */}
-        <div className="mb-6">
-          <PokerTableMobile gameState={gameState} />
-        </div>
+      {/* Main Content */}
+      <div className="w-full max-w-7xl mx-auto p-4 flex flex-col items-center justify-start flex-grow">
+        
 
-        {/* Auth Components (Hidden by Default) */}
-        <div className="max-w-md mx-auto space-y-3 hidden">
-          <div id="farcaster-auth">
-            <FarcasterAuth onUserChange={(user) => setFarcasterUser(user)} />
+        {loading ? (
+          <div className="flex items-center justify-center flex-grow">
+            <div className="text-2xl font-bold mb-4">Loading Game...</div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
           </div>
-          
-          <div id="wallet-connect">
-            <FarcasterWallet onWalletChange={(wallet) => setWalletInfo(wallet)} />
+        ) : error ? (
+          <div className="text-center text-red-500  flex-grow flex flex-col justify-center">
+            <div className="text-2xl font-bold mb-4">Error</div>
+            <p>{error}</p>
           </div>
-          
-          <div id="notifications">
-            <FarcasterNotifications 
-              gameState={gameState}
-              isAuthenticated={!!farcasterUser?.isAuthenticated} 
-            />
+        ) : gameState ? (
+          <>
+            <PokerTableMobile gameState={gameState} />
+          </>
+        ) : (
+          <div className="text-center  flex-grow flex flex-col justify-center">
+            <div className="text-2xl font-bold mb-4">No Active Game</div>
+            <p>Please check back later.</p>
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Mini App Footer */}
-        <div className="text-center text-gray-400 text-xs mt-6">
-          <p>Powered by Farcaster Mini Apps</p>
-          {isDev && (
-            <p className="mt-1 text-yellow-400">Development Mode</p>
-          )}
-        </div>
-      </main>
-    </div>
+      <div className="fixed bottom-0 left-0 right-0 h-full pointer-events-none z-[60]">
+        <AppDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          title={activeMenuItem}
+        >
+          {renderDrawerContent()}
+        </AppDrawer>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-[100]">
+        <BottomNav onMenuItemClick={handleMenuItemClick} />
+      </div>
+    </main>
   );
 } 
