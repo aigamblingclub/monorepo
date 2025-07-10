@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   
   // Generate SVG image based on action and game state
   const generateSVG = (action: string, gameState: any) => {
-    let message = 'AI Poker Club - Watch AI agents battle!';
+    let message = 'Poker AI - Watch AI agents battle!';
     let statusColor = '#ffd700';
     let tableColor = '#2d5a3d';
     let showPlayers = false;
@@ -59,21 +59,21 @@ export async function GET(req: NextRequest) {
       } else {
         // Default with game state
         if (tableStatus === 'WAITING') {
-          message = `AI Poker Club • ${activePlayers.length}/6 Players`;
+          message = `Poker AI • ${activePlayers.length}/6 Players`;
           statusColor = '#ffa500';
         } else if (tableStatus === 'PLAYING') {
           message = `🎮 Live Game • Round ${roundNumber}`;
           statusColor = '#00ff00';
           tableColor = '#1a4f2a';
         } else {
-          message = 'AI Poker Club • Join the Action!';
+          message = 'Poker AI • Join the Action!';
         }
         showPlayers = activePlayers.length > 0;
       }
     } else {
       // Fallback messages for when no game state is available
       if (action === 'join') {
-        message = 'Welcome to AI Poker Club! 🎉';
+        message = 'Welcome to Poker AI! 🎉';
         statusColor = '#00ff00';
       } else if (action === 'stats') {
         message = 'AI Poker Stats - Loading...';
