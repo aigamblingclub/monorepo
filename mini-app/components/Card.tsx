@@ -26,7 +26,7 @@ export default function Card({ card, isBack = false, className = '' }: CardProps
     <div className={`poker-card ${className}`}>
       <div className={`flex flex-col items-center justify-center ${isRed ? 'text-red-600' : 'text-black'}`}>
         <div className="text-xs font-bold leading-none">{label}</div>
-        <div className="text-xs leading-none">{symbol}</div>
+        <div className="text-xs leading-none scaled-suit">{symbol}</div>
       </div>
     </div>
   );

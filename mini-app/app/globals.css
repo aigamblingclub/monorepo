@@ -59,6 +59,7 @@
     @apply absolute bg-black/30 backdrop-blur-sm rounded-lg p-1.5 border border-white/20;
     max-width: 100px;
     z-index: 10;
+    margin-top: 1.5rem; /* Adicionado para dar espaço para as ações */
   }
   
   .player-seat-mobile.corner {
@@ -72,6 +73,10 @@
   
   .status-indicator {
     @apply px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .scaled-suit {
+    @apply transform scale-80;
   }
 }
 
@@ -87,6 +92,25 @@
   50% { transform: scale(1.05); opacity: 0.8; }
 }
 
+@keyframes actionPopup {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.8);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px) scale(0.9);
+  }
+}
+
 .mobile-card-flip {
   animation: mobileCardFlip 0.5s ease-in-out;
 }
@@ -97,6 +121,10 @@
 
 .mobile-glow {
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+}
+
+.action-popup {
+  animation: actionPopup 3.5s ease-in-out forwards;
 }
 
 /* Touch-friendly interactions */
