@@ -37,8 +37,14 @@ export class PokerRpc extends RpcGroup.make(
 
 export const PokerRpcLive = PokerRpc.toLayer(
   Effect.gen(function* () {
-    // TODO: convert poker room to an Effect.Service and provide it
-    const ROOM = yield* makePokerRoom(2, LogLevel.Debug);
+    const minPlayers = process.env.MIN_PLAYERS
+      ? Number(process.env.MIN_PLAYERS)
+      : 2;
+      
+    const logLevel =
+      process.env.LOG_LEVEL === "debug" ? LogLevel.Debug : LogLevel.Info;
+
+    const ROOM = yield* makePokerRoom(minPlayers, logLevel);
 
     return {
       currentState: (_payload, _headers) => {
