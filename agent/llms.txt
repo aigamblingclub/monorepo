@@ -1,0 +1,1756 @@
+# ELIZA AGENT ARCHITECTURE & FUNCTIONALITY GUIDE
+
+This document explains the architecture and functionality of the Eliza AI Agent system for LLMs to understand how to work with this codebase.
+
+## OVERVIEW
+
+Eliza is a comprehensive AI agent operating system built with TypeScript/Node.js that enables the creation of autonomous AI agents capable of:
+- Multi-platform communication (Discord, X/Twitter, Telegram, Direct API)
+- Memory management and knowledge retrieval
+- Action execution and decision-making
+- Plugin-based extensibility
+- Real-time interactions and state management
+
+## CORE ARCHITECTURE
+
+### 1. AGENT RUNTIME (`packages/core/src/runtime.ts`)
+
+The `AgentRuntime` class is the central orchestrator that manages:
+
+**Key Components:**
+- **Character Configuration**: Defines agent personality, behavior, and capabilities
+- **Memory Managers**: Handle different types of memory (messages, descriptions, lore, documents, knowledge)
+- **Model Providers**: Support for various LLMs (OpenAI, Anthropic, Google, Groq, Ollama, etc.)
+- **Actions**: Executable functions the agent can perform
+- **Evaluators**: Assessment functions that guide agent responses
+- **Providers**: Context providers that supply additional information
+- **Services**: External service integrations (speech, images, etc.)
+- **Plugins**: Modular extensions that add functionality
+
+**Initialization Flow:**
+1. Load character configuration from JSON
+2. Initialize database adapter and memory managers
+3. Register plugins, actions, evaluators, and providers
+4. Set up model providers and services
+5. Initialize knowledge base and RAG system
+
+### 2. CHARACTER SYSTEM (`packages/core/src/types.ts`)
+
+Characters define agent personalities and configurations:
+
+```typescript
+interface Character {
+    name: string;
+    username: string;
+    clients: string[];           // Which platforms to connect to
+    modelProvider: ModelProviderName;
+    plugins: Plugin[];
+    bio: string[];               // Agent background and personality
+    lore: string[];              // Historical context and backstory
+    system: string;              // System prompt for behavior
+    messageExamples: MessageExample[][];
+    postExamples: string[];
+    topics: string[];            // Areas of expertise
+    adjectives: string[];        // Personality traits
+    knowledge?: KnowledgeItem[]; // Knowledge base references
+    settings?: {
+        secrets?: Record<string, string>;
+        ragKnowledge?: boolean;
+        // ... other settings
+    };
+}
+```
+
+**Character Examples:**
+- `strategist.json`: Poker strategy expert with analytical personality
+- `showman.json`: Entertainment-focused with charismatic traits
+
+### 3. MEMORY SYSTEM (`packages/core/src/memory.ts`)
+
+Multi-layered memory management:
+
+**Memory Types:**
+- **Messages**: Conversation history and interactions
+- **Descriptions**: User profiles and relationship data
+- **Lore**: Static background information
+- **Documents**: Large text documents for reference
+- **Knowledge**: Searchable fragments with embeddings
+- **RAG Knowledge**: Advanced retrieval-augmented generation
+
+**Memory Operations:**
+- Semantic search using embeddings
+- Similarity-based retrieval
+- Contextual filtering by room/user
+- Automatic memory consolidation
+
+### 4. KNOWLEDGE MANAGEMENT
+
+**Traditional Knowledge (`packages/core/src/knowledge.ts`):**
+- File-based knowledge loading
+- Text preprocessing and chunking
+- Embedding generation and storage
+- Similarity search for relevant context
+
+**RAG Knowledge (`packages/core/src/ragknowledge.ts`):**
+- Advanced document processing
+- Directory-based knowledge organization
+- Shared knowledge across characters
+- Incremental updates and file monitoring
+
+### 5. GENERATION SYSTEM (`packages/core/src/generation.ts`)
+
+**Text Generation:**
+- Multi-provider support (OpenAI, Anthropic, Google, etc.)
+- Temperature and parameter control
+- Custom system prompts
+- Response parsing and validation
+
+**Decision Making:**
+- Should-respond evaluation
+- Action selection and execution
+- Structured output generation
+- Error handling and retries
+
+## PLUGIN SYSTEM
+
+### Core Plugins
+
+**Bootstrap Plugin (`packages/plugin-bootstrap/`):**
+- Foundational actions (mute/unmute rooms, none action)
+- Basic evaluators (facts, goals)
+- Essential providers for core functionality
+
+**Node Plugin (`packages/plugin-node/`):**
+- File operations and media processing
+- Cloud service integrations (AWS S3)
+- Browser automation (Playwright)
+- Image description services
+- Speech synthesis and transcription
+- Video processing capabilities
+- Local LLM integration (LLaMA)
+
+### Plugin Architecture
+
+```typescript
+interface Plugin {
+    name: string;
+    description: string;
+    actions?: Action[];
+    evaluators?: Evaluator[];
+    providers?: Provider[];
+    services?: Service[];
+    adapters?: Adapter[];
+}
+```
+
+**Plugin Registration:**
+1. Plugins are defined in character configuration
+2. Runtime loads and initializes plugins
+3. Actions, evaluators, and providers are registered
+4. Services are started and made available
+
+## CLIENT SYSTEM
+
+### Direct Client (`packages/client-direct/`)
+- REST API interface for direct communication
+- Memory management endpoints
+- Agent interaction APIs
+
+### Poker Client (`packages/client-poker/`)
+
+The Poker Client is a sophisticated, autonomous poker-playing agent that integrates deeply with the Eliza AI system to make strategic decisions in Texas Hold'em poker games.
+
+#### **Architecture Overview**
+
+**Core Components:**
+- **PokerClient**: Main orchestrator that manages game lifecycle and AI decision-making
+- **ApiConnector**: Handles WebSocket and REST API communication with poker server
+- **GameState Management**: Tracks and analyzes poker game state and player actions
+- **Memory Integration**: Leverages Eliza's memory system for experience-based learning
+- **Decision Engine**: Uses LLM reasoning combined with poker strategy knowledge
+
+#### **Configuration and Setup**
+
+**Character Configuration:**
+```json
+{
+    "name": "The Strategist",
+    "username": "poker_strategist",
+    "clients": ["poker"],
+    "modelProvider": "openai",
+    "settings": {
+        "ragKnowledge": true,
+        "secrets": {
+            "POKER_API_KEY": "your-api-key"
+        }
+    },
+    "system": "You are a master poker strategist...",
+    "bio": ["Expert in game theory and probabilistic analysis..."],
+    "knowledge": [
+        {
+            "directory": "shared/poker/articles",
+            "shared": true
+        }
+    ]
+}
+```
+
+**Environment Variables:**
+- `POKER_API_URL`: Poker server endpoint (default: `http://localhost:3001`)
+- `POKER_API_KEY`: Authentication token for server access
+
+#### **Communication System**
+
+**WebSocket Integration (`api-connector.ts`):**
+```typescript
+class ApiConnector {
+    // Real-time game state updates
+    onPlayerView(callback: (view: PlayerView) => void);
+
+    // Game management
+    async joinGame(options: { gameId?: string, playerName: string });
+    async leaveGame(gameId: string, playerId: string);
+    async submitAction(action: PokerDecision);
+
+    // Connection management
+    async connect(): Promise<void>;
+    private handleReconnection();
+}
+```
+
+**Communication Features:**
+- **Auto-reconnection**: Handles network failures with exponential backoff
+- **Message queuing**: Ensures action delivery during connection issues
+- **Heartbeat monitoring**: Detects connection health
+- **State synchronization**: Maintains consistent game state
+
+#### **Game State Management**
+
+**Core Data Structures:**
+```typescript
+interface GameState {
+    players: PlayerState[];           // All players and their status
+    tableStatus: TableStatus;         // WAITING, PLAYING, ROUND_OVER
+    currentPlayerIndex: number;       // Whose turn it is
+    phase: Phase;                     // Game progression tracking
+    round: RoundState;                // Current betting round
+    communityCards: readonly Card[];  // Board cards
+    roundHistory: string[];           // Action history
+    config: GameConfig;               // Blinds, starting chips, etc.
+}
+
+interface PlayerState {
+    id: string;
+    playerName: string;
+    status: PlayerStatus;             // PLAYING, FOLDED, ALL_IN
+    chips: number;
+    hand?: readonly Card[];           // Hole cards (when visible)
+    bet: { amount: number; volume: number };
+}
+```
+
+**State Tracking:**
+- **Real-time updates**: Receives game state changes via WebSocket
+- **Position awareness**: Tracks dealer button and betting order
+- **Action validation**: Ensures legal moves based on current state
+- **Outcome tracking**: Records results for learning
+
+#### **AI Decision-Making Engine**
+
+**Decision Process Flow:**
+```
+1. Receive game state update
+2. Check if it's agent's turn
+3. Retrieve relevant memories from past similar situations
+4. Compose comprehensive game context
+5. Generate system prompt with poker knowledge
+6. Query LLM for strategic decision
+7. Parse and validate LLM response
+8. Execute action via API
+9. Store decision and context in memory
+10. Update memory with outcome when round ends
+```
+
+**Context Preparation (`prepareGameContext`):**
+```typescript
+private prepareGameContext(gameState: GameState, relevantMemories: Memory[]): string {
+    // Current game situation
+    const baseContext = `
+    Game Phase: ${gameState.tableStatus}
+    Community Cards: ${gameState.communityCards.map(c => `${c.rank}${c.suit}`).join(' ')}
+    Pot Size: ${gameState.round.volume} chips
+    Current Bet: ${gameState.round.currentBet}
+    Active Players: ${gameState.players.filter(p => p.status === "PLAYING").length}
+    My Position: ${gameState.players.findIndex(p => p.id === this.playerId)}
+    My Chips: ${ourPlayer.chips}
+    Stack Sizes: ${gameState.players.map(p => `${p.playerName}: ${p.chips}`).join(', ')}
+    Round History: ${gameState.roundHistory.join(', ')}
+    `;
+
+    // Historical context from similar situations
+    const memoryContext = relevantMemories.map(memory => {
+        const content = memory.content as PokerContent;
+        return `
+        Past Similar Situation:
+        - Phase: ${content.gameState.phase}
+        - Action Taken: ${content.pokerAction.action}
+        - Outcome: ${content.outcome?.won ? 'Won' : 'Lost'} ${content.outcome?.chipsWon} chips
+        - Strategy: ${content.pokerAction.decisionContext?.strategy}
+        `;
+    }).join('\n');
+
+    return baseContext + memoryContext;
+}
+```
+
+**System Prompt Engineering:**
+The client uses comprehensive poker knowledge and character personality:
+```typescript
+private prepareSystemPrompt(gameState: GameState): string {
+    return `
+    You are ${character.name}, an experienced poker player.
+
+    # Poker Knowledge
+    ${this.POKER_RULES}  // Complete Texas Hold'em rules
+
+    # Your Personality
+    ${character.bio}
+    ${character.lore}
+
+    # Decision Framework
+    Consider:
+    1. Hand Strength Analysis
+    2. Player Psychology & Table Image
+    3. Position & Stack Dynamics
+    4. Pot Odds & Implied Odds
+    5. Previous Experience & Patterns
+
+    # Response Format (JSON)
+    {
+        "action": "FOLD|CHECK|CALL|RAISE|ALL_IN",
+        "amount": number, // Only for RAISE
+        "thinking": "internal thought process",
+        "explanation": "mathematical reasoning",
+        "analysis": "situation breakdown",
+        "reasoning": "logical steps",
+        "strategy": "tactical approach",
+        "logic": "poker principles used",
+        "roleplay": "character reaction"
+    }
+    `;
+}
+```
+
+#### **Memory System Integration**
+
+**Semantic Memory Search (`getRelevantMemories`):**
+```typescript
+async getRelevantMemories(currentState: GameState, limit: number = 5): Promise<Memory[]> {
+    // Create semantic description of current situation
+    const situationDescription = `
+    Poker game in ${currentState.tableStatus} phase with pot ${currentState.round.volume}.
+    ${currentState.communityCards.length} community cards: ${currentState.communityCards.map(c => `${c.rank}${c.suit}`).join(' ')}.
+    ${currentState.players.filter(p => p.status === "PLAYING").length} active players.
+    Current bet: ${currentState.round.currentBet}.
+    Position: ${currentState.players.findIndex(p => p.id === this.playerId)}.
+    `;
+
+    // Generate embedding for semantic search
+    const embedding = await embed(this.runtime, situationDescription);
+
+    // Search for similar past situations
+    const memories = await this.runtime.messageManager.searchMemoriesByEmbedding(
+        embedding,
+        {
+            match_threshold: 0.7,
+            count: limit,
+            roomId: stringToUuid(this.gameId || 'default-poker-room'),
+            unique: true
+        }
+    );
+
+    return memories;
+}
+```
+
+**Memory Storage Structure:**
+```typescript
+interface PokerContent extends Content {
+    gameId: string;
+    roundId?: string;
+    pokerAction: PokerDecision;
+    gameState: {
+        pot: number;
+        playerCards?: readonly Card[];
+        communityCards: readonly Card[];
+        chips: number;
+        position: number;
+        phase: string;
+        players: PlayerState[];
+        round: RoundState;
+    };
+    outcome?: {
+        won: boolean;
+        chipsWon?: number;
+        finalPot?: number;
+        finalCommunityCards?: readonly Card[];
+        handStrength?: string;
+        opponentActions?: string[];
+    };
+}
+```
+
+**Outcome Learning (`updateMemoryWithOutcome`):**
+```typescript
+private async updateMemoryWithOutcome(memory: Memory, gameState: GameState): Promise<void> {
+    const content = memory.content as PokerContent;
+    const initialChips = content.gameState.chips;
+    const finalChips = gameState.players.find(p => p.id === this.playerId)?.chips || 0;
+
+    const outcome = {
+        won: finalChips > initialChips,
+        chipsWon: finalChips - initialChips,
+        finalPot: gameState.round.volume,
+        finalCommunityCards: gameState.communityCards,
+        roundEndState: gameState.tableStatus,
+        opponentActions: gameState.roundHistory?.slice(
+            gameState.roundHistory.findIndex(h => h.includes(content.pokerAction.action)) + 1
+        ) || []
+    };
+
+    content.outcome = outcome;
+    await this.runtime.messageManager.createMemory(memory, true);
+}
+```
+
+#### **Strategic Decision Framework**
+
+**Multi-layered Analysis:**
+1. **Mathematical Foundation**: Pot odds, implied odds, expected value calculations
+2. **Game Theory**: Nash equilibrium concepts, exploitative vs. GTO play
+3. **Psychological Reads**: Player tendency analysis, betting pattern recognition
+4. **Positional Awareness**: Early, middle, late position adjustments
+5. **Stack Dynamics**: Short stack vs. deep stack considerations
+6. **Historical Learning**: Pattern recognition from past similar situations
+
+**Pre-flop Strategy:**
+- Tight-aggressive baseline with position adjustments
+- Hand range analysis based on position and action
+- Preference for seeing flops with marginal hands when price is reasonable
+- Aggression with premium hands to build pots
+
+**Post-flop Strategy:**
+- Continuation betting with strong hands and good bluff candidates
+- Board texture analysis (dry vs. wet boards)
+- Opponent tendency exploitation
+- Pot control with marginal hands
+
+#### **Connection Management & Reliability**
+
+**Robust Connection Handling:**
+```typescript
+// Auto-reconnection with exponential backoff
+private async handleReconnection(): void {
+    this.reconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+
+    setTimeout(() => {
+        if (!this.connected && this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.connect();
+        }
+    }, delay);
+}
+
+// Heartbeat monitoring
+private startHeartbeat(): void {
+    setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'ping' }));
+        }
+    }, 30000);
+}
+```
+
+**Error Handling:**
+- **Network failures**: Automatic reconnection with state recovery
+- **Invalid actions**: Fallback to safe FOLD action
+- **Parsing errors**: Robust response parsing with defaults
+- **API rate limiting**: Request queuing and throttling
+
+#### **Performance Optimizations**
+
+**Efficient Polling:**
+- **Adaptive intervals**: Adjusts based on game activity
+- **Debouncing**: Prevents excessive API calls
+- **State caching**: Reduces redundant processing
+
+**Memory Management:**
+- **Selective memory search**: Focus on relevant game phases
+- **Memory cleanup**: Removes outdated or irrelevant memories
+- **Embedding caching**: Reuses embeddings for similar situations
+
+#### **Extensibility & Customization**
+
+**Plugin Architecture:**
+- **Custom evaluators**: Add domain-specific poker analysis
+- **Strategy modules**: Implement different playing styles
+- **Integration hooks**: Connect with external poker tools
+
+**Configuration Options:**
+- **Aggression levels**: Adjustable risk tolerance
+- **Learning parameters**: Memory search thresholds
+- **Decision timeouts**: Response time controls
+- **Logging verbosity**: Debug and analysis output
+
+### Client Registration
+```typescript
+// In character JSON
+{
+    "clients": ["direct", "poker"]
+}
+
+// Runtime creates appropriate clients
+if (character.clients.includes("poker")) {
+    clients.push(createPokerClient(runtime, character.name));
+}
+```
+
+The Poker Client represents one of the most sophisticated applications of the Eliza system, combining real-time decision-making, strategic analysis, memory-based learning, and personality-driven play to create a competitive autonomous poker agent.
+
+## STATE MANAGEMENT
+
+### Agent State (`packages/core/src/types.ts`)
+```typescript
+interface State {
+    userId?: UUID;
+    agentId?: UUID;
+    roomId: UUID;
+    bio: string;
+    lore: string;
+    actors: string;
+    recentMessages: string;
+    recentMessagesData: Memory[];
+    actions?: string;
+    goals?: string;
+    knowledge?: string;
+    // ... additional context
+}
+```
+
+**State Composition:**
+1. Gather relevant memories
+2. Format conversation context
+3. Include actor information
+4. Add available actions and goals
+5. Inject knowledge and context
+6. Prepare for LLM processing
+
+## WORKFLOW PATTERNS
+
+### 1. Message Processing Flow
+```
+1. Receive message/event
+2. Ensure participants exist in database
+3. Compose current state with context
+4. Determine if agent should respond
+5. Generate response using LLM
+6. Parse and validate response
+7. Execute any triggered actions
+8. Store interaction in memory
+9. Run evaluators for assessment
+```
+
+### 2. Action Execution
+```
+1. Validate action availability
+2. Check action conditions
+3. Execute action handler
+4. Log results and outcomes
+5. Update memory with action results
+```
+
+### 3. Knowledge Retrieval
+```
+1. Process query text
+2. Generate embeddings
+3. Search knowledge base
+4. Rank by similarity
+5. Return relevant context
+```
+
+## DATABASE ARCHITECTURE
+
+### Adapters
+- **SQLite Adapter** (`packages/adapter-sqlite/`): Local file-based storage
+- **Circuit Breaker**: Fault tolerance for database operations
+- **Migration System**: Schema versioning and updates
+
+### Tables Structure
+- `accounts`: User account information
+- `memories`: All memory types with embeddings
+- `participants`: Room/conversation participants
+- `relationships`: User relationship data
+- `goals`: Agent objectives and progress
+
+## CONFIGURATION & ENVIRONMENT
+
+### Environment Variables (`packages/core/src/settings.ts`)
+- Model API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+- Database configuration
+- Service endpoints
+- Feature flags
+
+### Character Configuration
+- JSON-based character definitions
+- Plugin and client specifications
+- Knowledge base references
+- Behavioral parameters
+
+## DEVELOPMENT PATTERNS
+
+### 1. Adding New Actions
+```typescript
+const myAction: Action = {
+    name: "MY_ACTION",
+    similes: ["do_something", "perform_task"],
+    description: "Description of what this action does",
+    validate: async (runtime, message, state) => {
+        // Return true if action should be available
+    },
+    handler: async (runtime, message, state, options, callback) => {
+        // Implement action logic
+    },
+    examples: [
+        // Example usage scenarios
+    ]
+};
+```
+
+### 2. Adding New Evaluators
+```typescript
+const myEvaluator: Evaluator = {
+    name: "MY_EVALUATOR",
+    description: "Evaluates specific conditions",
+    alwaysRun: false,
+    validate: async (runtime, message, state) => {
+        // Return true if evaluator should run
+    },
+    handler: async (runtime, message, state) => {
+        // Implement evaluation logic
+    }
+};
+```
+
+### 3. Creating Custom Clients
+```typescript
+export class MyCustomClient implements ClientInstance {
+    async start() {
+        // Initialize client connection
+    }
+
+    async stop() {
+        // Clean up resources
+    }
+}
+```
+
+## TESTING ARCHITECTURE
+
+### Test Structure
+- **Unit Tests**: Core functionality testing
+- **Integration Tests**: Cross-component testing
+- **Smoke Tests**: Basic functionality validation
+- **Mock Data**: Standardized test fixtures
+
+### Key Test Files
+- `packages/core/__tests__/`: Core functionality tests
+- `packages/plugin-bootstrap/__tests__/`: Plugin testing
+- Character validation and loading tests
+
+## DEPLOYMENT & SCALING
+
+### Build System
+- **Turbo**: Monorepo build orchestration
+- **TypeScript**: Type-safe compilation
+- **TSUP**: Package bundling
+- **pnpm**: Package management
+
+### Runtime Considerations
+- Memory usage optimization
+- Database connection pooling
+- Circuit breaker patterns
+- Graceful error handling
+
+## SECURITY & PRIVACY
+
+### Data Protection
+- Encrypted sensitive settings
+- Secure API key management
+- User data anonymization options
+- Memory retention policies
+
+### Authentication
+- Token-based authentication
+- User session management
+- Permission-based access control
+
+## EXTENSIBILITY POINTS
+
+### 1. Custom Model Providers
+Add support for new LLM providers by implementing the model provider interface.
+
+### 2. Custom Memory Managers
+Implement specialized memory storage and retrieval systems.
+
+### 3. Custom Knowledge Sources
+Integrate external knowledge bases and APIs.
+
+### 4. Custom Services
+Add new external service integrations (APIs, databases, etc.).
+
+### 5. Custom Actions & Evaluators
+Extend agent capabilities with domain-specific actions and evaluation logic.
+
+## COMMON INTEGRATION PATTERNS
+
+### 1. Real-time Communication
+- WebSocket connections for live interactions
+- Event-driven architecture
+- State synchronization
+
+### 2. External API Integration
+- Service abstraction layer
+- Error handling and retries
+- Rate limiting and throttling
+
+### 3. Memory-Driven Decision Making
+- Context retrieval from memory
+- Experience-based learning
+- Adaptive behavior patterns
+
+This architecture enables building sophisticated AI agents that can learn, adapt, and interact across multiple platforms while maintaining consistent personalities and leveraging accumulated knowledge and experience.
+
+## AGENT CREATION & EDITING GUIDE
+
+### **Character File Structure**
+
+Agents in Eliza are defined through **Character JSON files** that specify personality, behavior, capabilities, and configuration:
+
+#### **Basic Character Template**
+```json
+{
+    "name": "Agent Name",
+    "username": "agent_username",
+    "clients": ["direct", "poker"],
+    "modelProvider": "openai",
+    "plugins": ["@elizaos/plugin-bootstrap"],
+    "settings": {
+        "ragKnowledge": true,
+        "secrets": {
+            "OPENAI_API_KEY": "your-key-here",
+            "POKER_API_KEY": "your-poker-key"
+        }
+    },
+    "system": "Core personality and behavior instructions for the agent...",
+    "bio": [
+        "First aspect of agent's background and personality",
+        "Second key characteristic",
+        "Third defining trait"
+    ],
+    "lore": [
+        "Historical context about the agent",
+        "Background story elements",
+        "Foundational experiences that shaped the agent"
+    ],
+    "knowledge": [
+        {
+            "directory": "shared/domain/articles",
+            "shared": true
+        },
+        {
+            "path": "specific-knowledge-file.md",
+            "shared": false
+        }
+    ],
+    "messageExamples": [
+        [
+            {
+                "user": "{{user1}}",
+                "content": {
+                    "text": "Example user message"
+                }
+            },
+            {
+                "user": "Agent Name",
+                "content": {
+                    "text": "Example agent response showing personality and style"
+                }
+            }
+        ]
+    ],
+    "postExamples": [
+        "Example social media post reflecting agent's voice",
+        "Another post showing different aspects of personality"
+    ],
+    "topics": [
+        "domain expertise area 1",
+        "domain expertise area 2",
+        "interest area 3"
+    ],
+    "adjectives": [
+        "personality trait 1",
+        "behavioral characteristic 2",
+        "communication style 3"
+    ],
+    "style": {
+        "all": [
+            "general communication guidelines",
+            "consistent behavioral patterns",
+            "universal style rules"
+        ],
+        "chat": [
+            "specific chat interaction styles",
+            "conversation patterns",
+            "real-time communication preferences"
+        ],
+        "post": [
+            "social media posting style",
+            "content creation guidelines",
+            "public communication tone"
+        ]
+    }
+}
+```
+
+#### **Character Configuration Validation**
+
+The system uses **Zod schemas** for validation (`packages/core/src/environment.ts`):
+
+```typescript
+export const CharacterSchema = z.object({
+    id: z.string().uuid().optional(),
+    name: z.string(),
+    system: z.string().optional(),
+    modelProvider: z.nativeEnum(ModelProviderName),
+    modelEndpointOverride: z.string().optional(),
+    templates: z.record(z.string()).optional(),
+    bio: z.union([z.string(), z.array(z.string())]),
+    lore: z.array(z.string()),
+    messageExamples: z.array(z.array(MessageExampleSchema)),
+    postExamples: z.array(z.string()),
+    topics: z.array(z.string()),
+    adjectives: z.array(z.string()),
+    knowledge: z.array(z.union([
+        z.string(),
+        z.object({ path: z.string(), shared: z.boolean().optional() }),
+        z.object({ directory: z.string(), shared: z.boolean().optional() })
+    ])).optional(),
+    plugins: z.union([z.array(z.string()), z.array(PluginSchema)]),
+    settings: z.object({
+        secrets: z.record(z.string()).optional(),
+        ragKnowledge: z.boolean().optional(),
+        // ... other settings
+    }).optional()
+});
+
+// Validation function
+export function validateCharacterConfig(json: unknown): CharacterConfig {
+    return CharacterSchema.parse(json);
+}
+```
+
+### **Creating New Agents**
+
+#### **1. Character File Creation Process**
+
+**Step 1: Define Character Concept**
+```bash
+# Create new character file
+mkdir -p agent/characters
+touch agent/characters/my-new-agent.json
+```
+
+**Step 2: Basic Configuration**
+```json
+{
+    "name": "My New Agent",
+    "username": "my_agent",
+    "modelProvider": "openai",
+    "clients": ["direct"],
+    "plugins": ["@elizaos/plugin-bootstrap"],
+    "system": "You are My New Agent, a helpful assistant specialized in...",
+    "bio": ["Agent background..."],
+    "lore": ["Agent history..."],
+    "messageExamples": [/* examples */],
+    "postExamples": ["Example posts..."],
+    "topics": ["relevant", "topics"],
+    "adjectives": ["helpful", "knowledgeable"],
+    "style": {
+        "all": ["Be helpful and informative"],
+        "chat": ["Engage naturally in conversation"],
+        "post": ["Share insights and knowledge"]
+    }
+}
+```
+
+**Step 3: Environment Configuration**
+```bash
+# Set required environment variables
+export OPENAI_API_KEY="your-openai-key"
+export CHARACTER_MY_NEW_AGENT_CUSTOM_SETTING="value"
+```
+
+#### **2. Character Loading and Path Resolution**
+
+The system searches for character files in multiple locations:
+
+```typescript
+const pathsToTry = [
+    characterPath,                                    // exact path
+    path.resolve(process.cwd(), characterPath),       // relative to cwd
+    path.resolve(process.cwd(), "agent", characterPath),
+    path.resolve(__dirname, characterPath),           // relative to script
+    path.resolve(__dirname, "characters", path.basename(characterPath)),
+    path.resolve(__dirname, "../characters", path.basename(characterPath)),
+    path.resolve(__dirname, "../../characters", path.basename(characterPath))
+];
+```
+
+#### **3. Agent Initialization Flow**
+
+```typescript
+// 1. Load and validate character
+const character = await loadCharacterTryPath("path/to/character.json");
+validateCharacterConfig(character);
+
+// 2. Handle environment variables
+const characterSettings = getCharacterEnvironmentSettings(character);
+
+// 3. Process plugins
+character.plugins = await handlePluginImporting(character.plugins);
+
+// 4. Create runtime
+const runtime = new AgentRuntime({
+    character,
+    modelProvider: character.modelProvider,
+    token: getTokenForProvider(character.modelProvider, character),
+    plugins: [bootstrapPlugin, nodePlugin, ...character.plugins]
+});
+
+// 5. Initialize database and cache
+runtime.databaseAdapter = await findDatabaseAdapter(runtime);
+runtime.cacheManager = initializeCache(character);
+
+// 6. Initialize knowledge and services
+await runtime.initialize();
+
+// 7. Start clients
+runtime.clients = await initializeClients(character, runtime);
+```
+
+### **Editing Existing Agents**
+
+#### **1. Character Modification Workflow**
+
+**Hot Reloading Support:**
+```typescript
+// The DirectClient supports dynamic character reloading
+directClient.startAgent = async (character) => {
+    character.plugins = await handlePluginImporting(character.plugins);
+    const processedCharacter = await handlePostCharacterLoaded(character);
+    return startAgent(processedCharacter, directClient);
+};
+```
+
+**Configuration Updates:**
+```json
+{
+    "name": "Updated Agent Name",
+    "system": "Modified system prompt with new behavior...",
+    "bio": [
+        "Updated background information",
+        "New personality aspects"
+    ],
+    "settings": {
+        "secrets": {
+            "NEW_API_KEY": "updated-key-value"
+        },
+        "ragKnowledge": true,
+        "newFeature": true
+    }
+}
+```
+
+#### **2. Knowledge Base Management**
+
+**Adding Knowledge Sources:**
+```json
+{
+    "knowledge": [
+        {
+            "directory": "shared/new-domain",
+            "shared": true
+        },
+        {
+            "path": "specific-document.pdf",
+            "shared": false
+        },
+        "direct-knowledge-string"
+    ]
+}
+```
+
+**RAG Knowledge Processing:**
+- Files are processed automatically when character loads
+- Supports: `.md`, `.txt`, `.pdf` files
+- Generates embeddings for semantic search
+- Tracks file modifications for incremental updates
+
+#### **3. Plugin Integration**
+
+**Adding Plugins:**
+```json
+{
+    "plugins": [
+        "@elizaos/plugin-bootstrap",
+        "@elizaos/plugin-node",
+        "./custom-plugins/my-plugin"
+    ]
+}
+```
+
+**Custom Plugin Structure:**
+```typescript
+// custom-plugins/my-plugin/src/index.ts
+export default {
+    name: "my-custom-plugin",
+    description: "Custom functionality for my agent",
+    actions: [
+        {
+            name: "CUSTOM_ACTION",
+            similes: ["do_custom_thing"],
+            description: "Performs custom action",
+            validate: async (runtime, message, state) => true,
+            handler: async (runtime, message, state) => {
+                // Custom action implementation
+            }
+        }
+    ],
+    providers: [/* custom providers */],
+    evaluators: [/* custom evaluators */],
+    services: [/* custom services */]
+};
+```
+
+## AGENT CREATION VIA API & DATABASE INTEGRATION
+
+### **Existing API Infrastructure**
+
+The Eliza system already provides comprehensive API endpoints for agent management via the **Direct Client API**:
+
+#### **Core Agent Management Endpoints**
+
+**1. List All Agents:**
+```bash
+GET /agents
+Response: {
+  "agents": [
+    {
+      "id": "agent-uuid",
+      "name": "Agent Name",
+      "clients": ["direct", "poker"]
+    }
+  ]
+}
+```
+
+**2. Get Specific Agent:**
+```bash
+GET /agents/:agentId
+Response: {
+  "id": "agent-uuid",
+  "character": { /* full character config */ }
+}
+```
+
+**3. Create/Update Agent:**
+```bash
+POST /agents/:agentId/set
+Content-Type: application/json
+Body: { /* character configuration JSON */ }
+```
+
+**4. Delete Agent:**
+```bash
+DELETE /agents/:agentId
+Response: { "success": true }
+```
+
+**5. Start Agent from Config:**
+```bash
+POST /agent/start
+Body: {
+  "characterPath": "path/to/character.json",  // OR
+  "characterJson": { /* character object */ }
+}
+```
+
+**6. Stop Agent:**
+```bash
+POST /agents/:agentId/stop
+Response: { "success": true }
+```
+
+### **Integrating with Web Application Database**
+
+For a web application where users create and manage agents dynamically, you'll need to integrate the Eliza API with your database system:
+
+#### **Database Schema Design**
+
+**Users Table:**
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  near_wallet_address VARCHAR(255) UNIQUE,
+  username VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Agent Configurations Table:**
+```sql
+CREATE TABLE agent_configs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  agent_id UUID UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  character_config JSONB NOT NULL,  -- Store full character JSON
+  is_active BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Agent Sessions Table:**
+```sql
+CREATE TABLE agent_sessions (
+  id SERIAL PRIMARY KEY,
+  agent_config_id INTEGER REFERENCES agent_configs(id),
+  eliza_agent_id UUID,  -- The actual runtime agent ID
+  status VARCHAR(50),    -- 'starting', 'running', 'stopped', 'error'
+  started_at TIMESTAMP,
+  stopped_at TIMESTAMP,
+  error_message TEXT
+);
+```
+
+#### **API Implementation for Agent Management**
+
+**1. User Creates Agent (Web App → Your API → Eliza API):**
+
+```typescript
+// Your API endpoint: POST /api/user/agents
+async function createUserAgent(req: Request, res: Response) {
+  const { userId } = req.user;  // From authentication middleware
+  const { name, personality, bio, lore, topics, modelProvider } = req.body;
+
+  try {
+    // 1. Validate user input and build character config
+    const characterConfig = {
+      name,
+      username: name.toLowerCase().replace(/\s+/g, '_'),
+      modelProvider: modelProvider || 'openai',
+      clients: ['direct'],  // Default clients
+      plugins: ['@elizaos/plugin-bootstrap'],
+      system: `You are ${name}, ${personality}`,
+      bio: Array.isArray(bio) ? bio : [bio],
+      lore: Array.isArray(lore) ? lore : [lore],
+      topics: Array.isArray(topics) ? topics : topics.split(','),
+      messageExamples: [],
+      postExamples: [],
+      adjectives: personality.split(',').map(adj => adj.trim()),
+      style: {
+        all: ["Be helpful and engaging"],
+        chat: ["Respond naturally in conversation"],
+        post: ["Share insights about your topics of interest"]
+      },
+      settings: {
+        ragKnowledge: false,
+        secrets: {
+          OPENAI_API_KEY: process.env.OPENAI_API_KEY
+        }
+      }
+    };
+
+    // 2. Validate character config using Eliza's validation
+    validateCharacterConfig(characterConfig);
+
+    // 3. Save to database first
+    const agentConfig = await prisma.agent_configs.create({
+      data: {
+        user_id: userId,
+        name,
+        character_config: characterConfig,
+        is_active: false
+      }
+    });
+
+    // 4. Create agent in Eliza via API
+    const elizaResponse = await fetch(`${ELIZA_AGENT_API_URL}/agents/${agentConfig.id}/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(characterConfig)
+    });
+
+    if (!elizaResponse.ok) {
+      throw new Error(`Eliza API error: ${elizaResponse.statusText}`);
+    }
+
+    const elizaData = await elizaResponse.json();
+
+    // 5. Update database with Eliza agent ID and mark as active
+    await prisma.agent_configs.update({
+      where: { id: agentConfig.id },
+      data: {
+        agent_id: elizaData.id,
+        is_active: true
+      }
+    });
+
+    // 6. Record session
+    await prisma.agent_sessions.create({
+      data: {
+        agent_config_id: agentConfig.id,
+        eliza_agent_id: elizaData.id,
+        status: 'running',
+        started_at: new Date()
+      }
+    });
+
+    res.json({
+      success: true,
+      agent: {
+        id: agentConfig.id,
+        name,
+        elizaAgentId: elizaData.id,
+        status: 'running'
+      }
+    });
+
+  } catch (error) {
+    // Clean up database record if Eliza API failed
+    if (agentConfig?.id) {
+      await prisma.agent_configs.delete({ where: { id: agentConfig.id } });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+```
+
+**2. User Lists Their Agents:**
+
+```typescript
+// GET /api/user/agents
+async function getUserAgents(req: Request, res: Response) {
+  const { userId } = req.user;
+
+  const agents = await prisma.agent_configs.findMany({
+    where: { user_id: userId },
+    include: {
+      agent_sessions: {
+        orderBy: { started_at: 'desc' },
+        take: 1
+      }
+    }
+  });
+
+  const agentsWithStatus = await Promise.all(
+    agents.map(async (agent) => {
+      let status = 'stopped';
+
+      if (agent.is_active && agent.agent_id) {
+        // Check if agent is still running in Eliza
+        try {
+          const elizaResponse = await fetch(`${ELIZA_AGENT_API_URL}/agents/${agent.agent_id}`);
+          status = elizaResponse.ok ? 'running' : 'stopped';
+        } catch {
+          status = 'error';
+        }
+      }
+
+      return {
+        id: agent.id,
+        name: agent.name,
+        elizaAgentId: agent.agent_id,
+        status,
+        createdAt: agent.created_at,
+        lastSession: agent.agent_sessions[0]
+      };
+    })
+  );
+
+  res.json({ agents: agentsWithStatus });
+}
+```
+
+**3. User Edits Agent:**
+
+```typescript
+// PUT /api/user/agents/:agentId
+async function updateUserAgent(req: Request, res: Response) {
+  const { agentId } = req.params;
+  const { userId } = req.user;
+  const updates = req.body;
+
+  try {
+    // 1. Get current agent config
+    const agentConfig = await prisma.agent_configs.findFirst({
+      where: { id: parseInt(agentId), user_id: userId }
+    });
+
+    if (!agentConfig) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    // 2. Merge updates with existing config
+    const updatedCharacterConfig = {
+      ...agentConfig.character_config,
+      ...updates,
+      id: agentConfig.agent_id  // Preserve Eliza agent ID
+    };
+
+    // 3. Validate updated config
+    validateCharacterConfig(updatedCharacterConfig);
+
+    // 4. Update in Eliza API (this will restart the agent)
+    const elizaResponse = await fetch(`${ELIZA_AGENT_API_URL}/agents/${agentConfig.agent_id}/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedCharacterConfig)
+    });
+
+    if (!elizaResponse.ok) {
+      throw new Error(`Eliza API error: ${elizaResponse.statusText}`);
+    }
+
+    // 5. Update database
+    await prisma.agent_configs.update({
+      where: { id: agentConfig.id },
+      data: {
+        character_config: updatedCharacterConfig,
+        updated_at: new Date()
+      }
+    });
+
+    res.json({ success: true, message: 'Agent updated successfully' });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+```
+
+**4. User Starts/Stops Agent:**
+
+```typescript
+// POST /api/user/agents/:agentId/start
+async function startUserAgent(req: Request, res: Response) {
+  const { agentId } = req.params;
+  const { userId } = req.user;
+
+  try {
+    const agentConfig = await prisma.agent_configs.findFirst({
+      where: { id: parseInt(agentId), user_id: userId }
+    });
+
+    if (!agentConfig) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    // Start agent via Eliza API
+    const elizaResponse = await fetch(`${ELIZA_AGENT_API_URL}/agent/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterJson: agentConfig.character_config
+      })
+    });
+
+    if (!elizaResponse.ok) {
+      throw new Error(`Failed to start agent: ${elizaResponse.statusText}`);
+    }
+
+    const elizaData = await elizaResponse.json();
+
+    // Update database
+    await prisma.agent_configs.update({
+      where: { id: agentConfig.id },
+      data: {
+        agent_id: elizaData.id,
+        is_active: true
+      }
+    });
+
+    await prisma.agent_sessions.create({
+      data: {
+        agent_config_id: agentConfig.id,
+        eliza_agent_id: elizaData.id,
+        status: 'running',
+        started_at: new Date()
+      }
+    });
+
+    res.json({ success: true, elizaAgentId: elizaData.id });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// POST /api/user/agents/:agentId/stop
+async function stopUserAgent(req: Request, res: Response) {
+  const { agentId } = req.params;
+  const { userId } = req.user;
+
+  try {
+    const agentConfig = await prisma.agent_configs.findFirst({
+      where: { id: parseInt(agentId), user_id: userId }
+    });
+
+    if (!agentConfig || !agentConfig.agent_id) {
+      return res.status(404).json({ error: 'Agent not found or not running' });
+    }
+
+    // Stop agent via Eliza API
+    await fetch(`${ELIZA_AGENT_API_URL}/agents/${agentConfig.agent_id}/stop`, {
+      method: 'POST'
+    });
+
+    // Update database
+    await prisma.agent_configs.update({
+      where: { id: agentConfig.id },
+      data: { is_active: false }
+    });
+
+    await prisma.agent_sessions.updateMany({
+      where: {
+        eliza_agent_id: agentConfig.agent_id,
+        stopped_at: null
+      },
+      data: {
+        status: 'stopped',
+        stopped_at: new Date()
+      }
+    });
+
+    res.json({ success: true });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+```
+
+### **Frontend Integration Example**
+
+**Agent Creation Form Component:**
+
+```typescript
+const AgentCreationForm = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    personality: '',
+    bio: '',
+    lore: '',
+    topics: '',
+    modelProvider: 'openai'
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch('/api/user/agents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Agent created successfully
+        router.push('/agents');
+      } else {
+        setError(result.error);
+      }
+    } catch (error) {
+      setError('Failed to create agent');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        placeholder="Agent Name"
+        value={formData.name}
+        onChange={(e) => setFormData({...formData, name: e.target.value})}
+        required
+      />
+
+      <textarea
+        placeholder="Personality traits (e.g., friendly, knowledgeable, helpful)"
+        value={formData.personality}
+        onChange={(e) => setFormData({...formData, personality: e.target.value})}
+        required
+      />
+
+      <textarea
+        placeholder="Background bio"
+        value={formData.bio}
+        onChange={(e) => setFormData({...formData, bio: e.target.value})}
+      />
+
+      <textarea
+        placeholder="Historical lore"
+        value={formData.lore}
+        onChange={(e) => setFormData({...formData, lore: e.target.value})}
+      />
+
+      <input
+        type="text"
+        placeholder="Topics of expertise (comma-separated)"
+        value={formData.topics}
+        onChange={(e) => setFormData({...formData, topics: e.target.value})}
+      />
+
+      <select
+        value={formData.modelProvider}
+        onChange={(e) => setFormData({...formData, modelProvider: e.target.value})}
+      >
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+        <option value="google">Google</option>
+        <option value="groq">Groq</option>
+      </select>
+
+      <button type="submit">Create Agent</button>
+    </form>
+  );
+};
+```
+
+### **Environment Configuration for Web App**
+
+```bash
+# Your backend .env
+ELIZA_AGENT_API_URL=http://localhost:3000  # Eliza Direct Client URL
+ELIZA_AGENT_API_URL_LOCAL=http://localhost:3000
+OPENAI_API_KEY=your-openai-key
+DATABASE_URL=postgresql://user:pass@localhost:5432/your_db
+
+# Eliza .env
+SERVER_PORT=3000
+USE_CHARACTER_STORAGE=true  # Enable file storage for persistence
+OPENAI_API_KEY=your-openai-key
+```
+
+### **Benefits of This Architecture**
+
+1. **Scalability**: Database stores agent configurations independently of Eliza runtime
+2. **Persistence**: Agents survive Eliza restarts via character storage
+3. **User Management**: Multi-tenant support with user isolation
+4. **Hot Reloading**: Real-time agent updates without system restart
+5. **Session Tracking**: Complete audit trail of agent activities
+6. **Error Recovery**: Graceful handling of Eliza API failures
+7. **Resource Management**: Start/stop agents on demand to manage resources
+
+### **Advanced Configuration**
+
+#### **1. Multi-Client Setup**
+
+**Supporting Multiple Platforms:**
+```json
+{
+    "clients": ["direct", "poker", "discord", "telegram"],
+    "clientConfig": {
+        "discord": {
+            "shouldIgnoreBotMessages": true,
+            "shouldRespondOnlyToMentions": false,
+            "autoPost": {
+                "enabled": true,
+                "minTimeBetweenPosts": 3600000
+            }
+        },
+        "telegram": {
+            "shouldIgnoreDirectMessages": false,
+            "allowedGroupIds": ["group1", "group2"]
+        }
+    }
+}
+```
+
+#### **2. Model Provider Configuration**
+
+**Multiple Model Support:**
+```json
+{
+    "modelProvider": "openai",
+    "imageModelProvider": "anthropic",
+    "imageVisionModelProvider": "google",
+    "modelEndpointOverride": "https://custom-endpoint.com/v1",
+    "settings": {
+        "modelConfig": {
+            "maxInputTokens": 4000,
+            "maxOutputTokens": 1000,
+            "temperature": 0.7,
+            "frequency_penalty": 0.1
+        }
+    }
+}
+```
+
+#### **3. Template Customization**
+
+**Custom Templates:**
+```json
+{
+    "templates": {
+        "messageHandlerTemplate": "Custom message handling template...",
+        "evaluationTemplate": "Custom evaluation template...",
+        "shouldRespondTemplate": "Custom response decision template..."
+    }
+}
+```
+
+### **Development Workflow**
+
+#### **1. Testing New Characters**
+
+**Local Development:**
+```bash
+# Start with specific character
+pnpm start --character="characters/my-new-agent.json"
+
+# Start with multiple characters
+pnpm start --characters="agent1.json,agent2.json"
+
+# Development mode with debugging
+pnpm start:debug --character="characters/my-agent.json"
+```
+
+**Character Validation:**
+```bash
+# Validate character configuration
+node -e "
+const { validateCharacterConfig } = require('@elizaos/core');
+const character = require('./characters/my-agent.json');
+try {
+    validateCharacterConfig(character);
+    console.log('Character configuration is valid');
+} catch (error) {
+    console.error('Validation failed:', error.message);
+}
+"
+```
+
+#### **2. Iterative Development**
+
+**Configuration Testing Loop:**
+1. **Modify** character JSON file
+2. **Validate** configuration schema
+3. **Test** basic functionality
+4. **Evaluate** agent responses
+5. **Refine** prompts and settings
+6. **Iterate** based on performance
+
+**Performance Monitoring:**
+```typescript
+// Built-in logging for development
+elizaLogger.info("Character loaded:", character.name);
+elizaLogger.debug("Plugin initialization:", plugins.map(p => p.name));
+elizaLogger.workflow("Decision process:", decisionContext);
+```
+
+### **Character Templates and Examples**
+
+#### **1. Domain-Specific Templates**
+
+**Technical Assistant:**
+```json
+{
+    "name": "Tech Assistant",
+    "system": "You are a technical expert specializing in software development...",
+    "topics": ["programming", "architecture", "debugging", "best practices"],
+    "adjectives": ["technical", "precise", "helpful", "analytical"],
+    "style": {
+        "all": ["Use technical accuracy", "Provide code examples"],
+        "chat": ["Ask clarifying questions", "Offer step-by-step guidance"],
+        "post": ["Share technical insights", "Reference documentation"]
+    }
+}
+```
+
+**Creative Assistant:**
+```json
+{
+    "name": "Creative Writer",
+    "system": "You are a creative writing assistant with expertise in storytelling...",
+    "topics": ["creative writing", "storytelling", "character development"],
+    "adjectives": ["imaginative", "inspiring", "articulate", "empathetic"],
+    "style": {
+        "all": ["Use vivid language", "Encourage creativity"],
+        "chat": ["Ask about inspiration", "Suggest creative exercises"],
+        "post": ["Share writing tips", "Showcase creative examples"]
+    }
+}
+```
+
+#### **2. Character Inheritance**
+
+**Base Character Extension:**
+```json
+{
+    "name": "Specialized Agent",
+    "extends": ["../base-characters/helpful-assistant.json"],
+    "system": "Additional specialized instructions...",
+    "topics": ["specialized", "domain", "topics"],
+    "plugins": ["@elizaos/plugin-specialized"]
+}
+```
+
+### **Best Practices**
+
+#### **1. Character Design Principles**
+
+- **Consistency**: Maintain consistent personality across all interactions
+- **Specificity**: Define clear expertise areas and behavioral patterns
+- **Flexibility**: Allow for natural conversation while staying in character
+- **Context-Awareness**: Use knowledge and memory effectively
+- **Scalability**: Design for multiple interaction types and platforms
+
+#### **2. Configuration Management**
+
+- **Environment Variables**: Use for sensitive configuration
+- **Version Control**: Track character evolution over time
+- **Testing**: Validate changes before deployment
+- **Documentation**: Maintain clear character documentation
+- **Backup**: Keep configuration backups for rollback
+
+#### **3. Performance Optimization**
+
+- **Knowledge Indexing**: Optimize knowledge base for fast retrieval
+- **Memory Management**: Configure appropriate memory limits
+- **Caching**: Use effective caching strategies
+- **Model Selection**: Choose appropriate models for use case
+- **Resource Monitoring**: Track system resource usage
+
+This comprehensive guide enables developers to create, configure, and manage sophisticated AI agents within the Eliza ecosystem, from simple conversational bots to complex domain-specific assistants.
