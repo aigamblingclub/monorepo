@@ -318,6 +318,7 @@ const fakeData: PokerState[] = [
     },
     dealerId: '',
     winner: 'The Showman',
+    lastRoundResult: null,
     config: {
       maxRounds: null,
       startingChips: 1000,
@@ -435,6 +436,7 @@ const fakeData: PokerState[] = [
     },
     "dealerId": "472a3913-2ead-05b5-9ee2-1693304f5862",
     "winner": null,
+    "lastRoundResult": null,
     "config": {
       "maxRounds": null,
       "startingChips": 1000,

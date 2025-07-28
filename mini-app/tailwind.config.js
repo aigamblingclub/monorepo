@@ -47,6 +47,9 @@ module.exports = {
       screens: {
         'xs': '375px',
       },
+      scale: {
+        '80': '0.8',
+      }
     },
   },
   plugins: [],

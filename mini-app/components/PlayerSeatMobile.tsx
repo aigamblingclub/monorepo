@@ -8,12 +8,16 @@ interface PlayerSeatMobileProps {
   player: PlayerState;
   isCurrentPlayer: boolean;
   position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  lastActionType?: string | null;
+  showLastAction?: boolean;
 }
 
 export default function PlayerSeatMobile({ 
   player, 
   isCurrentPlayer, 
-  position 
+  position,
+  lastActionType = null,
+  showLastAction = false
 }: PlayerSeatMobileProps) {
   const getPositionClasses = () => {
     switch (position) {
@@ -49,6 +53,44 @@ export default function PlayerSeatMobile({
     }
   };
 
+  const getActionDisplay = () => {
+    if (!lastActionType) return '';
+    
+    switch (lastActionType.toLowerCase()) {
+      case 'fold':
+        return 'FOLD';
+      case 'call':
+        return 'CALL';
+      case 'check':
+        return 'CHECK';
+      case 'raise':
+        return 'RAISE';
+      case 'all_in':
+        return 'ALL IN';
+      default:
+        return lastActionType.toUpperCase();
+    }
+  };
+
+  const getActionColor = () => {
+    if (!lastActionType) return 'bg-gray-600';
+    
+    switch (lastActionType.toLowerCase()) {
+      case 'fold':
+        return 'bg-red-500';
+      case 'call':
+        return 'bg-blue-500';
+      case 'check':
+        return 'bg-green-500';
+      case 'raise':
+        return 'bg-orange-500';
+      case 'all_in':
+        return 'bg-purple-500';
+      default:
+        return 'bg-gray-600';
+    }
+  };
+
   const isVertical = false;
   const isCorner = position.includes('left') || position.includes('right');
   const isCenter = position.includes('center');
@@ -63,6 +105,13 @@ export default function PlayerSeatMobile({
             {player.playerName.slice(0, 2).toUpperCase()}
           </div>
           <div className={`absolute -top-1 -right-1 w-2 h-2 xs:w-3 xs:h-3 rounded-full ${getStatusColor()} border border-white`} />
+          
+          {/* Last Action Badge */}
+          {showLastAction && lastActionType && (
+            <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 ${getActionColor()} text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg action-popup whitespace-nowrap z-20`}>
+              {getActionDisplay()}
+            </div>
+          )}
         </div>
 
         {/* Player info */}
@@ -80,8 +129,8 @@ export default function PlayerSeatMobile({
           )}
         </div>
 
-        {/* Player cards (if visible) - only show for center positions */}
-        {player.hand && player.hand.length > 0 && isCenter && (
+        {/* Player cards (if visible) - show for all players except folded */}
+        {player.hand && player.hand.length > 0 && player.status !== 'FOLDED' && (
           <div className="flex gap-1">
             {player.hand.map((card, index) => (
               <Card 

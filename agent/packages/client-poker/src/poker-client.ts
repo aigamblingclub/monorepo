@@ -828,7 +828,7 @@ export class PokerClient implements Client {
                 context: context,
                 modelClass: ModelClass.MEDIUM,
                 customSystemPrompt: systemPrompt,
-                verbose: false
+                verbose: true
             });
 
             const decision = this.parseAgentResponse(response, false);
@@ -958,7 +958,7 @@ export class PokerClient implements Client {
                 "Establishing an aggressive image now will help get paid off with future strong hands.",
             logic: "Premium pairs should be played aggressively pre-flop to build pot and narrow field.",
             roleplay:
-                "*adjusts sunglasses and confidently pushes forward a stack of chips*",
+                "I adjust my sunglasses and confidently push forward a stack of chips",
         };
 
         const systemPrompt = [
@@ -1015,6 +1015,10 @@ export class PokerClient implements Client {
             `2. The analysis field must be a single string containing all analysis points`,
             `3. Do not use nested objects or arrays in any field`,
             `4. Ensure your response is a valid JSON object with all required fields.`,
+            `5. Do NOT escape quotes within string values - use regular quotes inside strings`,
+            `6. For the roleplay field, use simple text without special characters or quotes that need escaping`,
+            `7. Example of CORRECT roleplay: "I adjust my sunglasses and push chips forward"`,
+            `8. Example of INCORRECT roleplay: "I adjust my sunglasses and push chips forward" (with escaped quotes)`,
         ].join("\n");
 
         // elizaLogger.debug("System prompt:", systemPrompt);
@@ -1095,10 +1099,42 @@ export class PokerClient implements Client {
 
             // Clean the response by removing code block markers if present
             let cleanResponse = response.replace(/```json\n/, '').replace(/```/, '').trim();
+
+            // Fix common JSON escaping issues
+            // Remove escaped quotes that are incorrectly placed
+            cleanResponse = cleanResponse.replace(/\\"/g, '"');
+            // Fix double-escaped quotes
+            cleanResponse = cleanResponse.replace(/\\\\"/g, '\\"');
+            // Remove any trailing commas before closing braces
+            cleanResponse = cleanResponse.replace(/,(\s*[}\]])/g, '$1');
+
             if (verbose) elizaLogger.debug("Cleaned response:", cleanResponse);
 
             // Try to parse the response as JSON
-            const parsed = JSON.parse(cleanResponse);
+            let parsed;
+            try {
+                parsed = JSON.parse(cleanResponse);
+            } catch (jsonError) {
+                // If JSON parsing fails, try to extract just the action field
+                elizaLogger.warn("JSON parsing failed, attempting to extract action field:", jsonError);
+
+                // Try to find action field using regex
+                const actionMatch = cleanResponse.match(/"action"\s*:\s*"([^"]+)"/i);
+                if (actionMatch) {
+                    const action = actionMatch[1].toUpperCase();
+                    if (Object.values(PlayerAction).includes(action as PlayerAction)) {
+                        elizaLogger.info("Successfully extracted action from malformed JSON:", action);
+                        return {
+                            action: action as PlayerAction,
+                            decisionContext: null
+                        };
+                    }
+                }
+
+                // If we can't extract action, re-throw the original error
+                throw jsonError;
+            }
+
             if (verbose) elizaLogger.debug("Parsed JSON:", parsed);
 
             let action: string = parsed.action?.toUpperCase();

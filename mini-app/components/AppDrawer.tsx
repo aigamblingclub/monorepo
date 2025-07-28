@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSpring, a } from '@react-spring/web';
 import { useDrag } from '@use-gesture/react';
+import { isDev } from '@/utils/env';
 
 interface AppDrawerProps {
   isOpen: boolean;
@@ -20,8 +21,18 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({
   const [windowHeight, setWindowHeight] = useState(0);
 
   useEffect(() => {
-    setWindowHeight(window.innerHeight);
-  }, []);
+    if (isOpen) {
+      setWindowHeight(window.innerHeight);
+    } else {
+      setWindowHeight(0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && windowHeight > 0) {
+      openDrawer();
+    }
+  }, [isOpen, windowHeight]);
 
   const [{ y }, api] = useSpring(() => ({
     y: windowHeight,
@@ -44,26 +55,48 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({
     });
   };
 
-  useEffect(() => {
-    if (windowHeight > 0) {
-        api.start({ y: isOpen ? 0 : windowHeight, immediate: !isOpen });
-    }
-  }, [isOpen, windowHeight]);
 
+  // TODO: Add a way 
   const bind = useDrag(
     ({ last, velocity: [, vy], movement: [, my], cancel, canceled }) => {
-      if (my > windowHeight * 0.5 || (vy > 0.5 && my > windowHeight * 0.2)) {
+      if (isDev) {
+        console.log('my', my);
+        console.log('windowHeight', windowHeight);
+        console.log('vy', vy);
+        console.log('last', last);
+        console.log('canceled', canceled);
+        console.log('cancel', cancel);
+        console.log('last && !canceled', last && !canceled);
+        console.log('my > windowHeight * 0.5', my > windowHeight * 0.5);
+      }
+      
+      // Condições para fechar o drawer
+      const shouldClose = my > windowHeight * 0.5 || (vy > 0.5 && my > windowHeight * 0.2);
+      
+      if (shouldClose) {
+        console.log('cancel');
         cancel();
       }
 
       if (last && !canceled) {
-        closeDrawer(vy);
+        // Só fechar se deve fechar, senão voltar para posição aberta
+        if (shouldClose) {
+          console.log('closeDrawer', vy);
+          closeDrawer(vy);
+        } else {
+          console.log('openDrawer - returning to open position');
+          openDrawer();
+        }
       } else {
+        console.log('api.start', my);
         api.start({ y: my, immediate: true });
       }
     },
     {
-      from: () => [0, y.get()],
+      from: () => {
+        console.log('from', y.get());
+        return [0, y.get()];
+      },
       filterTaps: true,
       bounds: { top: 0 },
       rubberband: true,
@@ -76,7 +109,7 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({
 
   return (
     <a.div
-      className="pb-16 bottom-0 left-0 right-0 bg-[#1a202c] rounded-t-[10px] h-[calc(100%-124px)] flex flex-col pointer-events-auto"
+      className="pb-16 z-30 bottom-0 left-0 right-0 bg-[#1a202c] rounded-t-[10px] h-[calc(100%-124px)] flex flex-col pointer-events-auto"
       style={{
         y,
         position: 'absolute',

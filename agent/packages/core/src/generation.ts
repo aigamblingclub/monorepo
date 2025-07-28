@@ -452,6 +452,33 @@ export async function generateText({
     // allow character.json settings => secrets to override models
     // FIXME: add MODEL_MEDIUM support
     switch (provider) {
+        case ModelProviderName.OPENAI:
+            {
+                switch (modelClass) {
+                    case ModelClass.LARGE:
+                        {
+                            model =
+                                runtime.getSetting("LARGE_OPENAI_MODEL") ||
+                                model;
+                        }
+                        break;
+                    case ModelClass.MEDIUM:
+                        {
+                            model =
+                                runtime.getSetting("MEDIUM_OPENAI_MODEL") ||
+                                model;
+                        }
+                        break;
+                    case ModelClass.SMALL:
+                        {
+                            model =
+                                runtime.getSetting("SMALL_OPENAI_MODEL") ||
+                                model;
+                        }
+                        break;
+                }
+            }
+            break;
         // if runtime.getSetting("LLAMACLOUD_MODEL_LARGE") is true and modelProvider is LLAMACLOUD, then use the large model
         case ModelProviderName.LLAMACLOUD:
             {
@@ -541,6 +568,19 @@ export async function generateText({
         );
 
         context = await trimTokens(context, max_context_length, runtime);
+
+        // LOG DE TOKENS DE INPUT
+        let tokenizerModel: TiktokenModel = (runtime.getSetting("TOKENIZER_MODEL") as TiktokenModel) || "gpt-4o";
+        let encoding;
+        try {
+            encoding = encodingForModel(tokenizerModel);
+        } catch (e) {
+            elizaLogger.warn("[TOKENS] Erro ao obter encoding para modelo ", tokenizerModel, e);
+            encoding = encodingForModel("gpt-4o");
+            tokenizerModel = "gpt-4o";
+        }
+        const inputTokens = encoding.encode(context).length;
+        elizaLogger.info(`[TOKENS] Input tokens: ${inputTokens}`, { inputTokens, model: model, input: context });
 
         let response: string;
 
@@ -1354,6 +1394,12 @@ export async function generateText({
                 elizaLogger.error(errorMessage);
                 throw new Error(errorMessage);
             }
+        }
+        // LOG DE TOKENS DE OUTPUT
+        let outputTokens = 0;
+        if (typeof response === "string") {
+            outputTokens = encoding.encode(response).length;
+            elizaLogger.info(`[TOKENS] Output tokens: ${outputTokens}`, { outputTokens, model: model, output: response });
         }
         if (verbose) elizaLogger.debug("[Generation] response: ", JSON.stringify({
             response: response,

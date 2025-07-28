@@ -51,13 +51,6 @@ export default function CommunityCardsMobile({ cards, phase }: CommunityCardsMob
           );
         })}
       </div>
-
-      {/* Phase label */}
-      <div className="bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
-        <span className="text-white text-xs font-medium">
-          {phase.replace('_', ' ')}
-        </span>
-      </div>
     </div>
   );
 } 

@@ -321,7 +321,13 @@ export default function Home() {
             playerName: playerName,
             isAI: false
           };
-          setAIMessages((prev) => [...prev, new_message]);
+          
+          setAIMessages((prev) => {
+            if (prev.length === 0 || prev[prev.length - 1].text !== new_message.text) {
+              return [...prev, new_message];
+            }
+            return prev;
+          });
           // Remove automatic message update to prevent unwanted drawer behavior
           // The messages will be updated by the activeChatTab useEffect above
         }
@@ -332,6 +338,7 @@ export default function Home() {
   // Demo effect to cycle through actions automatically
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production' && gameState) {
+      /*
       const interval = setInterval(() => {
         setCurrentDemoIndex((prevIndex) => {
           const nextIndex = (prevIndex + 1) % demoActions.length;
@@ -358,6 +365,7 @@ export default function Home() {
       }, 4000); // Change action every 4 seconds
 
       return () => clearInterval(interval);
+      */
     }
   }, [!!gameState]);
 

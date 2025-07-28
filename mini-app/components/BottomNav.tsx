@@ -34,7 +34,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onMenuItemClick }) => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around items-center h-16 z-60">
+    <nav className="fixed z-50 bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around items-center h-16 z-60">
       {menuItems.map((item) => (
         <button
           key={item.label}

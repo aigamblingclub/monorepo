@@ -197,6 +197,7 @@ const fakeData: PokerState[] = [
     },
     dealerId: '',
     winner: null,
+    lastRoundResult: null,
     config: {
       maxRounds: null,
       startingChips: 1000,
