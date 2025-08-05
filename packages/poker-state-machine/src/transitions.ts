@@ -557,9 +557,25 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
     return transition(nState);
 }
 
-// REFACTORED: Safe auto-advance to showdown without recursion
-function autoAdvanceToShowdown(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
-    console.log(`🚀 autoAdvanceToShowdown() - current: ${state.phase.street}, community: ${state.community.length}`);
+/**
+ * Auto-advance phases when all remaining players are ALL_IN
+ * 
+ * This function handles the special case where all active players have gone all-in.
+ * Instead of waiting for betting rounds to complete normally, we can fast-forward
+ * through the remaining phases (FLOP -> TURN -> RIVER) to reach showdown.
+ * 
+ * BEHAVIOR:
+ * - Advances through phases automatically, dealing community cards
+ * - Only finalizes immediately if we reach RIVER with 5 community cards
+ * - Otherwise, returns the advanced state for normal transition logic to handle
+ * - Prevents infinite loops with iteration limits
+ * - Stops if deck runs out of cards
+ * 
+ * This prevents premature finalization that could corrupt ALL_IN status and
+ * ensures proper pot distribution in complex all-in scenarios.
+ */
+function autoAdvancePhasesWhenAllIn(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
+    console.log(`🚀 autoAdvancePhasesWhenAllIn() - current: ${state.phase.street}, community: ${state.community.length}`);
     
     let currentState = { ...state };
     let iterations = 0;
@@ -603,8 +619,17 @@ function autoAdvanceToShowdown(state: PokerState): Effect.Effect<PokerState, Sta
         console.log(`⚠️  Auto-advance hit maximum iterations (${maxIterations}), forcing finalization`);
     }
     
-    console.log(`✅ Auto-advance complete, proceeding to showdown with ${currentState.community.length} community cards`);
-    return finalizeRound(currentState);
+    console.log(`✅ Auto-advance complete, ready for showdown with ${currentState.community.length} community cards`);
+    
+    // UNIFIED LOGIC: Finalize when we reach RIVER with all players ALL_IN
+    // This prevents premature finalization that corrupts ALL_IN status
+    if (currentState.phase.street === 'RIVER' && currentState.community.length >= 5) {
+        console.log(`🏁 Reached RIVER with all players ALL_IN - legitimate showdown, finalizing`);
+        return finalizeRound(currentState);
+    } else {
+        console.log(`🎯 Advanced to ${currentState.phase.street} with ${currentState.community.length} cards - finalization handled by nextPhase`);
+        return Effect.succeed(currentState);
+    }
 }
 
 // REFACTORED: Simplified transition function to prevent infinite loops
@@ -625,9 +650,14 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
         return finalizeRound(state);
     }
     
-    // All remaining players are all-in -> auto advance to showdown
+    // All remaining players are all-in -> auto advance phases
     if (playingPlayers.length === 0 && allInPlayers.length > 1) {
-        return autoAdvanceToShowdown(state);
+        // Don't auto-advance if we're already at RIVER (prevents infinite loop)
+        if (state.phase.street === 'RIVER') {
+            console.log(`🎯 Already at RIVER with all players ALL_IN - letting nextPhase handle finalization`);
+            return nextPhase(state);
+        }
+        return autoAdvancePhasesWhenAllIn(state);
     }
     
     // 4. CHECK IF BETTING ROUND IS COMPLETE
@@ -789,8 +819,20 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
     
     // NO RECURSION: Handle auto-advance scenarios iteratively
     if (playingPlayers.length === 0 && allInPlayers.length >= 2) {
-        console.log(`🚀 All remaining players all-in, skipping to showdown`);
-        return autoAdvanceToShowdown(nextState);
+        // Don't auto-advance if we're already at RIVER (prevents infinite loop)
+        if (nextState.phase.street === 'RIVER') {
+            console.log(`🎯 Already at RIVER with all players ALL_IN - letting finalization logic handle it`);
+            // Continue to the finalization logic below
+        } else {
+            console.log(`🚀 All remaining players all-in, advancing phases`);
+            return autoAdvancePhasesWhenAllIn(nextState);
+        }
+    }
+    
+    // NEW: Auto-finalize when we reach RIVER with all players ALL_IN (handles test case)
+    if (newPhaseStreet === 'RIVER' && playingPlayers.length === 0 && allInPlayers.length >= 2) {
+        console.log(`🏁 Reached RIVER with all players ALL_IN - legitimate showdown, finalizing`);
+        return finalizeRound(nextState);
     }
     
     // If we have playing players, set the first to act
@@ -812,7 +854,7 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
         });
     }
     
-    // Fallback: No one can act
+        // Fallback: No one can act
     console.log(`❌ No players can act after phase advance, finalizing round`);
     return finalizeRound(nextState);
 }
@@ -993,7 +1035,8 @@ export function finalizeRound(state: PokerState): Effect.Effect<PokerState, Stat
                 volume: 0,
                 amount: 0,
             },
-            // FIXED: Reset all non-eliminated players to PLAYING status when round ends
+            // CORRECT: ALL_IN is a temporary status during the round
+            // After round ends, players should be PLAYING (if they have chips) or ELIMINATED (if no chips)
             status: newChips <= 0 ? 'ELIMINATED' as const : 'PLAYING' as const
         }
     });
