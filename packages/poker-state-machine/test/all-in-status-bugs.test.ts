@@ -591,4 +591,273 @@ describe('Real Bug Reproduction from Game Logs', () => {
     // Total do pot deve ser 750 (200 do Grinder + 250 do Strategist + 300 do pot anterior)
     expect(finalState.round.volume).toBe(750);
   });
+
+  test('Bug 9: Eliminated player should not return as ALL_IN in subsequent rounds', () => {
+    const state = createRealBugScenario();
+    
+    // Configurar jogadores com chips específicos para o cenário
+    const updatedPlayers = [...state.players];
+    updatedPlayers[0] = { ...updatedPlayers[0], chips: 50, bet: { amount: 0, volume: 0 } }; // The Strategist (poucos chips)
+    updatedPlayers[1] = { ...updatedPlayers[1], chips: 200, bet: { amount: 0, volume: 0 } }; // The Grinder
+    updatedPlayers[2] = { ...updatedPlayers[2], chips: 200, bet: { amount: 0, volume: 0 } }; // The Veteran
+    updatedPlayers[3] = { ...updatedPlayers[3], chips: 200, bet: { amount: 0, volume: 0 } }; // The Showman
+    updatedPlayers[4] = { ...updatedPlayers[4], chips: 200, bet: { amount: 0, volume: 0 } }; // The Trickster
+    
+    const stateWithSpecificChips = { 
+      ...state, 
+      players: updatedPlayers,
+      round: { ...state.round, currentBet: 100 },
+      currentPlayerIndex: 0, // The Strategist
+      phase: { ...state.phase, street: "TURN" as const }
+    };
+    
+    console.log("=== ELIMINATED PLAYER BUG TEST ===");
+    console.log("Round 1 - Initial state:");
+    stateWithSpecificChips.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Round 1: The Strategist faz all-in (50 chips)
+    const strategistAllIn: Move = { 
+      type: "all_in", 
+      decisionContext: null
+    };
+    const stateAfterAllIn = Effect.runSync(processPlayerMove(stateWithSpecificChips, strategistAllIn));
+    
+    console.log("\nRound 1 - After Strategist all-in:");
+    stateAfterAllIn.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Simular que o round termina e The Strategist perde (fica eliminated)
+    const stateAfterRoundLoss = {
+      ...stateAfterAllIn,
+      players: stateAfterAllIn.players.map((player, index) => 
+        index === 0 
+          ? { ...player, status: "ELIMINATED" as const, chips: 0 }
+          : player
+      )
+    };
+    
+    console.log("\nRound 1 - After loss (Strategist eliminated):");
+    stateAfterRoundLoss.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Round 2: Início do próximo round
+    const round2State = Effect.runSync(nextRound(stateAfterRoundLoss));
+    
+    console.log("\nRound 2 - After nextRound:");
+    round2State.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Simular que os jogadores restantes jogam normalmente no Round 2
+    // The Grinder faz call
+    const grinderCall: Move = { 
+      type: "call", 
+      decisionContext: null
+    };
+    const stateAfterGrinderCall = Effect.runSync(processPlayerMove(round2State, grinderCall));
+    
+    // The Veteran faz raise
+    const stateForVeteran = { ...stateAfterGrinderCall, currentPlayerIndex: 2 };
+    const veteranRaise: Move = { 
+      type: "raise", 
+      amount: 50,
+      decisionContext: null
+    };
+    const stateAfterVeteranRaise = Effect.runSync(processPlayerMove(stateForVeteran, veteranRaise));
+    
+    // Simular fim do Round 2 e início do Round 3
+    const round3State = Effect.runSync(nextRound(stateAfterVeteranRaise));
+    
+    console.log("\nRound 3 - After nextRound:");
+    round3State.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Simular mais uma rodada normal no Round 3
+    // The Showman faz all-in
+    const stateForShowman = { ...round3State, currentPlayerIndex: 3 };
+    const showmanAllIn: Move = { 
+      type: "all_in", 
+      decisionContext: null
+    };
+    const stateAfterShowmanAllIn = Effect.runSync(processPlayerMove(stateForShowman, showmanAllIn));
+    
+    // The Trickster faz call
+    const stateForTrickster = { ...stateAfterShowmanAllIn, currentPlayerIndex: 4 };
+    const tricksterCall: Move = { 
+      type: "call", 
+      decisionContext: null
+    };
+    const stateAfterTricksterCall = Effect.runSync(processPlayerMove(stateForTrickster, tricksterCall));
+    
+    // Simular fim do Round 3 e início do Round 4
+    const round4State = Effect.runSync(nextRound(stateAfterTricksterCall));
+    
+    console.log("\nRound 4 - After nextRound:");
+    round4State.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // VERIFICAÇÕES CRÍTICAS:
+    
+    // 1. The Strategist deve permanecer ELIMINATED em TODOS os rounds
+    expect(round2State.players[0].status).toBe("ELIMINATED");
+    expect(round2State.players[0].chips).toBe(0);
+    expect(round3State.players[0].status).toBe("ELIMINATED");
+    expect(round3State.players[0].chips).toBe(0);
+    expect(round4State.players[0].status).toBe("ELIMINATED");
+    expect(round4State.players[0].chips).toBe(0);
+    
+    // 2. The Strategist NUNCA deve voltar para ALL_IN
+    expect(round2State.players[0].status).not.toBe("ALL_IN");
+    expect(round3State.players[0].status).not.toBe("ALL_IN");
+    expect(round4State.players[0].status).not.toBe("ALL_IN");
+    
+    // 3. Outros jogadores devem estar jogando normalmente
+    for (let i = 1; i < round4State.players.length; i++) {
+      const player = round4State.players[i];
+      if (player.status !== "FOLDED" && player.status !== "ELIMINATED") {
+        expect(player.status).toBe("PLAYING");
+        expect(player.chips).toBeGreaterThan(0);
+      }
+    }
+    
+    // 4. Verificar que o número de jogadores ativos diminuiu corretamente
+    const activePlayers = round4State.players.filter(p => p.status === "PLAYING");
+    const eliminatedPlayers = round4State.players.filter(p => p.status === "ELIMINATED");
+    expect(eliminatedPlayers.length).toBeGreaterThan(0);
+    expect(activePlayers.length).toBeLessThan(state.players.length);
+  });
+
+  test('Bug 10: Multiple rounds - Eliminated player should stay eliminated', () => {
+    const state = createRealBugScenario();
+    
+    // Configurar jogadores com chips específicos
+    const updatedPlayers = [...state.players];
+    updatedPlayers[0] = { ...updatedPlayers[0], chips: 30, bet: { amount: 0, volume: 0 } }; // The Strategist (poucos chips)
+    updatedPlayers[1] = { ...updatedPlayers[1], chips: 200, bet: { amount: 0, volume: 0 } }; // The Grinder
+    updatedPlayers[2] = { ...updatedPlayers[2], chips: 200, bet: { amount: 0, volume: 0 } }; // The Veteran
+    updatedPlayers[3] = { ...updatedPlayers[3], chips: 200, bet: { amount: 0, volume: 0 } }; // The Showman
+    updatedPlayers[4] = { ...updatedPlayers[4], chips: 200, bet: { amount: 0, volume: 0 } }; // The Trickster
+    
+    const stateWithSpecificChips = { 
+      ...state, 
+      players: updatedPlayers,
+      round: { ...state.round, currentBet: 100 },
+      currentPlayerIndex: 0, // The Strategist
+      phase: { ...state.phase, street: "TURN" as const }
+    };
+    
+    console.log("=== MULTIPLE ROUNDS ELIMINATED TEST ===");
+    console.log("Round 1 - Initial state:");
+    stateWithSpecificChips.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Round 1: The Strategist faz all-in e perde
+    const strategistAllIn: Move = { 
+      type: "all_in", 
+      decisionContext: null
+    };
+    const stateAfterAllIn = Effect.runSync(processPlayerMove(stateWithSpecificChips, strategistAllIn));
+    
+    // Simular perda do round
+    const stateAfterLoss = {
+      ...stateAfterAllIn,
+      players: stateAfterAllIn.players.map((player, index) => 
+        index === 0 
+          ? { ...player, status: "ELIMINATED" as const, chips: 0 }
+          : player
+      )
+    };
+    
+    console.log("\nRound 1 - After loss (Strategist eliminated):");
+    stateAfterLoss.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Round 2: Início do próximo round
+    const round2State = Effect.runSync(nextRound(stateAfterLoss));
+    
+    console.log("\nRound 2 - After nextRound:");
+    round2State.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Round 3: Simular mais um round
+    const round3State = Effect.runSync(nextRound(round2State));
+    
+    console.log("\nRound 3 - After nextRound:");
+    round3State.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Verificar que The Strategist permanece ELIMINATED em todos os rounds
+    expect(round2State.players[0].status).toBe("ELIMINATED");
+    expect(round2State.players[0].chips).toBe(0);
+    expect(round3State.players[0].status).toBe("ELIMINATED");
+    expect(round3State.players[0].chips).toBe(0);
+    
+    // Verificar que outros jogadores não foram afetados incorretamente
+    for (let i = 1; i < round3State.players.length; i++) {
+      const player = round3State.players[i];
+      if (player.status !== "FOLDED") {
+        expect(player.status).toBe("PLAYING");
+        expect(player.chips).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  test('Bug 11: Eliminated player should not be affected by all-in logic in subsequent rounds', () => {
+    const state = createRealBugScenario();
+    
+    // Configurar jogadores
+    const updatedPlayers = [...state.players];
+    updatedPlayers[0] = { ...updatedPlayers[0], chips: 0, status: "ELIMINATED" as const }; // The Strategist (eliminated)
+    updatedPlayers[1] = { ...updatedPlayers[1], chips: 50, bet: { amount: 0, volume: 0 } }; // The Grinder (poucos chips)
+    updatedPlayers[2] = { ...updatedPlayers[2], chips: 200, bet: { amount: 0, volume: 0 } }; // The Veteran
+    updatedPlayers[3] = { ...updatedPlayers[3], chips: 200, bet: { amount: 0, volume: 0 } }; // The Showman
+    updatedPlayers[4] = { ...updatedPlayers[4], chips: 200, bet: { amount: 0, volume: 0 } }; // The Trickster
+    
+    const stateWithEliminated = { 
+      ...state, 
+      players: updatedPlayers,
+      round: { ...state.round, currentBet: 100 },
+      currentPlayerIndex: 1, // The Grinder
+      phase: { ...state.phase, street: "TURN" as const }
+    };
+    
+    console.log("=== ELIMINATED PLAYER ALL-IN LOGIC TEST ===");
+    console.log("Initial state:");
+    stateWithEliminated.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // The Grinder faz call (vira all-in)
+    const grinderCall: Move = { 
+      type: "call", 
+      decisionContext: null
+    };
+    const stateAfterCall = Effect.runSync(processPlayerMove(stateWithEliminated, grinderCall));
+    
+    console.log("\nAfter Grinder call (all-in):");
+    stateAfterCall.players.forEach((p, i) => {
+      console.log(`Player ${i}: ${p.playerName}, chips: ${p.chips}, status: ${p.status}`);
+    });
+    
+    // Verificar que The Strategist permanece ELIMINATED, não foi afetado pela lógica de all-in
+    const eliminatedPlayer = stateAfterCall.players[0];
+    expect(eliminatedPlayer.status).toBe("ELIMINATED");
+    expect(eliminatedPlayer.chips).toBe(0);
+    
+    // Verificar que The Grinder foi para ALL_IN
+    const grinderPlayer = stateAfterCall.players[1];
+    expect(grinderPlayer.status).toBe("ALL_IN");
+    expect(grinderPlayer.chips).toBe(0);
+    expect(grinderPlayer.bet.amount).toBe(50);
+  });
 });

@@ -19,6 +19,14 @@ import { PLAYER_DEFAULT_STATE } from "./state_machine"
 export const SMALL_BLIND = 10
 export const BIG_BLIND = 20
 
+// Conditional logging for development vs production
+const isDevelopment = process.env.NODE_ENV === 'development' || process.env.LOG_LEVEL === 'debug';
+const devLog = (message: string, ...args: any[]) => {
+  if (isDevelopment) {
+    console.log(message, ...args);
+  }
+};
+
 // precondition: waiting for players | finished previous round
 export function addPlayer(state: PokerState, playerId: string, playerName: string): PokerState {
   const numPlayers = state.players.length;
@@ -85,25 +93,25 @@ export function removePlayer(state: PokerState, playerId: string): PokerState {
 export function dealCards(state: PokerState): PokerState {
     // Use existing deck from state if available, otherwise get a fresh one
     let deck = state.deck;
-    console.log(`🎴 dealCards() called - deck=${deck}, length=${deck?.length || 'undefined'}`);
+    devLog(`🎴 dealCards() called - deck=${deck}, length=${deck?.length || 'undefined'}`);
     
     if (!deck || deck.length === 0) {
-        console.log(`🔄 Getting fresh deck because deck is ${!deck ? 'null/undefined' : 'empty'}`);
+        devLog(`🔄 Getting fresh deck because deck is ${!deck ? 'null/undefined' : 'empty'}`);
         deck = getDeck();
     } else {
-        console.log(`♻️  Using existing deck with ${deck.length} cards`);
+        devLog(`♻️  Using existing deck with ${deck.length} cards`);
     }
     
     // FIXED: Only deal cards to players who have chips (aren't eliminated)
     const activePlayers = state.players.filter(p => p.chips > 0);
     
-    console.log(`🎯 Dealing cards to ${activePlayers.length} active players (eliminated players: ${state.players.length - activePlayers.length})`);
+    devLog(`🎯 Dealing cards to ${activePlayers.length} active players (eliminated players: ${state.players.length - activePlayers.length})`);
     
     // Clone the deck to avoid mutating the original
     const workingDeck = [...deck];
     const dealtCards = workingDeck.splice(0, 2 * activePlayers.length);
 
-    console.log(`🃏 Dealing ${dealtCards.length} cards for ${activePlayers.length} active players`);
+    devLog(`🃏 Dealing ${dealtCards.length} cards for ${activePlayers.length} active players`);
 
     return {
         ...state,
@@ -233,10 +241,10 @@ export function assignPositions(state: PokerState): PokerState {
     const activePlayers = state.players.filter(p => p.chips > 0);
     const numActivePlayers = activePlayers.length;
     
-    console.log(`🎯 assignPositions: ${numActivePlayers} active players, dealer: ${state.dealerId}`);
+    devLog(`🎯 assignPositions: ${numActivePlayers} active players, dealer: ${state.dealerId}`);
     
     if (numActivePlayers < 2) {
-        console.log(`⚠️  Not enough active players: ${numActivePlayers}`);
+        devLog(`⚠️  Not enough active players: ${numActivePlayers}`);
         return state; // Cannot assign positions with less than 2 active players
     }
     
@@ -244,7 +252,7 @@ export function assignPositions(state: PokerState): PokerState {
     const activeDealerIndex = activePlayers.findIndex(p => p.id === state.dealerId);
     
     if (activeDealerIndex === -1) {
-        console.log(`⚠️  Dealer ${state.dealerId} not found among active players, using first active player`);
+        devLog(`⚠️  Dealer ${state.dealerId} not found among active players, using first active player`);
         // Fallback: set first active player as dealer
         const fallbackState = {
             ...state,
@@ -253,12 +261,12 @@ export function assignPositions(state: PokerState): PokerState {
         return assignPositions(fallbackState); // Recursive call with valid dealer
     }
     
-    console.log(`🎯 Active dealer index: ${activeDealerIndex} (${state.dealerId})`);
+    devLog(`🎯 Active dealer index: ${activeDealerIndex} (${state.dealerId})`);
     
     const updatedPlayers = state.players.map((player, playerIndex) => {
         // Eliminated players (0 chips) don't get positions in active game
         if (player.chips <= 0) {
-            console.log(`💀 Player ${player.playerName} eliminated, keeping position: ${player.position}`);
+            devLog(`💀 Player ${player.playerName} eliminated, keeping position: ${player.position}`);
             return {
                 ...player,
                 position: player.position // Keep existing position for history
@@ -269,7 +277,7 @@ export function assignPositions(state: PokerState): PokerState {
         const activePlayerIndex = activePlayers.findIndex(ap => ap.id === player.id);
         
         if (activePlayerIndex === -1) {
-            console.log(`❌ Player ${player.playerName} not found in active players`);
+            devLog(`❌ Player ${player.playerName} not found in active players`);
             return player; // Shouldn't happen, but safeguard
         }
         
@@ -278,7 +286,7 @@ export function assignPositions(state: PokerState): PokerState {
         if (numActivePlayers === 2) {
             // Heads-up: dealer is SB, non-dealer is BB
             position = activePlayerIndex === activeDealerIndex ? "SB" : "BB";
-            console.log(`👥 Heads-up: Player ${player.playerName} -> ${position}`);
+            devLog(`👥 Heads-up: Player ${player.playerName} -> ${position}`);
         } else {
             // Multi-player: calculate relative position from dealer
             const relativePosition = (activePlayerIndex - activeDealerIndex + numActivePlayers) % numActivePlayers;
@@ -294,7 +302,7 @@ export function assignPositions(state: PokerState): PokerState {
             const positions = positionMaps[numActivePlayers] || ["BTN", "SB", "BB", "EP", "MP", "CO"];
             position = positions[relativePosition] || positions[relativePosition % positions.length];
             
-            console.log(`🎲 Multi-player: Player ${player.playerName} (active ${activePlayerIndex}, relative ${relativePosition}) -> ${position}`);
+            devLog(`🎲 Multi-player: Player ${player.playerName} (active ${activePlayerIndex}, relative ${relativePosition}) -> ${position}`);
         }
         
         return {
@@ -311,14 +319,14 @@ export function assignPositions(state: PokerState): PokerState {
         return counts;
     }, {} as Record<string, number>);
     
-    console.log(`🔍 Position counts:`, positionCounts);
+    devLog(`🔍 Position counts:`, positionCounts);
     
     // Check for duplicate critical positions
     if (positionCounts.SB > 1) {
-        console.error(`❌ Multiple Small Blinds detected: ${positionCounts.SB}`);
+        devLog(`❌ Multiple Small Blinds detected: ${positionCounts.SB}`);
     }
     if (positionCounts.BB > 1) {
-        console.error(`❌ Multiple Big Blinds detected: ${positionCounts.BB}`);
+        devLog(`❌ Multiple Big Blinds detected: ${positionCounts.BB}`);
     }
     
     return {
@@ -462,7 +470,6 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
             
             // AUTO-CONVERT CALL TO CHECK when no chips owed (AI-friendly)
             if (amountToCall === 0) {
-                console.log("🔄 Auto-converting CALL to CHECK (no chips owed)");
                 // Treat as CHECK action - set player as acted for this phase
                 nextState = {
                     ...nextState,
@@ -575,7 +582,7 @@ export function processPlayerMove(state: PokerState, move: Move): Effect.Effect<
  * ensures proper pot distribution in complex all-in scenarios.
  */
 function autoAdvancePhasesWhenAllIn(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
-    console.log(`🚀 autoAdvancePhasesWhenAllIn() - current: ${state.phase.street}, community: ${state.community.length}`);
+    devLog(`🚀 autoAdvancePhasesWhenAllIn() - current: ${state.phase.street}, community: ${state.community.length}`);
     
     let currentState = { ...state };
     let iterations = 0;
@@ -588,7 +595,7 @@ function autoAdvancePhasesWhenAllIn(state: PokerState): Effect.Effect<PokerState
         
         // SAFETY CHECK: Ensure deck has enough cards
         if (currentState.deck.length < toBeDealt) {
-            console.log(`❌ Auto-advance stopped: not enough cards (${currentState.deck.length} < ${toBeDealt})`);
+            devLog(`❌ Auto-advance stopped: not enough cards (${currentState.deck.length} < ${toBeDealt})`);
             break;
         }
         
@@ -600,7 +607,7 @@ function autoAdvancePhasesWhenAllIn(state: PokerState): Effect.Effect<PokerState
         };
         
         const newPhase = phaseMap[newCommunity.length] ?? 'RIVER';
-        console.log(`🔄 Auto-advancing to ${newPhase} (iteration ${iterations})`);
+        devLog(`🔄 Auto-advancing to ${newPhase} (iteration ${iterations})`);
         
         currentState = {
             ...currentState,
@@ -616,18 +623,18 @@ function autoAdvancePhasesWhenAllIn(state: PokerState): Effect.Effect<PokerState
     
     // Safety check for infinite loop prevention
     if (iterations >= maxIterations) {
-        console.log(`⚠️  Auto-advance hit maximum iterations (${maxIterations}), forcing finalization`);
+        devLog(`⚠️  Auto-advance hit maximum iterations (${maxIterations}), forcing finalization`);
     }
     
-    console.log(`✅ Auto-advance complete, ready for showdown with ${currentState.community.length} community cards`);
+    devLog(`✅ Auto-advance complete, ready for showdown with ${currentState.community.length} community cards`);
     
     // UNIFIED LOGIC: Finalize when we reach RIVER with all players ALL_IN
     // This prevents premature finalization that corrupts ALL_IN status
     if (currentState.phase.street === 'RIVER' && currentState.community.length >= 5) {
-        console.log(`🏁 Reached RIVER with all players ALL_IN - legitimate showdown, finalizing`);
+        devLog(`🏁 Reached RIVER with all players ALL_IN - legitimate showdown, finalizing`);
         return finalizeRound(currentState);
     } else {
-        console.log(`🎯 Advanced to ${currentState.phase.street} with ${currentState.community.length} cards - finalization handled by nextPhase`);
+        devLog(`🎯 Advanced to ${currentState.phase.street} with ${currentState.community.length} cards - finalization handled by nextPhase`);
         return Effect.succeed(currentState);
     }
 }
@@ -654,7 +661,6 @@ export function transition(state: PokerState): Effect.Effect<PokerState, StateMa
     if (playingPlayers.length === 0 && allInPlayers.length > 1) {
         // Don't auto-advance if we're already at RIVER (prevents infinite loop)
         if (state.phase.street === 'RIVER') {
-            console.log(`🎯 Already at RIVER with all players ALL_IN - letting nextPhase handle finalization`);
             return nextPhase(state);
         }
         return autoAdvancePhasesWhenAllIn(state);
@@ -755,11 +761,11 @@ function playerNeedsToAct(player: PlayerState, currentBet: number): boolean {
 
 // REFACTORED: Non-recursive nextPhase function
 export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMachineError> {
-    console.log(`🔄 nextPhase() called from ${state.phase.street}`);
+    devLog(`🔄 nextPhase() called from ${state.phase.street}`);
     
     // If we're at RIVER, finalize the round
     if (state.community.length === 5 || state.phase.street === "RIVER") {
-        console.log(`🏁 Reached RIVER phase, finalizing round`);
+        devLog(`🏁 Reached RIVER phase, finalizing round`);
         return finalizeRound(state);
     }
 
@@ -768,7 +774,7 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
     
     // SAFETY CHECK: Ensure we have enough cards in deck
     if (state.deck.length < toBeDealt) {
-        console.log(`❌ Not enough cards in deck (${state.deck.length} < ${toBeDealt}), finalizing round`);
+        devLog(`❌ Not enough cards in deck (${state.deck.length} < ${toBeDealt}), finalizing round`);
         return finalizeRound(state);
     }
 
@@ -784,7 +790,7 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
     };
 
     const newPhaseStreet = phaseMap[community.length] ?? state.phase.street;
-    console.log(`📋 Advancing to ${newPhaseStreet} phase`);
+    devLog(`📋 Advancing to ${newPhaseStreet} phase`);
 
     // Create new state for the next phase
     const nextState: PokerState = {
@@ -815,23 +821,23 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
     const playingPlayers = nextState.players.filter(p => p.status === "PLAYING");
     const allInPlayers = nextState.players.filter(p => p.status === "ALL_IN");
     
-    console.log(`👥 After phase advance: ${playingPlayers.length} playing, ${allInPlayers.length} all-in`);
+    devLog(`👥 After phase advance: ${playingPlayers.length} playing, ${allInPlayers.length} all-in`);
     
     // NO RECURSION: Handle auto-advance scenarios iteratively
     if (playingPlayers.length === 0 && allInPlayers.length >= 2) {
         // Don't auto-advance if we're already at RIVER (prevents infinite loop)
         if (nextState.phase.street === 'RIVER') {
-            console.log(`🎯 Already at RIVER with all players ALL_IN - letting finalization logic handle it`);
+            devLog(`🎯 Already at RIVER with all players ALL_IN - letting finalization logic handle it`);
             // Continue to the finalization logic below
         } else {
-            console.log(`🚀 All remaining players all-in, advancing phases`);
+            devLog(`🚀 All remaining players all-in, advancing phases`);
             return autoAdvancePhasesWhenAllIn(nextState);
         }
     }
     
     // NEW: Auto-finalize when we reach RIVER with all players ALL_IN (handles test case)
     if (newPhaseStreet === 'RIVER' && playingPlayers.length === 0 && allInPlayers.length >= 2) {
-        console.log(`🏁 Reached RIVER with all players ALL_IN - legitimate showdown, finalizing`);
+        devLog(`🏁 Reached RIVER with all players ALL_IN - legitimate showdown, finalizing`);
         return finalizeRound(nextState);
     }
     
@@ -841,12 +847,12 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
         
         // SAFETY CHECK: Ensure firstPlayerIndex is valid
         if (firstToActIndex < 0 || firstToActIndex >= nextState.players.length) {
-            console.log(`❌ Invalid first player index: ${firstToActIndex}, finalizing round`);
+            devLog(`❌ Invalid first player index: ${firstToActIndex}, finalizing round`);
             return finalizeRound(nextState);
         }
         
         const firstPlayer = nextState.players[firstToActIndex];
-        console.log(`👤 First to act in ${newPhaseStreet}: ${firstPlayer.id} (index ${firstToActIndex})`);
+        devLog(`👤 First to act in ${newPhaseStreet}: ${firstPlayer.id} (index ${firstToActIndex})`);
         
         return Effect.succeed({
             ...nextState,
@@ -854,8 +860,8 @@ export function nextPhase(state: PokerState): Effect.Effect<PokerState, StateMac
         });
     }
     
-        // Fallback: No one can act
-    console.log(`❌ No players can act after phase advance, finalizing round`);
+    // Fallback: No one can act
+    devLog(`❌ No players can act after phase advance, finalizing round`);
     return finalizeRound(nextState);
 }
 
@@ -1086,8 +1092,8 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
     const playersWithChips = state.players.filter(p => p.chips > 0);
     const eliminatedPlayers = state.players.filter(p => p.chips === 0);
     
-    console.log(`🚮 Players eliminated: ${eliminatedPlayers.length} (${eliminatedPlayers.map(p => p.playerName).join(', ')})`);
-    console.log(`📊 Active players: ${playersWithChips.map(p => `${p.playerName}(${p.chips})`).join(', ')}`);
+    devLog(`🚮 Players eliminated: ${eliminatedPlayers.length} (${eliminatedPlayers.map(p => p.playerName).join(', ')})`);
+    devLog(`📊 Active players: ${playersWithChips.map(p => `${p.playerName}(${p.chips})`).join(', ')}`);
     
     // Standard poker rule: Game over when only one player has chips left
     if (playersWithChips.length < 2) {
@@ -1132,7 +1138,7 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
     }) as PlayerState[];
 
     // Prepare initial state for the new round
-    console.log(`🔄 nextRound() creating new round ${state.round.roundNumber + 1} with ${playersWithChips.length} active players, ${eliminatedPlayers.length} eliminated`);
+    devLog(`🔄 nextRound() creating new round ${state.round.roundNumber + 1} with ${playersWithChips.length} active players, ${eliminatedPlayers.length} eliminated`);
     const initialState: PokerState = {
         ...state,
         tableStatus: 'PLAYING',
@@ -1157,7 +1163,7 @@ export function nextRound(state: PokerState): Effect.Effect<PokerState, ProcessE
         }
     };
     
-    console.log(`🎯 nextRound() calling startRound with ${resetPlayers.length} total players (${playersWithChips.length} active)`);
+    devLog(`🎯 nextRound() calling startRound with ${resetPlayers.length} total players (${playersWithChips.length} active)`);
 
     // Start the round which will deal cards, rotate blinds and collect blinds
     return Effect.succeed<PokerState>(startRound(initialState));
