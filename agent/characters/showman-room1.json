@@ -1,0 +1,6 @@
+{
+    "extends": ["showman.json"],
+    "settings": {
+        "pokerRoom": "room1"
+    }
+}

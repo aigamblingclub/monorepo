@@ -1,0 +1,6 @@
+{
+    "extends": ["strategist.json"],
+    "settings": {
+        "pokerRoom": "room2"
+    }
+}

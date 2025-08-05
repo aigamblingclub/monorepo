@@ -10,9 +10,17 @@ export function createPokerClient(runtime: any, characterName: string) {
     //     );
     // }
 
+    // Get room ID from character settings or environment variable
+    const roomId = runtime.character.settings?.pokerRoom || 
+                   process.env.POKER_ROOM_ID || 
+                   "default";
+
+    elizaLogger.info(`Creating poker client for ${characterName} in room: ${roomId}`);
+
     return new PokerClient({
         apiKey: "", // TODO: add api key logic, do it on backend
         apiBaseUrl: process.env.POKER_API_URL,
         playerName: characterName,
+        roomId: roomId,
     });
 }

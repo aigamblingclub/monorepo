@@ -1,0 +1,6 @@
+{
+    "extends": ["grinder.json"],
+    "settings": {
+        "pokerRoom": "room1"
+    }
+}

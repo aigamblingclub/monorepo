@@ -1,0 +1,6 @@
+{
+    "extends": ["wildcard.json"],
+    "settings": {
+        "pokerRoom": "room2"
+    }
+}

@@ -17,6 +17,7 @@ export class ApiConnector {
     private baseUrl: string;
     private playerId: string | null = null;
     private playerName: string | null = null;
+    private roomId: string;
     private apiKey: string | null = null;
     private ws: WebSocket | null = null;
     private messageId = 0;
@@ -28,13 +29,16 @@ export class ApiConnector {
     private maxReconnectAttempts = 5;
     private reconnectTimeout: NodeJS.Timeout | null = null;
 
-    constructor(baseUrl: string, apiKey?: string, playerName?: string) {
+    constructor(baseUrl: string, apiKey?: string, playerName?: string, roomId?: string) {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey || null;
         this.playerName = playerName || null;
+        this.roomId = roomId || "default";
         elizaLogger.log(
             `[${this.playerName || 'Unknown'}] EffectApiConnector initialized with base URL:`,
-            baseUrl
+            baseUrl,
+            "room:",
+            this.roomId
         );
         if (apiKey) {
             elizaLogger.log(`[${this.playerName || 'Unknown'}] EffectApiConnector initialized with API key`);
@@ -95,7 +99,7 @@ export class ApiConnector {
                 this.ws.close();
             }
 
-            const wsUrl = this.baseUrl.replace(/^http/, "ws") + "/rpc";
+            const wsUrl = this.baseUrl.replace(/^http/, "ws") + `/rpc?room=${this.roomId}`;
             elizaLogger.log(`[${this.playerName || 'Unknown'}] Connecting to WebSocket at ${wsUrl}`);
             this.ws = new WebSocket(wsUrl);
 

@@ -33,20 +33,11 @@ case "$1" in
             "adapter-postgres"
             "adapter-sqlite"
             "adapter-sqljs"
-            "adapter-supabase"
             "client-auto"
             "client-direct"
-            "client-discord"
-            "client-farcaster"
-            "client-telegram"
-            "client-twitter"
             "core"
             "plugin-bootstrap"
-            "plugin-image-generation"
             "plugin-node"
-            "plugin-solana"
-            "plugin-evm"
-            "plugin-tee"
         )
 
         # Start building the docker run command

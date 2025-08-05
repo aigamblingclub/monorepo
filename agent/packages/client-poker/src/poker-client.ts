@@ -20,6 +20,7 @@ export interface PokerClientConfig {
     apiBaseUrl?: string;
     apiKey?: string; // Make API key required in config
     playerName?: string;
+    roomId?: string; // Room ID to connect to
 }
 
 // Extended character interface to include settings
@@ -112,8 +113,8 @@ export class PokerClient implements Client {
             "http://localhost:3001";
 
         // Initialize API connector with both URL and API key
-        this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey, config.playerName);
-        elizaLogger.info(`[${config.playerName || "PokerBot"}] Poker client created with API endpoint:`, apiBaseUrl);
+        this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey, config.playerName, config.roomId);
+        elizaLogger.info(`[${config.playerName || "PokerBot"}] Poker client created with API endpoint:`, apiBaseUrl, "room:", config.roomId || "default");
 
         // elizaLogger.debug("API key configured:", {
         //     apiKeyLength: config.apiKey.length,
