@@ -353,18 +353,20 @@ describe("🎯 Advanced Poker Scenarios Tests", () => {
         })
       );
 
-      // Should advance through all phases automatically
-      state = await waitForGameState(pokerRoom, (s) => 
-        s.phase.street === "SHOWDOWN" || s.tableStatus === "ROUND_OVER", 20
-      ) as PokerState;
+      // Should advance through all phases and auto-finalize to SHOWDOWN
+      state = (await waitForGameState(
+        pokerRoom,
+        (s) => s.phase.street === "SHOWDOWN" && s.tableStatus === "GAME_OVER",
+        20
+      )) as PokerState;
 
-      expect(["SHOWDOWN", "ROUND_OVER"]).toContain(state.phase.street);
+      expect(state.phase.street).toBe("SHOWDOWN");
       expect(state.community.length).toBe(5); // All community cards dealt
       
-      console.log("✅ Direct advancement:", {
-        phase: state.phase.street,
+      console.log("✅ Direct advancement to SHOWDOWN (correct poker behavior):", {
+        tableStatus: state.tableStatus,
         community: state.community.length,
-        tableStatus: state.tableStatus
+        phase: state.phase.street
       });
     });
   });
