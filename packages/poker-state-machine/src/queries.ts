@@ -112,39 +112,95 @@ export const currentPlayer = (state: PokerState) => {
 }
 
 export const smallBlind = (state: PokerState) => {
-    if (state.players.length === 2) {
-        // In heads-up: dealer is small blind
-        const dealerIndex = findDealerIndex(state);
-        return state.players[dealerIndex];
+    // Get only active players (not eliminated)
+    const activePlayers = state.players.filter(p => p.chips > 0 && p.status !== 'ELIMINATED');
+    
+    if (activePlayers.length < 2) {
+        console.log(`⚠️  Not enough active players for small blind: ${activePlayers.length}`);
+        return null;
     }
     
-    // Find player with SB position
-    const sbPlayer = state.players.find(p => p.position === "SB");
+    if (state.players.length === 2) {
+        // In heads-up: dealer is small blind (must be active)
+        const dealerIndex = findDealerIndex(state);
+        const dealer = state.players[dealerIndex];
+        if (dealer && dealer.chips > 0 && dealer.status !== 'ELIMINATED') {
+            return dealer;
+        }
+        // If dealer is eliminated, use first active player
+        return activePlayers[0];
+    }
+    
+    // Find active player with SB position
+    const sbPlayer = activePlayers.find(p => p.position === "SB");
     if (sbPlayer) {
         return sbPlayer;
     }
     
-    // Fallback to positional logic
+    // Fallback to positional logic among active players only
     const dealerIndex = findDealerIndex(state);
-    return state.players[(dealerIndex + 1) % state.players.length];
+    const dealer = state.players[dealerIndex];
+    
+    // If dealer is active, use next active player
+    if (dealer && dealer.chips > 0 && dealer.status !== 'ELIMINATED') {
+        const dealerActiveIndex = activePlayers.findIndex(p => p.id === dealer.id);
+        if (dealerActiveIndex !== -1) {
+            const nextActiveIndex = (dealerActiveIndex + 1) % activePlayers.length;
+            return activePlayers[nextActiveIndex];
+        }
+    }
+    
+    // Final fallback: use first active player
+    return activePlayers[0];
 }
 
 export const bigBlind = (state: PokerState) => {
-    if (state.players.length === 2) {
-        // In heads-up: non-dealer is big blind
-        const dealerIndex = findDealerIndex(state);
-        return state.players[(dealerIndex + 1) % 2];
+    // Get only active players (not eliminated)
+    const activePlayers = state.players.filter(p => p.chips > 0 && p.status !== 'ELIMINATED');
+    
+    if (activePlayers.length < 2) {
+        console.log(`⚠️  Not enough active players for big blind: ${activePlayers.length}`);
+        return null;
     }
     
-    // Find player with BB position
-    const bbPlayer = state.players.find(p => p.position === "BB");
+    if (state.players.length === 2) {
+        // In heads-up: non-dealer is big blind (must be active)
+        const dealerIndex = findDealerIndex(state);
+        const dealer = state.players[dealerIndex];
+        const nonDealer = state.players[(dealerIndex + 1) % 2];
+        
+        // Return the non-dealer if active, otherwise dealer if active
+        if (nonDealer && nonDealer.chips > 0 && nonDealer.status !== 'ELIMINATED') {
+            return nonDealer;
+        }
+        if (dealer && dealer.chips > 0 && dealer.status !== 'ELIMINATED') {
+            return dealer;
+        }
+        // If both are eliminated, use first active player
+        return activePlayers[0];
+    }
+    
+    // Find active player with BB position
+    const bbPlayer = activePlayers.find(p => p.position === "BB");
     if (bbPlayer) {
         return bbPlayer;
     }
     
-    // Fallback to positional logic
+    // Fallback to positional logic among active players only
     const dealerIndex = findDealerIndex(state);
-    return state.players[(dealerIndex + 2) % state.players.length];
+    const dealer = state.players[dealerIndex];
+    
+    // If dealer is active, use second next active player
+    if (dealer && dealer.chips > 0 && dealer.status !== 'ELIMINATED') {
+        const dealerActiveIndex = activePlayers.findIndex(p => p.id === dealer.id);
+        if (dealerActiveIndex !== -1) {
+            const secondNextActiveIndex = (dealerActiveIndex + 2) % activePlayers.length;
+            return activePlayers[secondNextActiveIndex];
+        }
+    }
+    
+    // Final fallback: use second active player
+    return activePlayers.length > 1 ? activePlayers[1] : activePlayers[0];
 }
 
 export const playerView = (state: PokerState, playerId: string): PlayerView => {
