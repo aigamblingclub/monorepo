@@ -20,20 +20,26 @@ export const updatePokerState = async (interval: number) => {
 
   if (process.env.NODE_ENV !== 'test') {
     setInterval(async () => {
-      if (!SERVER_POKER) {
-        return;
-      }
-      let currentState: any;
-      if (isDev) {
-        currentState = fakeData[0];
-      } else if (isProd) {
-        currentState = await getCurrentStatePoker();
-      }
-      // Only update the state if the data is different
+      try {
+        if (!SERVER_POKER) {
+          return;
+        }
+        let currentState: any;
+        if (isDev) {
+          currentState = fakeData[0];
+        } else if (isProd) {
+          currentState = await getCurrentStatePoker();
+        }
+        // Only update the state if the data is different
 
-      if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
-        currentStatePoker = currentState;
-        await saveCurrentStateToDatabase(currentState);
+        if (currentState && JSON.stringify(currentState) !== JSON.stringify(currentStatePoker)) {
+          currentStatePoker = currentState;
+          await saveCurrentStateToDatabase(currentState);
+        }
+      } catch (error) {
+        console.error('Error in poker state update interval:', error);
+        // Log the error but don't let it crash the application
+        // The next interval will try again
       }
     }, interval || 2000);
   }
@@ -80,71 +86,113 @@ const getCurrentStatePoker = async () => {
   }
 };
 
+// Helper function to retry database operations
+const retryWithBackoff = async <T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> => {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if it's a transaction timeout error
+      if (error.code === 'P2028' && error.meta?.error?.includes('Transaction already closed')) {
+        console.warn(`Transaction timeout on attempt ${attempt + 1}/${maxRetries + 1}. Retrying...`);
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = baseDelay * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+      }
+      
+      // For other errors or max retries reached, throw the error
+      throw error;
+    }
+  }
+  
+  throw lastError!;
+};
+
 // save the current state to the database
 export const saveCurrentStateToDatabase = async (state: PokerState) => {
-  await prisma.$transaction(async tx => {
-    await tx.rawState.create({
-      data: { data: JSON.stringify(state), status: 'active', updatedAt: new Date() },
-    });
+  try {
+    await retryWithBackoff(async () => {
+      return await prisma.$transaction(async tx => {
+        await tx.rawState.create({
+          data: { data: JSON.stringify(state), status: 'active', updatedAt: new Date() },
+        });
 
-    // save to table
-    await tx.table.upsert({
-      where: { tableId: state.tableId },
-      update: {
-        tableId: state.tableId,
-        tableStatus: state.tableStatus,
-        config: state.config,
-        winners: state.winner ? [state.winner] : [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      create: {
-        tableId: state.tableId,
-        tableStatus: state.tableStatus,
-        volume: 0, // TODO: sum of all bets, query?
-        totalBets: 0, // TODO: sum of all bets, query?
-        config: state.config,
-      },
-    });
-
-    // save to players
-    for (const player of state.players) {
-      await tx.player.upsert({
-        where: { playerId: player.id },
-        update: {
-          playerName: player.playerName,
-          updatedAt: new Date(),
-        },
-        create: {
-          playerId: player.id,
-          playerName: player.playerName,
-          updatedAt: new Date(),
-        },
-      });
-      await tx.player_Table.upsert({
-        where: {
-          playerId_tableId: {
-            playerId: player.id,
+        // save to table
+        await tx.table.upsert({
+          where: { tableId: state.tableId },
+          update: {
             tableId: state.tableId,
+            tableStatus: state.tableStatus,
+            config: state.config,
+            winners: state.winner ? [state.winner] : [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
-        },
-        update: {
-          status: 'active',
-          volume: player.bet.volume, // ? TODO: sum of all bets in all rounds
-          currentBalance: player.chips,
-        },
-        create: {
-          playerId: player.id,
-          tableId: state.tableId,
-          status: 'active',
-          volume: 0,
-          initialBalance: player.chips,
-          currentBalance: player.chips,
-        },
+          create: {
+            tableId: state.tableId,
+            tableStatus: state.tableStatus,
+            volume: 0, // TODO: sum of all bets, query?
+            totalBets: 0, // TODO: sum of all bets, query?
+            config: state.config,
+          },
+        });
+
+        // save to players
+        for (const player of state.players) {
+          await tx.player.upsert({
+            where: { playerId: player.id },
+            update: {
+              playerName: player.playerName,
+              updatedAt: new Date(),
+            },
+            create: {
+              playerId: player.id,
+              playerName: player.playerName,
+              updatedAt: new Date(),
+            },
+          });
+          await tx.player_Table.upsert({
+            where: {
+              playerId_tableId: {
+                playerId: player.id,
+                tableId: state.tableId,
+              },
+            },
+            update: {
+              status: 'active',
+              volume: player.bet.volume, // ? TODO: sum of all bets in all rounds
+              currentBalance: player.chips,
+            },
+            create: {
+              playerId: player.id,
+              tableId: state.tableId,
+              status: 'active',
+              volume: 0,
+              initialBalance: player.chips,
+              currentBalance: player.chips,
+            },
+          });
+        }
+        // TODO add info to all other tables, rounds, phases, moves, playerHands;
       });
-    }
-    // TODO add info to all other tables, rounds, phases, moves, playerHands;
-  });
+    });
+  } catch (error) {
+    console.error('Failed to save poker state to database after all retries:', error);
+    // Log the error but don't throw it to prevent the interval from stopping
+    // The state is still updated in memory (currentStatePoker), so it will be saved on the next successful attempt
+  }
 };
 
 const fakeData: PokerState[] = [
