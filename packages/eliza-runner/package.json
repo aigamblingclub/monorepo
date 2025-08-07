@@ -1,0 +1,19 @@
+{
+  "name": "@agc/eliza-runner",
+  "version": "0.1.0",
+  "description": "Process runner for Eliza agents",
+  "type": "module",
+  "main": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@types/node": "^22.13.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

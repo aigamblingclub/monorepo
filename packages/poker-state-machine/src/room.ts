@@ -271,8 +271,8 @@ export const makePokerRoom = (
     const startGame = () => {
       const sleepTime = process.env.START_SLEEP_TIME
         ? parseInt(process.env.START_SLEEP_TIME)
-        : 2 * 60 * 1000; // 2 * 60 * 1000 = 2 minutes DEFAULT
-
+        :  5_000;
+      
       return pipe(
         Effect.logInfo("starting game, sleeping", { sleepTime }),
         Effect.flatMap(() => Effect.sleep(sleepTime)),

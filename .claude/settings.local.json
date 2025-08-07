@@ -8,8 +8,29 @@
       "mcp__ide__getDiagnostics",
       "Bash(find:*)",
       "Bash(rm:*)",
-      "Bash(say:*)"
+      "Bash(say:*)",
+      "Bash(rm:*)",
+      "Bash(touch:*)",
+      "Bash(./packages/multiagent/multi-agent.sh:*)",
+      "Bash(bun run:*)",
+      "Bash(node:*)",
+      "Bash(npm run start:*)",
+      "Bash(pkill:*)",
+      "Bash(pnpm start:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(timeout:*)",
+      "Bash(true)",
+      "Bash(cp:*)",
+      "Bash(bun x tsc:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(chmod:*)",
+      "Bash(bun --cwd packages/web run dev)",
+      "Bash(mkdir:*)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "/Users/eduardo/workspace/agchat/"
+    ]
   }
 }

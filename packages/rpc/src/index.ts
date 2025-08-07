@@ -1,0 +1,1 @@
+export { RoomPokerRpc } from "./room-poker-rpc";

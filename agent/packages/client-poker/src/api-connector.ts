@@ -86,6 +86,21 @@ export class ApiConnector {
         this.playerName = name;
     }
 
+    setRoomId(roomId: string): void {
+        this.roomId = roomId;
+        // If connected, disconnect and reconnect to new room
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.close();
+            this.connect().catch((error) => {
+                elizaLogger.error(`[${this.playerName || 'Unknown'}] Error reconnecting to new room:`, error);
+            });
+        }
+    }
+
+    getRoomId(): string {
+        return this.roomId;
+    }
+
     // WebSocket connection methods
     connect(verbose: boolean = false): Promise<void> {
         if (verbose) elizaLogger.debug(`[${this.playerName || 'Unknown'}] Connecting to WebSocket`);
@@ -205,11 +220,17 @@ export class ApiConnector {
             }
 
             const id = this.messageId++;
+            // Add roomId to the payload
+            const enhancedPayload = {
+                ...payload,
+                roomId: this.roomId
+            };
+            
             const message = {
                 _tag: "Request",
                 id: id.toString(),
                 tag: method,
-                payload: payload,
+                payload: enhancedPayload,
                 traceId: "traceId",
                 spanId: "spanId",
                 sampled: true,
@@ -241,7 +262,7 @@ export class ApiConnector {
 
     async getAvailableGames(): Promise<AvailableGame[]> {
         try {
-            const response = await fetch(`${this.baseUrl}/games`, {
+            const response = await fetch(`${this.baseUrl}/games?room=${this.roomId}`, {
                 headers: this.getHeaders(),
             });
 

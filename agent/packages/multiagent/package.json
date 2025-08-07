@@ -1,0 +1,22 @@
+{
+  "name": "@elizaos/multiagent",
+  "version": "0.1.0",
+  "description": "Multi-agent runner for Eliza",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "node --loader ts-node/esm index.ts",
+    "start:bun": "bun run bun-runner.ts",
+    "example": "node --loader ts-node/esm example.ts"
+  },
+  "dependencies": {
+    "@elizaos/agent": "workspace:*",
+    "@elizaos/client-direct": "workspace:*",
+    "@elizaos/core": "workspace:*",
+    "@elizaos-plugins/adapter-sqlite": "workspace:*",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5"
+  }
+}

@@ -4,6 +4,13 @@
   "workspaces": [
     "packages/*"
   ],
+  "dependencies": {
+    "@effect/platform": "^0.90",
+    "@effect/platform-browser": "0.70.0",
+    "@effect/platform-bun": "0.60.4",
+    "@effect/rpc": "0.55.17",
+    "effect": "3.17.6"
+  },
   "scripts": {
     "poker-dev": "bun run --watch packages/server-poker/src/index.ts",
     "poker-build": "bun run --cwd packages/poker-state-machine build && bun run --cwd packages/server-poker build",
@@ -24,6 +31,8 @@
     "agent-dev": "pnpm agent-build && pnpm --dir agent start:debug --characters=\"characters/showman.json,characters/strategist.json\"",
     "agent-start": "npx pnpm --dir agent start --characters=\"characters/showman.json,characters/strategist.json\"",
     "agent": "pnpm agent-build && pnpm --dir agent start",
+    "web-dev": "bun --cwd packages/web run dev",
+    "web-build": "bun --cwd packages/web run build",
     "build-all": "pnpm poker-build && pnpm server-build && pnpm agent-build && pnpm front-build",
     "install-all": "bun install && pnpm --dir server-main install && pnpm --dir agent install && pnpm --dir front install"
   }

@@ -15,11 +15,12 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@effect/platform": "^0.80.1",
-    "@effect/platform-bun": "^0.60.4",
-    "@effect/rpc": "^0.55.1",
-    "effect": "^3.14.1",
+    "@effect/platform": "^0.90",
+    "@effect/platform-bun": "0.60.4",
+    "@effect/rpc": "^0.68",
+    "effect": "3.17.6",
     "poker-state-machine": "workspace:*",
+    "rpc": "workspace:*",
     "ws": "^8.18.0"
   }
 }

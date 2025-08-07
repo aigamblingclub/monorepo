@@ -1,5 +1,5 @@
 import { Rpc, RpcGroup } from "@effect/rpc";
-import { Console, Effect, LogLevel, Schema, Stream } from "effect";
+import { Effect, LogLevel, Schema } from "effect";
 import { makePokerRoom } from "poker-state-machine";
 import {
   ProcessingStateStreamErrorsSchema,

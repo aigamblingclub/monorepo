@@ -404,6 +404,36 @@ export class PokerClient implements Client {
         elizaLogger.debug(`[${this.playerName}] Game state reset`);
     }
 
+    // Method to change room
+    async changeRoom(roomId: string): Promise<void> {
+        elizaLogger.info(`[${this.playerName}] Changing room from ${this.apiConnector.getRoomId()} to ${roomId}`);
+        
+        // Leave current game if connected
+        if (this.isConnected && this.gameId && this.playerId) {
+            try {
+                await this.apiConnector.leaveGame(this.gameId, this.playerId);
+            } catch (error) {
+                elizaLogger.error(`[${this.playerName}] Error leaving current game:`, error);
+            }
+        }
+        
+        // Reset state
+        this.resetGame();
+        
+        // Change room in API connector
+        this.apiConnector.setRoomId(roomId);
+        
+        // Rejoin with new room
+        if (this.runtime && this.playerName) {
+            await this.joinGame();
+        }
+    }
+    
+    // Method to get current room
+    getCurrentRoom(): string {
+        return this.apiConnector.getRoomId();
+    }
+
     async stop(): Promise<void> {
         if (this.intervalId) {
             clearInterval(this.intervalId);

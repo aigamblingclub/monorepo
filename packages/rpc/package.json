@@ -1,0 +1,19 @@
+{
+  "name": "rpc",
+  "version": "0.0.1",
+  "type": "module",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/rpc": "^0.68",
+    "effect": "3.17.6",
+    "poker-state-machine": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

@@ -557,6 +557,28 @@ importers:
 
   packages/dynamic-imports: {}
 
+  packages/multiagent:
+    dependencies:
+      '@elizaos-plugins/adapter-sqlite':
+        specifier: workspace:*
+        version: link:../adapter-sqlite
+      '@elizaos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      '@elizaos/client-direct':
+        specifier: workspace:*
+        version: link:../client-direct
+      '@elizaos/core':
+        specifier: workspace:*
+        version: link:../core
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@swc/core@1.11.4(@swc/helpers@0.5.15))(@types/node@22.13.5)(typescript@5.8.2)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.5
+        version: 22.13.5
+
   packages/plugin-bootstrap:
     dependencies:
       '@elizaos/core':
@@ -16196,10 +16218,6 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  debug@4.4.0:
-    dependencies:
-      ms: 2.1.3
-
   debug@4.4.0(supports-color@5.5.0):
     dependencies:
       ms: 2.1.3
@@ -21729,7 +21747,7 @@ snapshots:
       cac: 6.7.14
       chokidar: 4.0.3
       consola: 3.4.0
-      debug: 4.4.0
+      debug: 4.4.0(supports-color@5.5.0)
       esbuild: 0.25.0
       joycon: 3.1.1
       picocolors: 1.1.1

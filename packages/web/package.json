@@ -1,0 +1,25 @@
+{
+  "name": "web",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/server.tsx",
+    "build": "bun build src/index.tsx --outdir dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.90",
+    "@effect/platform-browser": "0.70.0",
+    "@effect/rpc": "^0.68",
+    "effect": "3.17.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rpc": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.0.0"
+  }
+}
