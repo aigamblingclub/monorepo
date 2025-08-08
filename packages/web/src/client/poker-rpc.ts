@@ -60,18 +60,18 @@ export const startPokerGame = async (roomId: string) => {
 
 // Agent management API (keep this simple HTTP since it's not RPC)
 export interface AgentApiClient {
-  spawnAgents: (roomId: string, numAgents?: number) => Promise<any>;
+  spawnAgents: (roomId: string, numAgents?: number, customCharacter?: Record<string, unknown>) => Promise<any>;
   stopAgents: (roomId: string) => Promise<any>;
   getRunningAgents: (roomId: string) => Promise<any>;
 }
 
 export const createAgentApiClient = (serverUrl: string): AgentApiClient => {
   return {
-    spawnAgents: async (roomId: string, numAgents = 2) => {
+    spawnAgents: async (roomId: string, numAgents = 2, customCharacter?: Record<string, unknown>) => {
       const response = await fetch(`${serverUrl}/manage/spawn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, numAgents })
+        body: JSON.stringify({ roomId, numAgents, customCharacter })
       });
       return response.json();
     },

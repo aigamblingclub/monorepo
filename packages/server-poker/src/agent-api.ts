@@ -4,8 +4,9 @@ import { spawnAgentsInline, stopAgentsInline, getRunningAgentsInline } from "./s
 
 const SpawnAgentsRequest = Schema.Struct({
   roomId: Schema.String,
-  numAgents: Schema.optionalWith(Schema.Number, { default: () => 2 }),
-  startPort: Schema.optionalWith(Schema.Number, { default: () => 3300 })
+  numAgents: Schema.optional(Schema.Number),
+  startPort: Schema.optional(Schema.Number),
+  customCharacter: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 });
 
 const StopAgentsRequest = Schema.Struct({
@@ -43,7 +44,12 @@ export const makeAgentApp = () => {
         const parsed = yield* Schema.decodeUnknown(SpawnAgentsRequest)(body);
         
         const agents = yield* Effect.tryPromise({
-          try: () => spawnAgentsInline(parsed.roomId, parsed.numAgents, parsed.startPort),
+          try: () => spawnAgentsInline(
+            parsed.roomId, 
+            parsed.numAgents ?? 2, 
+            parsed.startPort ?? 3300, 
+            parsed.customCharacter
+          ),
           catch: (error) => new Error(error instanceof Error ? error.message : "Failed to spawn agents")
         });
         

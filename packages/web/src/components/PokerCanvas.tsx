@@ -16,6 +16,8 @@ const PokerCanvas: React.FC<PokerCanvasProps> = ({ roomId, onAgentsSpawned, shou
     createAgentApiClient('http://localhost:3001')
   );
   const [runningAgents, setRunningAgents] = useState<any[]>([]);
+  const [customCharacterJson, setCustomCharacterJson] = useState<string>('');
+  const [showCharacterInput, setShowCharacterInput] = useState(false);
 
   // Fetch current poker state
   const fetchGameState = async () => {
@@ -43,7 +45,20 @@ const PokerCanvas: React.FC<PokerCanvasProps> = ({ roomId, onAgentsSpawned, shou
     
     setIsLoading(true);
     try {
-      const result = await agentClient.spawnAgents(roomId, 2);
+      let customCharacter: Record<string, unknown> | undefined;
+      
+      // Parse custom character JSON if provided
+      if (customCharacterJson.trim()) {
+        try {
+          customCharacter = JSON.parse(customCharacterJson);
+        } catch (error) {
+          alert('Invalid JSON format for custom character');
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      const result = await agentClient.spawnAgents(roomId, 2, customCharacter);
       if (result.success) {
         setRunningAgents(result.agents || []);
         onAgentsSpawned?.(result.agents || []);
@@ -168,6 +183,51 @@ const PokerCanvas: React.FC<PokerCanvasProps> = ({ roomId, onAgentsSpawned, shou
             Agents: {runningAgents.map(a => a.name).join(', ')}
           </div>
         )}
+
+        {/* Character customization */}
+        <div style={{ marginBottom: '12px' }}>
+          <button
+            onClick={() => setShowCharacterInput(!showCharacterInput)}
+            disabled={runningAgents.length > 0}
+            style={{
+              padding: '6px 10px',
+              background: '#3498db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: runningAgents.length > 0 ? 'not-allowed' : 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              opacity: runningAgents.length > 0 ? 0.6 : 1
+            }}
+          >
+            {showCharacterInput ? 'Hide' : 'Custom Character'}
+          </button>
+          
+          {showCharacterInput && (
+            <div style={{ marginTop: '8px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+              <div style={{ fontSize: '12px', marginBottom: '6px', color: '#666' }}>
+                Paste character JSON (first agent will use this, others use defaults):
+              </div>
+              <textarea
+                value={customCharacterJson}
+                onChange={(e) => setCustomCharacterJson(e.target.value)}
+                placeholder='{"name": "My Custom Agent", "bio": "Description here", ...}'
+                disabled={runningAgents.length > 0}
+                style={{
+                  width: '100%',
+                  height: '80px',
+                  padding: '6px',
+                  fontSize: '11px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  resize: 'vertical',
+                  fontFamily: 'monospace'
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
           <button

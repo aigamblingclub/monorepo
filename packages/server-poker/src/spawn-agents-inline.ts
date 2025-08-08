@@ -23,12 +23,13 @@ const runningAgents = new Map<string, AgentProcess[]>();
 export async function spawnAgentsInline(
     roomId: string,
     numAgents: number = 2,
-    startPort: number = 3300
+    startPort: number = 3300,
+    customCharacter?: Record<string, unknown>
 ): Promise<AgentProcess[]> {
     const agents: AgentProcess[] = [];
     
-    // Available character files
-    const characters = [
+    // Available character files for fallback
+    const defaultCharacters = [
         { file: "characters/grinder.json", name: "The Grinder" },
         { file: "characters/showman.json", name: "The Showman" },
         { file: "characters/veteran.json", name: "The Veteran" }
@@ -41,8 +42,33 @@ export async function spawnAgentsInline(
     const logsDir = path.resolve(__dirname, "../logs");
     fs.mkdirSync(logsDir, { recursive: true });
 
-    for (let i = 0; i < numAgents && i < characters.length; i++) {
-        const character = characters[i];
+    // Create temp directory for custom characters
+    const tempDir = path.resolve(__dirname, "../temp");
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    for (let i = 0; i < numAgents; i++) {
+        let character;
+        let characterFile;
+        
+        if (i === 0 && customCharacter) {
+            // First agent uses custom character
+            const customName = (customCharacter.name as string) || "Custom Player";
+            character = { file: "", name: customName };
+            
+            // Create temporary character file
+            const customFileName = `custom_${roomId}_${Date.now()}.json`;
+            characterFile = path.join(tempDir, customFileName);
+            fs.writeFileSync(characterFile, JSON.stringify(customCharacter, null, 2));
+        } else {
+            // Use default characters for remaining slots
+            const defaultIndex = customCharacter ? i - 1 : i;
+            if (defaultIndex >= defaultCharacters.length) {
+                continue; // Skip if we run out of default characters
+            }
+            character = defaultCharacters[defaultIndex];
+            characterFile = character.file;
+        }
+        
         const port = startPort + i;
         const agentId = `${character.name.toLowerCase().replace(/\s+/g, "_")}_${roomId}_${Date.now()}`;
         
@@ -52,7 +78,7 @@ export async function spawnAgentsInline(
             SERVER_PORT: port.toString(),
             AGENT_ID: agentId,
             POKER_ROOM_ID: roomId,
-            CHARACTER_FILE: character.file
+            CHARACTER_FILE: characterFile
         };
 
         // Create log file
@@ -60,7 +86,7 @@ export async function spawnAgentsInline(
         const logStream = fs.createWriteStream(logFile, { flags: 'a' });
 
         // Spawn the agent process
-        const agentProcess = spawn('pnpm', ['start', `--character=${character.file}`], {
+        const agentProcess = spawn('pnpm', ['start', `--character=${characterFile}`], {
             cwd: agentPath,
             env: env,
             shell: true,
@@ -120,6 +146,19 @@ export async function stopAgentsInline(roomId: string): Promise<void> {
             try {
                 process.kill(agent.process.pid, 'SIGTERM');
                 console.log(`Stopped agent ${agent.agentId} (PID: ${agent.process.pid})`);
+                
+                // Clean up temporary character files
+                const tempDir = path.resolve(__dirname, "../temp");
+                const customFilePattern = `custom_${roomId}_`;
+                if (fs.existsSync(tempDir)) {
+                    const files = fs.readdirSync(tempDir);
+                    files.forEach(file => {
+                        if (file.startsWith(customFilePattern)) {
+                            fs.unlinkSync(path.join(tempDir, file));
+                            console.log(`Cleaned up temporary character file: ${file}`);
+                        }
+                    });
+                }
             } catch (error) {
                 console.error(`Error stopping agent ${agent.agentId}:`, error);
             }
