@@ -20,8 +20,6 @@ export interface PokerClientConfig {
     apiBaseUrl?: string;
     apiKey?: string; // Make API key required in config
     playerName?: string;
-    inactivityTimeoutMs?: number; // Timeout for inactivity in milliseconds
-    maxInactivityResets?: number; // Maximum number of inactivity resets before giving up
 }
 
 // Extended character interface to include settings
@@ -99,13 +97,8 @@ export class PokerClient implements Client {
     private minPollInterval = 5000; // Minimum time between polls in milliseconds
     private roundId: string | null = null;
 
-    // Inactivity monitoring properties
-    private lastActionTime = 0; // Timestamp of last action taken
-    private inactivityTimeoutMs: number; // Timeout for inactivity
-    private maxInactivityResets: number; // Maximum inactivity resets
-    private inactivityResets = 0; // Current number of inactivity resets
-    private inactivityCheckInterval: NodeJS.Timeout | null = null;
-    private inactivityCheckIntervalMs = 30000; // Check every 30 seconds
+    // Activity tracking for global watchdogs
+    private lastActionTime = 0; // Timestamp of last action taken (for global watchdog heartbeat only)
 
     constructor(config: PokerClientConfig) {
         // if (!config.apiKey) {
@@ -125,9 +118,6 @@ export class PokerClient implements Client {
         this.apiConnector = new ApiConnector(apiBaseUrl, config.apiKey, config.playerName);
         elizaLogger.info(`[${config.playerName || "PokerBot"}] Poker client created with API endpoint:`, apiBaseUrl);
 
-        // Initialize inactivity monitoring
-        this.inactivityTimeoutMs = config.inactivityTimeoutMs || 300000; // Default 5 minutes
-        this.maxInactivityResets = config.maxInactivityResets || 3; // Default 3 resets
         this.lastActionTime = Date.now();
 
         // elizaLogger.debug("API key configured:", {
@@ -149,8 +139,7 @@ export class PokerClient implements Client {
             elizaLogger.debug(`[${this.playerName}] PokerClient configuration:`, {
                 apiUrl: this.apiConnector.getBaseUrl(),
                 agentName: this.playerName,
-                inactivityTimeoutMs: this.inactivityTimeoutMs,
-                maxInactivityResets: this.maxInactivityResets,
+                inactivityMonitoring: 'global_only',
             });
         }
 
@@ -190,55 +179,12 @@ export class PokerClient implements Client {
             return this;
         }
 
-        // Start polling to check game state
-        this.intervalId = setInterval(async () => {
-            try {
-                if (this.isConnected) {
-                    try {
-                        if (verbose) {
-                            elizaLogger.debug(`[${this.playerName}] getGameState, isSendingMessage:`, {
-                                isSendingMessage: this.isSendingMessage,
-                            });
-                        }
-                        if (this.isSendingMessage) {
-                            if (verbose) {
-                                elizaLogger.debug(`[${this.playerName}] Skipping getGameState because we are sending a message`, {
-                                    isSendingMessage: this.isSendingMessage,
-                                });
-                            }
-                            return;
-                        }
-                        const gameState = await this.apiConnector.getGameState();
-                        await this.handleGameUpdate(gameState, verbose);
-                    } catch (error) {
-                        elizaLogger.error(`[${this.playerName}] Error getting game state:`, {
-                            error,
-                            message: error.message,
-                            stack: error.stack,
-                            isConnected: this.isConnected,
-                            wsState: this.apiConnector.getWebSocketState()
-                        });
-                        // On error, reset the game connection after a few tries
-                        this.resetFailedCount = (this.resetFailedCount || 0) + 1;
-                        if (this.resetFailedCount > 5) {
-                            elizaLogger.info(`[${this.playerName}] Too many failures, resetting connection`);
-                            this.resetGame();
-                            // Try to reconnect immediately after reset
-                            await this.joinGame(undefined, verbose);
-                        }
-                    }
-                } else {
-                    // If not connected, try to reconnect
-                    elizaLogger.error(`[${this.playerName}] Not connected, attempting to reconnect`);
-                    await this.joinGame(undefined, verbose);
-                }
-            } catch (error) {
-                elizaLogger.error(`[${this.playerName}] Error in poker client polling:`, error);
-            }
-        }, 5000);
+        // Start polling loop
+        this.startPolling(verbose);
 
-        // Start inactivity monitoring
-        this.startInactivityMonitoring(verbose);
+        if (verbose) {
+            elizaLogger.info(`[${this.playerName}] Per-client inactivity monitoring is removed; using global process watchdog`);
+        }
 
         return this;
     }
@@ -386,6 +332,22 @@ export class PokerClient implements Client {
                             // Update last action time when we successfully submit an action
                             this.lastActionTime = Date.now();
                             elizaLogger.debug(`[${this.playerName}] Updated last action time to ${this.lastActionTime}`);
+                            // Emit a process-level activity event for global inactivity watchdogs
+                            try {
+                                // Avoid throwing if process is not available (e.g., in browser-like envs)
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const proc: any = typeof process !== 'undefined' ? process : null;
+                                if (proc && typeof proc.emit === 'function') {
+                                    proc.emit('agent-activity', {
+                                        source: 'poker-client',
+                                        agentName: this.playerName,
+                                        playerId: this.playerId,
+                                        timestamp: this.lastActionTime,
+                                    });
+                                }
+                            } catch (emitError) {
+                                elizaLogger.debug(`[${this.playerName}] Failed to emit agent-activity event`, { emitError });
+                            }
 
                         } catch (error) {
                             elizaLogger.error(
@@ -425,8 +387,7 @@ export class PokerClient implements Client {
         this.joinBackoffMs = Math.min(this.joinBackoffMs * 2, 30000); // Max 30 second backoff
         // Stop player view polling
         this.stopPlayerViewPolling();
-        // Stop inactivity monitoring
-        this.stopInactivityMonitoring();
+        // no-op: per-client inactivity removed
         elizaLogger.debug(`[${this.playerName}] Game state reset`);
     }
 
@@ -439,8 +400,7 @@ export class PokerClient implements Client {
         // Stop player view polling
         this.stopPlayerViewPolling();
 
-        // Stop inactivity monitoring
-        this.stopInactivityMonitoring();
+        // no-op: per-client inactivity removed
 
         if (this.gameId && this.playerId) {
             try {
@@ -676,6 +636,21 @@ export class PokerClient implements Client {
                 // Update last action time when we successfully submit an action
                 this.lastActionTime = Date.now();
                 elizaLogger.debug(`[${this.playerName}] Updated last action time to ${this.lastActionTime}`);
+                // Emit a process-level activity event for global inactivity watchdogs
+                try {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const proc: any = typeof process !== 'undefined' ? process : null;
+                    if (proc && typeof proc.emit === 'function') {
+                        proc.emit('agent-activity', {
+                            source: 'poker-client',
+                            agentName: this.playerName,
+                            playerId: this.playerId,
+                            timestamp: this.lastActionTime,
+                        });
+                    }
+                } catch (emitError) {
+                    elizaLogger.debug(`[${this.playerName}] Failed to emit agent-activity event`, { emitError });
+                }
 
             } catch (error) {
                 elizaLogger.error(`[${this.playerName}] Error making decision:`, error);
@@ -1357,114 +1332,6 @@ export class PokerClient implements Client {
        - Game ends when only one player has chips left
     `;
 
-    private startInactivityMonitoring(verbose: boolean = true): void {
-        // Clear any existing inactivity check interval
-        if (this.inactivityCheckInterval) {
-            clearInterval(this.inactivityCheckInterval);
-            this.inactivityCheckInterval = null;
-        }
-
-        elizaLogger.info(`[${this.playerName}] Starting inactivity monitoring every ${this.inactivityCheckIntervalMs}ms with timeout of ${this.inactivityTimeoutMs}ms`);
-
-        this.inactivityCheckInterval = setInterval(() => {
-            this.checkInactivity(verbose);
-        }, this.inactivityCheckIntervalMs);
-    }
-
-    private checkInactivity(verbose: boolean = true): void {
-        const now = Date.now();
-        const timeSinceLastAction = now - this.lastActionTime;
-        const timeSinceLastActionMinutes = Math.floor(timeSinceLastAction / 60000);
-
-        if (verbose) {
-            elizaLogger.debug(`[${this.playerName}] Inactivity check:`, {
-                timeSinceLastAction,
-                timeSinceLastActionMinutes,
-                inactivityTimeoutMs: this.inactivityTimeoutMs,
-                inactivityResets: this.inactivityResets,
-                maxInactivityResets: this.maxInactivityResets,
-                isConnected: this.isConnected,
-                wsState: this.apiConnector.getWebSocketState()
-            });
-        }
-
-        // Check if we've been inactive for too long
-        if (timeSinceLastAction > this.inactivityTimeoutMs) {
-            elizaLogger.warn(`[${this.playerName}] Inactivity timeout reached (${timeSinceLastActionMinutes} minutes), attempting to restart connection`, {
-                event: 'INACTIVITY_TIMEOUT',
-                timestamp: new Date().toISOString(),
-                agent: {
-                    name: this.playerName,
-                    id: this.playerId
-                },
-                inactivity: {
-                    timeSinceLastAction,
-                    timeSinceLastActionMinutes,
-                    timeoutMs: this.inactivityTimeoutMs,
-                    resets: this.inactivityResets,
-                    maxResets: this.maxInactivityResets
-                }
-            });
-
-            // Check if we've exceeded the maximum number of resets
-            if (this.inactivityResets >= this.maxInactivityResets) {
-                elizaLogger.error(`[${this.playerName}] Maximum inactivity resets reached (${this.inactivityResets}/${this.maxInactivityResets}), stopping client`, {
-                    event: 'MAX_INACTIVITY_RESETS_REACHED',
-                    timestamp: new Date().toISOString(),
-                    agent: {
-                        name: this.playerName,
-                        id: this.playerId
-                    }
-                });
-                this.stop();
-                return;
-            }
-
-            // Attempt to restart the connection
-            this.restartConnection(verbose);
-        }
-    }
-
-    private async restartConnection(verbose: boolean = true): Promise<void> {
-        try {
-            elizaLogger.info(`[${this.playerName}] Restarting connection due to inactivity (reset ${this.inactivityResets + 1}/${this.maxInactivityResets})`);
-
-            // Stop current polling and monitoring
-            this.stopInactivityMonitoring();
-            if (this.intervalId) {
-                clearInterval(this.intervalId);
-                this.intervalId = null;
-            }
-
-            // Reset game state
-            this.resetGame();
-
-            // Attempt to reconnect
-            await this.apiConnector.connect();
-            this.isConnected = true;
-
-            // Rejoin the game
-            await this.joinGame(undefined, verbose);
-
-            // Restart polling and monitoring
-            this.startPolling(verbose);
-            this.startInactivityMonitoring(verbose);
-
-            // Increment reset counter
-            this.inactivityResets++;
-
-            // Reset the last action time to now
-            this.lastActionTime = Date.now();
-
-            elizaLogger.info(`[${this.playerName}] Connection restarted successfully after inactivity timeout`);
-
-        } catch (error) {
-            elizaLogger.error(`[${this.playerName}] Failed to restart connection after inactivity timeout:`, error);
-            // Increment reset counter even on failure
-            this.inactivityResets++;
-        }
-    }
-
     private startPolling(verbose: boolean = true): void {
         // Start polling to check game state
         this.intervalId = setInterval(async () => {
@@ -1515,11 +1382,7 @@ export class PokerClient implements Client {
     }
 
     private stopInactivityMonitoring(): void {
-        if (this.inactivityCheckInterval) {
-            clearInterval(this.inactivityCheckInterval);
-            this.inactivityCheckInterval = null;
-            elizaLogger.info(`[${this.playerName}] Stopped inactivity monitoring`);
-        }
+        // legacy no-op; inactivity monitoring removed
     }
 }
 

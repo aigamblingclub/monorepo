@@ -33,6 +33,7 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import yargs from "yargs";
+import { spawn } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
@@ -931,3 +932,75 @@ if (
         console.error("unhandledRejection", err);
     });
 }
+
+// Global inactivity watchdog: restarts the entire agent process if no activity occurs
+// for a configured period. This is process-level (not per-agent), addressing cases where
+// WebSocket/polling gets stuck and no agents perform moves.
+(() => {
+    // Defaults: 4 minutes timeout, 30s check interval
+    const globalInactivityTimeoutMs = process.env.GLOBAL_POKER_INACTIVITY_TIMEOUT_MS
+        ? parseInt(process.env.GLOBAL_POKER_INACTIVITY_TIMEOUT_MS)
+        : 4 * 60 * 1000;
+    const globalInactivityCheckIntervalMs = process.env.GLOBAL_POKER_INACTIVITY_CHECK_INTERVAL_MS
+        ? parseInt(process.env.GLOBAL_POKER_INACTIVITY_CHECK_INTERVAL_MS)
+        : 30 * 1000;
+    // Optional: disable per-client max resets when global watchdog is on
+    const disablePerClientMaxResets = (process.env.GLOBAL_POKER_DISABLE_PER_CLIENT_RESETS || "true").toLowerCase() === "true";
+
+    // Track last activity across all agents/clients
+    let lastGlobalActivity = Date.now();
+
+    // Listen for emitted events from any client indicating activity
+    try {
+        process.on('agent-activity', (payload: any) => {
+            lastGlobalActivity = Date.now();
+            elizaLogger.debug(`Global activity heartbeat received`, {
+                event: 'GLOBAL_AGENT_ACTIVITY',
+                source: payload?.source,
+                agentName: payload?.agentName,
+                playerId: payload?.playerId,
+                at: lastGlobalActivity,
+            });
+        });
+    } catch (e) {
+        // no-op if process events not available
+    }
+
+    // Also bump on any stdout logs from gameplay, as a fallback could be added later
+
+    // Periodic check
+    setInterval(() => {
+        const now = Date.now();
+        const idleFor = now - lastGlobalActivity;
+        if (idleFor > globalInactivityTimeoutMs) {
+            elizaLogger.error(`Global inactivity timeout reached. Restarting agent process.`, {
+                event: 'GLOBAL_INACTIVITY_TIMEOUT',
+                idleMs: idleFor,
+                timeoutMs: globalInactivityTimeoutMs,
+            });
+
+            // If desired, relax per-client resets by setting env vars low/no-limit before restart
+            if (disablePerClientMaxResets) {
+                process.env.POKER_MAX_INACTIVITY_RESETS = '999999';
+            }
+
+            const selfRestart = (process.env.GLOBAL_POKER_SELF_RESTART || "true").toLowerCase() === "true";
+            if (selfRestart) {
+                try {
+                    // Re-spawn this process with same exec args and script
+                    const args = [...process.execArgv, __filename, ...process.argv.slice(2)];
+                    elizaLogger.warn(`Spawning self-restart with: ${process.execPath} ${args.join(' ')}`);
+                    const child = spawn(process.execPath, args, { stdio: 'inherit', env: process.env });
+                    child.on('exit', (code) => {
+                        elizaLogger.warn(`Restarted agent process exited with code ${code}`);
+                    });
+                } catch (e) {
+                    elizaLogger.error(`Failed to self-restart agent process, will exit for supervisor to handle.`, e);
+                }
+            }
+
+            // Exit with a specific code so a supervisor (pm2/systemd/docker) can restart it.
+            process.exit(193);
+        }
+    }, globalInactivityCheckIntervalMs).unref();
+})();
